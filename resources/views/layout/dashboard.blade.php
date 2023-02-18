@@ -17,6 +17,7 @@ if ( Auth::check() ) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{!! Helper::pageTitle( $title ?? __( 'Unamed Page' ) ) !!}</title>
+    <?php //TODO  vite css/asset loading ?>
     <link rel="stylesheet" href="{{ loadcss( 'grid.css' ) }}">
     <link rel="stylesheet" href="{{ loadcss( 'fonts.css' ) }}">
     <link rel="stylesheet" href="{{ loadcss( 'animations.css' ) }}">

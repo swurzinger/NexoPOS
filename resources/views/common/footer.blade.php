@@ -29,17 +29,21 @@ ns.base_url         =   '{{ url( "/" ) }}';
 </script>
 
 @if ( ns()->isProduction() )
-<script src="{{ mix( 'js/manifest.js' ) }}"></script>
-<script src="{{ mix( 'js/vendor.js' ) }}"></script>
-<script src="{{ mix( 'js/bootstrap.min/bootstrap.js' ) }}"></script>
-<script src="{{ mix( 'js/popups.min.js' ) }}"></script>
+    @vite([
+        'js/manifest.js',
+        'js/vendor.js',
+        'js/bootstrap.min/bootstrap.js',
+        'js/popups.min.js',
+    ])
 @else
-<script src="{{ asset( 'js/manifest.js' ) }}"></script>
-<script src="{{ asset( 'js/vendor.js' ) }}"></script>
-<script src="{{ asset( 'js/bootstrap.js' ) }}"></script>
-<script src="{{ asset( 'js/popups.js' ) }}"></script>
+    @vite([
+        'js/manifest.js',
+        'js/vendor.js',
+        'js/bootstrap.js',
+        'js/popups.js',
+    ])
 @endif
-<?php 
+<?php
     $output     =   new Output;
     Hook::action( 'ns-dashboard-footer', $output );
     echo ( string ) $output;
