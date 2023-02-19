@@ -36,6 +36,7 @@
         "tormjens/eventy": "^0.8"
     },
     "require-dev": {
+        "knuckleswtf/scribe": "^4.16",
         "laravel/pint": "^1.1.1",
         "mockery/mockery": "^1.3.1",
         "nunomaduro/collision": "^7.0",
