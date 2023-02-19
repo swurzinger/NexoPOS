@@ -72,8 +72,8 @@
                 </div>
             </div>
             <div id="grid-items" class="overflow-y-auto h-full flex-col flex">
-                <div v-if="hasCategories" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                    <div @click="loadCategories( category )" v-for="category of categories" :key="category.id" 
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                    <div @click="loadCategories( category )" v-for="category of categories" :key="category.id"
                         class="cell-item w-full h-36 cursor-pointer border flex flex-col items-center justify-center overflow-hidden relative">
                         <div class="h-full w-full flex items-center justify-center">
                             <img v-if="category.preview_url" :src="category.preview_url" class="object-cover h-full" :alt="category.name">
@@ -85,20 +85,9 @@
                             </div>
                         </div>
                     </div>
-                </div>
-
-                <div v-if="! hasCategories && ! hasProducts && ! isLoading" class="h-full w-full flex flex-col items-center justify-center">
-                    <i class="las la-frown-open text-8xl text-font"></i>
-                    <p class="w-1/2 md:w-2/3 text-center text-font">
-                        {{ __( 'Looks like there is either no products and no categories. How about creating those first to get started ?' ) }}
-                    </p>
-                    <br>
-                    <ns-link target="blank" type="info" :href="createCategoryUrl">{{ __( 'Create Categories' ) }}</ns-link>
-                </div>
-
-                <div  v-if="! hasCategories" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                    <div @click="addToTheCart( product )" v-for="product of products" :key="product.id" 
-                        class="cell-item w-full h-36 cursor-pointer border flex flex-col items-center justify-center overflow-hidden relative">
+                    <div @click="addToTheCart( product )" v-for="(product, index) of products" :key="product.id"
+                        class="cell-item w-full h-36 cursor-pointer border flex flex-col items-center justify-center overflow-hidden relative"
+                         :style="index === 0 ? 'grid-column-start: 1' : ''">
                         <div class="h-full w-full flex items-center justify-center overflow-hidden">
                             <img v-if="product.galleries && product.galleries.filter( i => i.featured ).length > 0" :src="product.galleries.filter( i => i.featured )[0].url" class="object-cover h-full" :alt="product.name"/>
                             <img v-else-if="hasNoFeatured( product )" :src="product.galleries[0].url" class="object-cover h-full" :alt="product.name"/>
@@ -165,18 +154,6 @@ export default {
             gridItemsWidth: 0,
             gridItemsHeight:0,
             isLoading: false,
-        }
-    },
-    computed: {
-        hasCategories() {
-            return this.categories.length > 0;
-        },
-        hasProducts() {
-            return this.products.length > 0;
-        },
-        createCategoryUrl() {
-            // link to create category defined on OrdersController.
-            return POS.settings.getValue().urls.categories_url; 
         }
     },
     watch: {
@@ -294,57 +271,6 @@ export default {
 
         posToggleMerge() {
             POS.set( 'ns_pos_items_merge', ! this.settings.ns_pos_items_merge );
-        },
-
-        /**
-         * @deprecated
-         */
-        computeGridWidth() {
-            if ( document.getElementById( 'grid-items' ) !== null ) {
-                this.gridItemsWidth     =   document.getElementById( 'grid-items' ).offsetWidth;
-                this.gridItemsHeight    =   document.getElementById( 'grid-items' ).offsetHeight;
-            }
-        },
-
-        cellSizeAndPositionGetter(item, index) {
-            const responsive    =   {
-                xs: {
-                    width: this.gridItemsWidth / 2,
-                    items: 2,
-                    height: 200,
-                },
-                sm: {
-                    width: this.gridItemsWidth / 2,
-                    items: 2,
-                    height: 200,
-                },
-                md: {
-                    width: this.gridItemsWidth / 3,
-                    items: 3,
-                    height: 150,
-                },
-                lg: {
-                    width: this.gridItemsWidth / 4,
-                    items: 4,
-                    height: 150,
-                },
-                xl: {
-                    width: this.gridItemsWidth / 6,
-                    items: 6,
-                    height: 150,
-                }
-            }
-
-            const wrapperWidth  =   responsive[ POS.responsive.screenIs ].width;
-            const wrapperHeight =   responsive[ POS.responsive.screenIs ].height;
-            const scrollWidth   =   0; // ( 50 / responsive[ POS.responsive.screenIs ].items );
-
-            return {
-                width: wrapperWidth - scrollWidth,
-                height: wrapperHeight,
-                x: ( ( index % responsive[ POS.responsive.screenIs ].items ) * ( wrapperWidth ) ) - scrollWidth,
-                y: parseInt( index / responsive[ POS.responsive.screenIs ].items ) * wrapperHeight
-            }
         },
 
         openSearchPopup() {
