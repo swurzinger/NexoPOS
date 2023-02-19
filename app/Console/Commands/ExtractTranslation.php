@@ -17,7 +17,7 @@ class ExtractTranslation extends Command
      *
      * @var string
      */
-    protected $signature = 'ns:translate {module?} {--extract} {--lang=en} {--symlink} {--force}';
+    protected $signature = 'ns:translate {module?} {--extract} {--lang=en}';
 
     /**
      * The console command description.
@@ -48,44 +48,7 @@ class ExtractTranslation extends Command
     {
         if ( $this->option( 'extract' ) ) {
             $this->extracting();
-        } elseif ( $this->option( 'symlink' ) ) {
-            $this->createSymlink();
         }
-    }
-
-    /**
-     * Create symbolic link
-     */
-    private function createSymLink()
-    {
-        $link = public_path( 'lang' );
-
-        if ( ! \windows_os() ) {
-            if ( is_link( $link ) || file_exists( $link ) ) {
-                if ( $this->option( 'force' ) ) {
-                    unlink( $link );
-                } else {
-                    return $this->info( 'Language Symbolic Link already exists ! Use --force to recreate it.' );
-                }
-            }
-
-            $link = @\symlink( base_path( 'lang' ), public_path( 'lang' ) );
-        } else {
-            if ( is_link( $link ) || file_exists( $link ) ) {
-                if ( $this->option( 'force' ) ) {
-                    rmdir( $link );
-                } else {
-                    return $this->info( 'Language Symbolic Link already exists ! Use --force to recreate it.' );
-                }
-            }
-
-            $mode = 'J';
-            $link = public_path( 'lang' );
-            $target = base_path( 'lang' );
-            $link = exec( "mklink /{$mode} \"{$link}\" \"{$target}\"" );
-        }
-
-        return $this->info( 'Language Symbolic Link has been created !' );
     }
 
     /**
