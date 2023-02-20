@@ -17,10 +17,10 @@ export default ({ mode }) => {
                 protocol: 'wss',
                 host: 'localhost',
             },
-            https: {
-                key: fs.readFileSync( process.env.VITE_LOCAL_KEY ),
-                cert: fs.readFileSync( process.env.VITE_LOCAL_CRT ),
-            },
+            // https: {
+            //     key: fs.readFileSync( process.env.VITE_LOCAL_KEY ),
+            //     cert: fs.readFileSync( process.env.VITE_LOCAL_CRT ),
+            // },
         },
         resolve: {
             alias: [
