@@ -17,7 +17,7 @@ if ( Auth::check() ) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{!! Helper::pageTitle( $title ?? __( 'Unamed Page' ) ) !!}</title>
+    <title>{!! Helper::pageTitle( $title ?? __( 'Unnamed Page' ) ) !!}</title>
     @vite([
         'resources/scss/line-awesome/1.3.0/scss/line-awesome.scss',
         'resources/scss/grid.scss',
@@ -101,7 +101,7 @@ if ( Auth::check() ) {
                                             @if ( isset( $menu[ 'permissions' ] ) && Gate::allows( $menu[ 'permissions' ], 'some' ) || ! isset( $menu[ 'permissions' ] ) )
                                         <ns-submenu :active="{{ ( isset( $menu[ 'active' ] ) ? ( $menu[ 'active' ] ? 'true' : 'false' ) : 'false' ) }}" href="{{ $menu[ 'href' ] }}" id="submenu-{{ $identifier }}">{{ $menu[ 'label' ] }}</ns-submenu>
                                             @endif
-                                        @endforeach        
+                                        @endforeach
                                     @endif
                                 </ns-menu>
                                 @endif
@@ -118,7 +118,7 @@ if ( Auth::check() ) {
                     @hasSection( 'layout.dashboard.body' )
                         @yield( 'layout.dashboard.body' )
                     @endif
-                    
+
                     @hasSection( 'layout.dashboard.body.with-header' )
                         @include( 'common.dashboard.with-header' )
                     @endif
@@ -126,7 +126,7 @@ if ( Auth::check() ) {
                     @hasSection( 'layout.dashboard.with-header' )
                         @include( 'common.dashboard.with-header' )
                     @endif
-                    
+
                     @hasSection( 'layout.dashboard.body.with-title' )
                         @include( 'common.dashboard.with-title' )
                     @endif

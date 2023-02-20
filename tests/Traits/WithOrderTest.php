@@ -22,6 +22,7 @@ use App\Models\Register;
 use App\Models\RegisterHistory;
 use App\Models\RewardSystem;
 use App\Models\TaxGroup;
+use App\Models\Unit;
 use App\Models\User;
 use App\Services\CashRegistersService;
 use App\Services\CurrencyService;
@@ -316,6 +317,7 @@ trait WithOrderTest
                     product_id: $value->product_id,
                     unit_id: $value->unit_id
                 ),
+                'product_id'    =>  $value->product_id,
                 'unit' => $unit,
                 'unitGroup' => $group,
                 'baseUnit' => $baseUnit,
@@ -338,7 +340,7 @@ trait WithOrderTest
                 ->json( 'POST', 'api/orders', $orderDetails );
 
         /**
-         * Step 0: Ensure no error occured
+         * Step 0: Ensure no error occurred
          */
         $response->assertStatus( 200 );
 
@@ -346,11 +348,12 @@ trait WithOrderTest
          * Let's convert the response for a
          * better computation.
          */
-        $response = json_decode( $response->getContent(), true );
+        $response = $response->json();
 
         $orderProductQuantity = $response[ 'data' ][ 'order' ][ 'products' ][0][ 'quantity' ];
 
-        $query = ProductHistory::where( 'order_id', $response[ 'data' ][ 'order' ][ 'id' ] );
+        $query = ProductHistory::where( 'order_id', $response[ 'data' ][ 'order' ][ 'id' ] )
+            ->whereIn( 'product_id', collect( $quantities )->map( fn( $quantity ) => $quantity[ 'product_id' ] )->toArray() );
 
         /**
          * Step 1: assert match on the items included with the history
@@ -358,16 +361,26 @@ trait WithOrderTest
         $this->assertTrue( $query->count() === $product->sub_items->count(), 'Mismatch between the sold product and the included products.' );
 
         /**
-         * Step 2: assert valid deduction of quantities
+         * Step 2: We'll check if an history is created for the parent products
+         */
+        collect( $response[ 'data' ][ 'order' ][ 'products' ] )->each( function( $orderProduct ) use ( $response ) {
+            $this->assertTrue(
+                ProductHistory::where( 'order_id', $response[ 'data' ][ 'order' ][ 'id' ] )->where( 'product_id', $orderProduct[ 'id' ] )->first() instanceof ProductHistory,
+                sprintf( 'There is no product history for the parent product %s', $orderProduct[ 'name' ] )
+            );
+        });
+
+        /**
+         * Step 3: assert valid deduction of quantities
          */
         foreach ( $query->get() as $productHistory ) {
             $savedQuantity = $quantities[ $productHistory->product_id . '-' . $productHistory->unit_id ];
+            $orderProduct   =   OrderProduct::findOrFail( $productHistory->order_product_id );
 
             $finalQuantity = $productService->computeSubItemQuantity(
-                baseUnit: $savedQuantity[ 'baseUnit' ],
-                currentUnit: $savedQuantity[ 'unit' ],
-                orderProductQuantity: $orderProductQuantity,
-                subItemQuantity: $savedQuantity[ 'quantity' ]
+                subItemQuantity: $savedQuantity[ 'quantity' ],
+                parentQuantity: $orderProductQuantity,
+                parentUnit: Unit::find( $orderProduct->unit_id )
             );
 
             $actualQuantity = $productService->getQuantity(
@@ -378,7 +391,8 @@ trait WithOrderTest
             if ( ! (float) ( $savedQuantity[ 'currentQuantity' ] - ( $finalQuantity ) ) === (float) $actualQuantity ) {
                 throw new Exception( 'Something went wrong' );
             }
-            // $this->assertTrue( ( float ) ( $savedQuantity[ 'currentQuantity' ] - ( $finalQuantity ) ) === ( float ) $actualQuantity, 'Quantity sold and recorded not matching' );
+
+            $this->assertTrue( ( float ) ( $savedQuantity[ 'currentQuantity' ] - ( $finalQuantity ) ) === ( float ) $actualQuantity, 'Quantity sold and recorded not matching' );
         }
 
         return $response;
@@ -404,7 +418,7 @@ trait WithOrderTest
         $lastOrder = Order::orderBy( 'id', 'desc' )->first();
 
         $inventory = $lastOrder->products->map( function( $orderProduct ) use ( $productService, $unitService ) {
-            return $orderProduct->product->sub_items->mapWithKeys( function( $subItem ) use ( $productService, $unitService ) {
+            return $orderProduct->product->sub_items->mapWithKeys( function( $subItem ) use ( $orderProduct, $productService, $unitService ) {
                 $unit = $unitService->get( $subItem->unit_id );
                 $unitGroup = $unitService->getGroups( $unit->group_id );
                 $baseUnit = $unitService->getBaseUnit( $unitGroup );
@@ -416,6 +430,7 @@ trait WithOrderTest
                             unit_id: $subItem->unit_id
                         ),
                         'unit' => $unit,
+                        'parentUnit'    =>  $unitService->get( $orderProduct->unit_id ),
                         'baseUnit' => $baseUnit,
                         'unitGroup' => $unitGroup,
                         'quantity' => $subItem->quantity,
@@ -456,9 +471,8 @@ trait WithOrderTest
                     $savedQuantity = $entry[ $subItem->product_id . '-' . $subItem->unit_id ];
 
                     $finalQuantity = $productService->computeSubItemQuantity(
-                        baseUnit: $savedQuantity[ 'baseUnit' ],
-                        currentUnit: $savedQuantity[ 'unit' ],
-                        orderProductQuantity: $orderProduct->refunded_product->quantity,
+                        parentUnit: $savedQuantity[ 'parentUnit' ],
+                        parentQuantity: $orderProduct->refunded_product->quantity,
                         subItemQuantity: $savedQuantity[ 'quantity' ]
                     );
 
@@ -884,10 +898,10 @@ trait WithOrderTest
             } else {
                 $customer = Customer::find( $orderDetails[ 'customer_id' ] );
             }
-            
+
             /**
              * if coupons aren't defined
-             * We'll try to assign a coupon to 
+             * We'll try to assign a coupon to
              * the selected customer
              */
             if ( ! isset( $orderDetails[ 'coupons' ] ) ) {
@@ -911,7 +925,7 @@ trait WithOrderTest
                             'maximum_cart_value' => $customerCoupon->coupon->maximum_cart_value,
                         ],
                     ];
-    
+
                     $totalCoupons = collect( $allCoupons )->map( fn( $coupon ) => $coupon[ 'value' ] )->sum();
                 } else {
                     $allCoupons = collect([]);
@@ -1017,21 +1031,21 @@ trait WithOrderTest
                 $response->assertJson([
                     'status' => 'success',
                 ]);
-    
+
                 $singleResponse[ 'order-creation' ] = $response->json();
                 $totalCoupons   =   collect( Arr::get( $singleResponse[ 'order-creation' ], 'data.order.coupons' ) )->map( fn( $coupon ) => $coupon[ 'value' ] )->sum();
-    
+
                 if ( $this->shouldMakePayment ) {
-    
+
                     $total = $currency->define( $subtotal )
                         ->additionateBy( $orderData[ 'shipping' ] )
                         ->subtractBy( $totalCoupons )
                         ->getRaw();
-    
+
                     $this->assertEquals( $currency->getRaw(
                         Arr::get( $singleResponse[ 'order-creation' ], 'data.order.subtotal' )
                     ), $currency->getRaw( $orderData[ 'subtotal' ] ) );
-    
+
                     $this->assertEquals( $currency->getRaw(
                         Arr::get( $singleResponse[ 'order-creation' ], 'data.order.total' )
                     ), $currency->define( $subtotal )
@@ -1039,17 +1053,17 @@ trait WithOrderTest
                         ->subtractBy( $totalCoupons )
                         ->getRaw()
                     );
-    
+
                     $couponValue = ( ! empty( $orderData[ 'coupons' ] ) ? $totalCoupons : 0 );
                     $totalPayments = collect( $orderData[ 'payments' ] )->map( fn( $payment ) => (float) $payment[ 'value' ] )->sum() ?: 0;
                     $sum = (  (float) $orderData[ 'subtotal' ] + (float) $orderData[ 'shipping' ] - ( in_array( $orderData[ 'discount_type' ], [ 'flat', 'percentage' ]) ? (float) $orderData[ 'discount' ] : 0 ) - $couponValue );
                     $change = ns()->currency->fresh( $totalPayments )->subtractBy( $sum )->getRaw();
-    
+
                     $changeFromOrder = ns()->currency->getRaw( Arr::get( $singleResponse[ 'order-creation' ], 'data.order.change' ) );
                     $this->assertEquals( $changeFromOrder, $change );
-    
+
                     $singleResponse[ 'order-payment' ] = json_decode( $response->getContent() );
-    
+
                     /**
                      * test if the order has updated
                      * correctly the customer account
@@ -1057,7 +1071,7 @@ trait WithOrderTest
                     $customer->refresh();
                     $customerSecondPurchases = $customer->purchases_amount;
                     $customerSecondOwed = $customer->owed_amount;
-    
+
                     if ( (float) trim( $customerFirstPurchases + ( $total ?? 0 ) ) != (float) trim( $customerSecondPurchases ) ) {
                         throw new Exception(
                             sprintf(
@@ -1069,9 +1083,9 @@ trait WithOrderTest
                         );
                     }
                 }
-    
+
                 $responseData = json_decode( $response->getContent(), true );
-    
+
                 /**
                  * Let's test wether the cash
                  * flow has been created for this sale
@@ -1093,7 +1107,7 @@ trait WithOrderTest
                         OrderProductRefund::CONDITION_DAMAGED,
                         OrderProductRefund::CONDITION_UNSPOILED,
                     ]);
-    
+
                     $products = collect( $responseData[ 'data' ][ 'order' ][ 'products' ] )->map( function( $product ) use ( $faker, $productCondition ) {
                         return array_merge( $product, [
                             'condition' => $productCondition,
@@ -1104,7 +1118,7 @@ trait WithOrderTest
                             ]),
                         ]);
                     });
-    
+
                     $response = $this->withSession( $this->app[ 'session' ]->all() )
                         ->json( 'POST', 'api/orders/' . $responseData[ 'data' ][ 'order' ][ 'id' ] . '/refund', [
                             'payment' => [
@@ -1122,11 +1136,11 @@ trait WithOrderTest
                                 )->sum(),
                             'products' => $products,
                         ]);
-    
+
                     $response->assertJson([
                         'status' => 'success',
                     ]);
-    
+
                     /**
                      * A single cash flow should be
                      * created for that order for the sale account
@@ -1135,9 +1149,9 @@ trait WithOrderTest
                         ->where( 'operation', CashFlow::OPERATION_CREDIT )
                         ->where( 'expense_category_id', ns()->option->get( 'ns_sales_cashflow_account' ) )
                         ->count();
-    
+
                     $this->assertTrue( $totalCashFlow === 1, 'More than 1 cash flow was created for the sale account.' );
-    
+
                     /**
                      * all refund transaction give a stock flow record.
                      * We need to check if it has been created.
@@ -1146,9 +1160,9 @@ trait WithOrderTest
                         ->where( 'operation', CashFlow::OPERATION_DEBIT )
                         ->where( 'expense_category_id', ns()->option->get( 'ns_sales_refunds_account' ) )
                         ->count();
-    
+
                     $this->assertTrue( $totalRefundedCashFlow === $products->count(), 'Not enough cash flow entry were created for the refunded product' );
-    
+
                     /**
                      * in case the order is refunded with
                      * some defective products, we need to check if
@@ -1159,17 +1173,17 @@ trait WithOrderTest
                             ->where( 'operation', CashFlow::OPERATION_DEBIT )
                             ->where( 'expense_category_id', ns()->option->get( 'ns_stock_return_spoiled_account' ) )
                             ->count();
-    
+
                         $this->assertTrue( $totalSpoiledCashFlow === $products->count(), 'Not enough cash flow entry were created for the refunded product' );
                     }
-    
+
                     $singleResponse[ 'order-refund' ] = json_decode( $response->getContent() );
                 }
-    
+
                 $responses[] = $singleResponse;
             }
 
-            
+
         }
 
         return $responses;
@@ -1616,7 +1630,6 @@ trait WithOrderTest
             ->json( 'POST', 'api/orders', [
                 'customer_id' => $customer->id,
                 'type' => [ 'identifier' => 'takeaway' ],
-                // 'discount_type'         =>  'percentage',
                 'discount_percentage' => $discountRate,
                 'discount_type' => 'flat',
                 'discount' => $discountValue,
@@ -1836,25 +1849,32 @@ trait WithOrderTest
         $responseData = json_decode( $response->getContent(), true );
 
         /**
-         * performing the adjustment by increasing the quantity
-         * that is added to the order.
+         * Test 1: Testing Product History
+         * We should test if the records
+         * for partially paid order was created
          */
-        $product = Product::with( 'unit_quantities' )->find(1);
+        foreach( $products as $product ) {
+            $history    =   ProductHistory::where( 'product_id', $product[ 'product_id' ] )
+                ->where( 'operation_type', ProductHistory::ACTION_SOLD )
+                ->where( 'order_id', $responseData[ 'data' ][ 'order' ][ 'id' ] )
+                ->first();
 
-        $responseData[ 'data' ][ 'order' ][ 'products' ][0][ 'quantity' ]++;
+            $this->assertTrue( $history instanceof ProductHistory, 'No product history was created after placing the order with partial payment.' );
+            $this->assertTrue( ( float ) $history->quantity === ( float ) $product[ 'quantity' ], 'The quantity of the product doesn\'t match the product history quantity.' );
+        }
+
+        /**
+         * Step 2: We'll here increase the
+         * quantity of the product attached to the order.
+         */
+        $newProducts    =   $responseData[ 'data' ][ 'order' ][ 'products' ];
+        Arr::set( $newProducts, '0.quantity', $newProducts[0][ 'quantity' ] + 1 );
+
 
         $shippingFees = 150;
         $discountRate = 3.5;
-        $products = [
-            [
-                'product_id' => $product->id,
-                'quantity' => 5,
-                'unit_price' => $product->unit_quantities[0]->sale_price,
-                'unit_quantity_id' => $product->unit_quantities[0]->id,
-            ],
-        ];
 
-        $subtotal = collect( $products )->map( fn( $product ) => $product[ 'unit_price' ] * $product[ 'quantity' ] )->sum();
+        $subtotal = collect( $responseData[ 'data' ][ 'order' ][ 'products' ] )->map( fn( $product ) => $product[ 'unit_price' ] * $product[ 'quantity' ] )->sum();
         $response = $this->withSession( $this->app[ 'session' ]->all() )
             ->json( 'PUT', 'api/orders/' . $responseData[ 'data' ][ 'order' ][ 'id' ], [
                 'customer_id' => $responseData[ 'data' ][ 'order' ][ 'customer_id' ],
@@ -1875,7 +1895,7 @@ trait WithOrderTest
                 ],
                 'subtotal' => $subtotal,
                 'shipping' => $shippingFees,
-                'products' => $responseData[ 'data' ][ 'order' ][ 'products' ],
+                'products' => $newProducts,
                 'payments' => [],
             ]);
 
@@ -1884,6 +1904,88 @@ trait WithOrderTest
         ]);
 
         $response->assertStatus(200);
+        $json   =   $response->json();
+
+        /**
+         * Test 2: Testing Product History
+         * We should test if the records
+         * for partially paid order was created
+         */
+        foreach( $products as $product ) {
+            $historyActionAdjustmentSale    =   ProductHistory::where( 'product_id', $product[ 'product_id' ] )
+                ->where( 'operation_type', ProductHistory::ACTION_ADJUSTMENT_SALE )
+                ->where( 'order_id', $responseData[ 'data' ][ 'order' ][ 'id' ] )
+                ->first();
+
+            $this->assertTrue( $historyActionAdjustmentSale instanceof ProductHistory, 'The created history doesn\'t match what should have been created after an order modification.' );
+            $this->assertSame(
+                ( float ) $historyActionAdjustmentSale->quantity,
+                ( float ) $json[ 'data' ][ 'order' ][ 'products' ][0][ 'quantity' ] - ( float ) $responseData[ 'data' ][ 'order' ][ 'products' ][0][ 'quantity' ],
+                'The quantity of the product doesn\'t match the new product quantity after the order modfiication.'
+            );
+        }
+
+        /**
+         * Step 3: We'll here decrease the
+         * quantity of the product attached to the order.
+         */
+        $newProducts    =   $responseData[ 'data' ][ 'order' ][ 'products' ];
+        Arr::set( $newProducts, '0.quantity', $newProducts[0][ 'quantity' ] - 2 );
+
+
+        $shippingFees = 150;
+        $discountRate = 3.5;
+
+        $subtotal = collect( $responseData[ 'data' ][ 'order' ][ 'products' ] )->map( fn( $product ) => $product[ 'unit_price' ] * $product[ 'quantity' ] )->sum();
+        $response = $this->withSession( $this->app[ 'session' ]->all() )
+            ->json( 'PUT', 'api/nexopos/v4/orders/' . $responseData[ 'data' ][ 'order' ][ 'id' ], [
+                'customer_id' => 1,
+                'type' => [ 'identifier' => 'takeaway' ],
+                'discount_type' => 'percentage',
+                'discount_percentage' => $discountRate,
+                'addresses' => [
+                    'shipping' => [
+                        'name' => 'First Name Delivery',
+                        'surname' => 'Surname',
+                        'country' => 'Cameroon',
+                    ],
+                    'billing' => [
+                        'name' => 'EBENE Voundi',
+                        'surname' => 'Antony Hervé',
+                        'country' => 'United State Seattle',
+                    ],
+                ],
+                'subtotal' => $subtotal,
+                'shipping' => $shippingFees,
+                'products' => $newProducts,
+                'payments' => [],
+            ]);
+
+        $response->assertJson([
+            'status' => 'success',
+        ]);
+
+        $response->assertStatus(200);
+        $json2   =   $response->json();
+
+        /**
+         * Test 3: Testing Product History
+         * We should test if the records
+         * for partially paid order was created
+         */
+        foreach( $products as $product ) {
+            $historyActionAdjustmentSale    =   ProductHistory::where( 'product_id', $product[ 'product_id' ] )
+                ->where( 'operation_type', ProductHistory::ACTION_ADJUSTMENT_RETURN )
+                ->where( 'order_id', $responseData[ 'data' ][ 'order' ][ 'id' ] )
+                ->first();
+
+            $this->assertTrue( $historyActionAdjustmentSale instanceof ProductHistory, 'The created history doesn\'t match what should have been created after an order modification.' );
+            $this->assertSame(
+                ( float ) $historyActionAdjustmentSale->quantity,
+                ( float ) $json[ 'data' ][ 'order' ][ 'products' ][0][ 'quantity' ] - ( float ) $json2[ 'data' ][ 'order' ][ 'products' ][0][ 'quantity' ],
+                'The quantity of the product doesn\'t match the new product quantity after the order modfiication.'
+            );
+        }
     }
 
     protected function attemptTestRewardSystem()

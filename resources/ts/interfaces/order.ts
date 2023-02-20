@@ -5,6 +5,7 @@ import { OrderProduct } from "./order-product";
 import { OrderType } from "./order-type";
 import { Payment } from "./payment";
 import { Product } from "./product";
+import { Tax } from "@/libraries/tax";
 
 export interface Order {
     id?: number;
@@ -53,7 +54,7 @@ export interface Order {
     total_coupons: number;
     type: OrderType,
     customer_id: number;
-    products: OrderProduct[], 
+    products: OrderProduct[],
     payments: Payment[],
     instalments?: { date: string, amount: number, paid?: boolean }[],
     note: string;
@@ -68,7 +69,8 @@ export interface Order {
         billing: Address,
     };
     tax_value: number;
-    products_tax_value: number;
+    products_exclusive_tax_value: number;
+    products_inclusive_tax_value: number;
     total_tax_value: number;
     tax_groups: any[],
     shipping: number;

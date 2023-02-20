@@ -94,8 +94,8 @@ class {{ ucwords( $Str::camel( $resource_name ) ) }}Crud extends CrudService
 
     /**
      * Pick
-     * Restrict columns you retreive from relation.
-     * Should be an array of associative keys, where 
+     * Restrict columns you retrieve from relation.
+     * Should be an array of associative keys, where
      * keys are either the related table or alias name.
      * Example : [
      *      'user'  =>  [ 'username' ], // here the relation on the table nexopos_users is using "user" as an alias
@@ -140,7 +140,7 @@ class {{ ucwords( $Str::camel( $resource_name ) ) }}Crud extends CrudService
     protected $showOptions = true;
 
     /**
-     * Here goes the CRUD constructor. Here you can change the behavior 
+     * Here goes the CRUD constructor. Here you can change the behavior
      * of the crud component.
      */
     public function __construct()
@@ -232,7 +232,7 @@ class {{ ucwords( $Str::camel( $resource_name ) ) }}Crud extends CrudService
     }
 
     /**
-     * Trigger actions that will be executed 
+     * Trigger actions that will be executed
      * after the entry has been created.
      */
     public function afterPost( array $request, {{ trim( $lastClassName ) }} $entry ): array
@@ -240,7 +240,7 @@ class {{ ucwords( $Str::camel( $resource_name ) ) }}Crud extends CrudService
         return $request;
     }
 
-    
+
     /**
      * A shortcut and secure way to access
      * senstive value on a read only way.
@@ -324,13 +324,13 @@ class {{ ucwords( $Str::camel( $resource_name ) ) }}Crud extends CrudService
         /**
          * Declaring entry actions
          */
-        $entry->action( 
+        $entry->action(
             identifier: 'edit',
             label: __( 'Edit' ),
             url: ns()->url( '/dashboard/' . $this->slug . '/edit/' . $entry->id )
         );
-        
-        $entry->action( 
+
+        $entry->action(
             identifier: 'delete',
             label: __( 'Delete' ),
             type: 'DELETE',
@@ -339,11 +339,11 @@ class {{ ucwords( $Str::camel( $resource_name ) ) }}Crud extends CrudService
                 'message'  =>  __( 'Would you like to delete this ?' ),
             ]
         );
-        
+
         return $entry;
     }
 
-    
+
     /**
      * trigger actions that are executed
      * when a bulk actio is posted.

@@ -73,7 +73,7 @@ export default {
     },
     methods: {
         __,
-        
+
         popupCloser,
         popupResolver,
 
@@ -114,7 +114,7 @@ export default {
                     error: ( error ) => {
                         this.isLoading  =   false;
                         nsSnackBar.error( error.message ).subscribe();
-                    } 
+                    }
                 })
         }
     }

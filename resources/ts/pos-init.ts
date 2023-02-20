@@ -78,7 +78,8 @@ export class POS {
             total_products: 0,
             shipping: 0,
             tax_value: 0,
-            products_tax_value: 0,
+            products_exclusive_tax_value: 0,
+            products_inclusive_tax_value: 0,
             total_tax_value: 0,
             shipping_rate: 0,
             shipping_type: undefined,
@@ -647,7 +648,7 @@ export class POS {
         }
 
         /**
-         * By default, we'll use box computed tax and prodcuts tax value 
+         * By default, we'll use box computed tax and products tax value 
          * when priceWithTax is enabled.
          * However to avoid duplicate taxes, we'll only consider computed tax
          * when priceWithTax is disabled
@@ -655,7 +656,7 @@ export class POS {
         order.total_tax_value     =  order.tax_value;
 
         if ([ 'products_variable_vat', 'products_flat_vat', 'products_vat' ].includes(posVat) && ! priceWithTax ) {
-            order.total_tax_value     =  order.products_tax_value + order.tax_value;
+            order.total_tax_value     =  order.products_exclusive_tax_value + order.tax_value;
         }
 
         return order;
@@ -665,10 +666,14 @@ export class POS {
         const products      =   this.products.getValue();
 
         /**
-         * retreive all products taxes
+         * retrieve all products taxes
          * and sum the total.
          */
-        const totalTaxes = products.map((product: OrderProduct) => {
+        const totalInclusiveTax = products.filter( product => product.tax_type === 'inclusive' ).map((product: OrderProduct) => {
+            return product.tax_value;
+        });
+
+        const totalExclusiveTax = products.filter( product => product.tax_type === 'exclusive' ).map((product: OrderProduct) => {
             return product.tax_value;
         });
 
@@ -676,12 +681,17 @@ export class POS {
          * tax might be computed above the tax that currently
          * applie to the items.
          */
-        order.products_tax_value    =   0;
+        order.products_exclusive_tax_value    =   0;
+        order.products_inclusive_tax_value    =   0;
 
         const posVat    =   this.options.getValue().ns_pos_vat;
 
-        if ([ 'products_flat_vat', 'products_variable_vat', 'products_vat' ].includes(posVat) && totalTaxes.length > 0) {
-            order.products_tax_value    +=  totalTaxes.reduce((b, a) => b + a);
+        if ([ 'products_flat_vat', 'products_variable_vat', 'products_vat' ].includes(posVat) && totalExclusiveTax.length > 0) {
+            order.products_exclusive_tax_value    +=  totalExclusiveTax.reduce((b, a) => b + a);
+        }
+
+        if ([ 'products_flat_vat', 'products_variable_vat', 'products_vat' ].includes(posVat) && totalInclusiveTax.length > 0) {
+            order.products_inclusive_tax_value    +=  totalInclusiveTax.reduce((b, a) => b + a);
         }
 
         order.products = products;
@@ -921,7 +931,7 @@ export class POS {
                         return resolve( quantities );
                     }
                 } catch( exception ) {
-                    return nsSnackBar.error( __( 'An error has occured while computing the product.' ) ).subscribe();
+                    return nsSnackBar.error( __( 'An error has occurred while computing the product.' ) ).subscribe();
                 }
             }
             
@@ -1170,7 +1180,7 @@ export class POS {
         this.order.next(current);
 
         /**
-         * explicitely here we do manually refresh the cart
+         * explicitly here we do manually refresh the cart
          * as if we listen to cart update by subscribing,
          * that will create a loop (huge performance issue).
          */
@@ -1332,7 +1342,7 @@ export class POS {
             order = response['data'].order;
         } catch (exception) {
             if (exception !== false && exception.message !== undefined) {
-                nsSnackBar.error(exception.message || __('An unexpected error has occured while fecthing taxes.'), __('OKAY'), { duration: 0 }).subscribe();
+                nsSnackBar.error(exception.message || __('An unexpected error has occurred while fecthing taxes.'), __('OKAY'), { duration: 0 }).subscribe();
             }
         }
 
@@ -1493,7 +1503,7 @@ export class POS {
         cartProduct = { ...cartProduct, ...productData };
 
         /**
-         * retreive product that 
+         * retrieve product that 
          * are currently stored
          */
         const products = this._products.getValue();
@@ -1752,6 +1762,9 @@ export class POS {
                 product.discount    =   ((product.unit_price * product.discount_percentage) / 100) * product.quantity;
                 discount_without_tax      =   ((price_without_tax * product.discount_percentage) / 100) * product.quantity;
                 discount_with_tax        =   ((price_with_tax * product.discount_percentage) / 100) * product.quantity;
+            } else {
+                discount_without_tax      =   product.discount;
+                discount_with_tax        =   product.discount;
             }
         }
 

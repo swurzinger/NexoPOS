@@ -37,7 +37,7 @@
             </div>
             <div id="grid-items" class="overflow-hidden h-full flex-col flex">
                 <div v-if="hasCategories" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                    <div @click="loadCategories( category )" v-for="category of categories" :key="category.id" 
+                    <div @click="loadCategories( category )" v-for="category of categories" :key="category.id"
                         class="cell-item w-full h-36 cursor-pointer border flex flex-col items-center justify-center overflow-hidden relative">
                         <div class="h-full w-full flex items-center justify-center">
                             <img v-if="category.preview_url" :src="category.preview_url" class="object-cover h-full" :alt="category.name">
@@ -52,7 +52,7 @@
                 </div>
 
                 <div  v-if="! hasCategories" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                    <div @click="addToTheCart( product )" v-for="product of products" :key="product.id" 
+                    <div @click="addToTheCart( product )" v-for="product of products" :key="product.id"
                         class="cell-item w-full h-36 cursor-pointer border flex flex-col items-center justify-center overflow-hidden relative">
                         <div class="h-full w-full flex items-center justify-center overflow-hidden">
                             <img v-if="product.galleries && product.galleries.filter( i => i.featured === 1 ).length > 0" :src="product.galleries.filter( i => i.featured === 1 )[0].url" class="object-cover h-full" :alt="product.name">
@@ -123,18 +123,18 @@ export default {
             handler() {
                 if ( this.options.ns_pos_force_autofocus ) {
                     clearTimeout( this.searchTimeout );
-                
+
                     this.searchTimeout  =   setTimeout( () => {
                         this.submitSearch( this.barcode );
                     }, 200 );
                 }
             },
-            deep: true            
+            deep: true
         },
         barcode() {
             if ( this.options.ns_pos_force_autofocus ) {
                 clearTimeout( this.searchTimeout );
-            
+
                 this.searchTimeout  =   setTimeout( () => {
                     this.submitSearch( this.barcode );
                 }, 200 );
@@ -158,7 +158,7 @@ export default {
             this.breadcrumbs            =   breadcrumbs;
             this.$forceUpdate();
         });
-        
+
         this.visibleSectionSubscriber   =   POS.visibleSection.subscribe( section => {
             this.visibleSection         =   section;
             this.$forceUpdate();
@@ -174,11 +174,11 @@ export default {
         for( let shortcut in nsShortcuts ) {
             /**
              * let's declare only shortcuts that
-             * works on the pos grid and that doesn't 
+             * works on the pos grid and that doesn't
              * expect any popup to be visible
              */
-            if ([ 
-                    'ns_pos_keyboard_quick_search', 
+            if ([
+                    'ns_pos_keyboard_quick_search',
                 ].includes( shortcut ) ) {
                 nsHotPress
                     .create( 'search-popup' )
@@ -191,11 +191,11 @@ export default {
 
             /**
              * let's declare only shortcuts that
-             * works on the pos grid and that doesn't 
+             * works on the pos grid and that doesn't
              * expect any popup to be visible
              */
-            if ([ 
-                    'ns_pos_keyboard_toggle_merge', 
+            if ([
+                    'ns_pos_keyboard_toggle_merge',
                 ].includes( shortcut ) ) {
                 nsHotPress
                     .create( 'toggle-merge' )
@@ -215,14 +215,14 @@ export default {
         this.screenSubscriber.unsubscribe();
         this.settingsSubscriber.unsubscribe();
         this.optionsSubscriber.unsubscribe();
-        
+
         clearInterval( this.interval );
 
         nsHotPress.destroy( 'search-popup' );
         nsHotPress.destroy( 'toggle-merge' );
     },
     methods: {
-        __, 
+        __,
         nsCurrency,
 
         switchTo,
@@ -272,7 +272,7 @@ export default {
 
             const wrapperWidth  =   responsive[ POS.responsive.screenIs ].width;
             const wrapperHeight =   responsive[ POS.responsive.screenIs ].height;
-            const scrollWidth   =   0; // ( 50 / responsive[ POS.responsive.screenIs ].items );            
+            const scrollWidth   =   0; // ( 50 / responsive[ POS.responsive.screenIs ].items );
 
             return {
                 width: wrapperWidth - scrollWidth,
@@ -307,7 +307,7 @@ export default {
                 const popup     =   document.querySelectorAll( '.is-popup' );
 
                 /**
-                 * We don't force focus if 
+                 * We don't force focus if
                  * any popup is visible.
                  */
                 if ( popup.length === 0 ) {
@@ -315,7 +315,7 @@ export default {
                 }
             }
         },
-        
+
         loadCategories( parent ) {
             this.isLoading  =   true;
             nsHttpClient.get( `/api/categories/pos/${ parent ? parent.id : ''}` )
@@ -330,7 +330,7 @@ export default {
                     },
                     error: ( error ) => {
                         this.isLoading  =   false;
-                        return nsSnackBar.error( __( 'An unexpected error occured.' ) ).subscribe();
+                        return nsSnackBar.error( __( 'An unexpected error occurred.' ) ).subscribe();
                     }
                 });
         },
@@ -338,10 +338,10 @@ export default {
         updateBreadCrumb( parent ) {
             if ( parent ) {
                 const index     =   this.breadcrumb.filter( bread => bread.id === parent.id );
-    
+
                 /**
                  * this means, we're trying to navigate
-                 * through something that has already been 
+                 * through something that has already been
                  * added to the breadcrumb
                  */
                 if ( index.length > 0 ) {
@@ -357,15 +357,15 @@ export default {
                     this.breadcrumb     =   prior;
                 } else {
                     this.breadcrumb.push( parent );
-                } 
-    
+                }
+
             } else {
-                this.breadcrumb     =   [];    
+                this.breadcrumb     =   [];
             }
 
             POS.breadcrumbs.next( this.breadcrumb );
         },
-    
+
         addToTheCart( product ) {
             POS.addToCart( product );
         }

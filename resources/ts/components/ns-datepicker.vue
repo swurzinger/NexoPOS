@@ -35,11 +35,11 @@ export default {
     },
     data() {
         return {
-            visible: false,                      
+            visible: false,
         }
     },
     mounted() {
-        
+
     },
     methods: {
         __,

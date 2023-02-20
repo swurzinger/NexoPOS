@@ -100,6 +100,26 @@ trait WithProcurementTest
 
         $response->assertOk();
 
+        $procurementId  =   $response->json()[ 'data' ][ 'procurement' ][ 'id' ];
+
+        /**
+         * Check: at the point, there shouldn't be any expense recorded.
+         * The procurement is not paid.
+         */
+        $existingExpense = CashFlow::where( 'procurement_id', $procurementId )->first();
+        $this->assertTrue( ! $existingExpense instanceof CashFlow, __( 'A cash flow has been created for an unpaid procurement.' ) );
+
+        /**
+         * Query: we store the procurement now with a paid status
+         */
+        $procurementsDetails[ 'general' ][ 'payment_status' ]   =   Procurement::PAYMENT_PAID;
+        $procurementsDetails[ 'general' ][ 'delivery_status' ]   =   Procurement::DELIVERED;
+
+        $response = $this->withSession( $this->app[ 'session' ]->all() )
+            ->json( 'PUT', 'api/nexopos/v4/procurements/' . $procurementId, $procurementsDetails );
+
+        $response->assertOk();
+
         /**
          * We'll proceed to the verification
          * and check if the accounts are valid.

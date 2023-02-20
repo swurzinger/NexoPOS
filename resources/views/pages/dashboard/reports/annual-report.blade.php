@@ -7,8 +7,8 @@
         <div class="px-4">
             @include( '../common/dashboard/title' )
         </div>
-        <ns-yearly-report 
-            store-name="{{ ns()->option->get( 'ns_store_name' ) }}" 
+        <ns-yearly-report
+            store-name="{{ ns()->option->get( 'ns_store_name' ) }}"
             store-logo="{{ ns()->option->get( 'ns_store_rectangle_logo' ) }}"
             v-cloak>
         </ns-yearly-report>

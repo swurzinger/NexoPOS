@@ -4,6 +4,7 @@ return [
     'version' => '5.0.0',
     'languages' => [
         'en' => 'English',
+        'de' => 'Deutsch',
         'fr' => 'Français',
         'es' => 'Espanol',
         'it' => 'Italian',

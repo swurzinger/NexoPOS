@@ -8,8 +8,8 @@
         </div>
         <div class="p-1 ns-box-body">
             <ns-tabs @active="setActiveTab( $event )" :active="activeTab">
-                <ns-tabs-item 
-                    :label="__( 'Apply A Coupon' )" 
+                <ns-tabs-item
+                    :label="__( 'Apply A Coupon' )"
                     padding="p-2"
                     identifier="apply-coupon">
                     <div class="border-2 input-group info rounded flex">
@@ -27,7 +27,7 @@
                     <div class="pt-2" v-if="order && order.customer_id !== undefined">
                         <ns-notice color="success">
                             <template v-slot:description>{{ __( 'Loading Coupon For : ' ) + `${order.customer.first_name} ${order.customer.last_name}` }}</template>
-                        </ns-notice>                        
+                        </ns-notice>
                     </div>
                     <div class="overflow-hidden">
                         <div class="pt-2 fade-in-entrance anim-duration-500 overflow-y-auto ns-scrollbar h-64" v-if="coupon">
@@ -36,7 +36,7 @@
                                     <tr>
                                         <td class="p-2 w-1/2 border">{{ __( 'Coupon Name' ) }}</td>
                                         <td class="p-2 w-1/2 border">{{ coupon.name }}</td>
-                                    </tr>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+                                    </tr>
                                     <tr>
                                         <td class="p-2 w-1/2 border">{{ __( 'Discount' ) }} ({{ getCouponType( coupon.type ) }})</td>
                                         <td class="p-2 w-1/2 border">{{ getDiscountValue( coupon ) }}</td>
@@ -135,7 +135,7 @@ export default {
 
         this.orderSubscriber    =   POS.order.subscribe( order => {
             this.order = ref(order);
-            
+
             if ( this.order.coupons.length > 0 ) {
                 this.activeTab  =   'active-coupons';
             }
@@ -183,19 +183,19 @@ export default {
 
         apply() {
             try {
-                if ( 
+                if (
                     this.coupon.valid_hours_start !== null &&
-                    ! ns.date.moment.isAfter( this.coupon.valid_hours_start ) && 
+                    ! ns.date.moment.isAfter( this.coupon.valid_hours_start ) &&
                     this.coupon.valid_hours_start.length > 0
                 ) {
                     return nsSnackBar.error( __( 'The coupon is out from validity date range.' ) )
                         .subscribe();
                 }
 
-                if ( 
+                if (
                     this.coupon.valid_hours_end !== null &&
                     ! ns.date.moment.isBefore( this.coupon.valid_hours_end ) &&
-                    this.coupon.valid_hours_end.length > 0 
+                    this.coupon.valid_hours_end.length > 0
                 ) {
                     return nsSnackBar.error( __( 'The coupon is out from validity date range.' ) )
                         .subscribe();
@@ -203,7 +203,7 @@ export default {
 
                 const requiredProducts      =   this.coupon.products;
 
-                if ( 
+                if (
                     requiredProducts.length > 0
                 ) {
                     const productIds    =   requiredProducts.map( p => p.product_id );
@@ -215,7 +215,7 @@ export default {
 
                 const requiredCategories      =   this.coupon.categories;
 
-                if ( 
+                if (
                     requiredCategories.length > 0
                 ) {
                     const categoriesIds    =   requiredCategories.map( p => p.category_id );
@@ -244,7 +244,7 @@ export default {
 
                 POS.pushCoupon( finalCoupon );
                 this.activeTab  =   'active-coupons';
-                
+
                 setTimeout( () => {
                     this.popupResolver( finalCoupon );
                 }, 500 );
@@ -276,7 +276,7 @@ export default {
                 case 'flat_discount': return this.$options.filters.currency( coupon.discount_value );
             }
         },
-        
+
         closePopup() {
             this.popupResolver( false );
         },
@@ -311,10 +311,10 @@ export default {
                         nsSnackBar.success( __( 'The coupon has been loaded.' ) ).subscribe()
                     },
                     error : error => {
-                        nsSnackBar.error( error.message || __( 'An unexpected error occured.' ) ).subscribe()
+                        nsSnackBar.error( error.message || __( 'An unexpected error occurred.' ) ).subscribe()
                     }
                 });
         }
-    } 
+    }
 }
 </script>

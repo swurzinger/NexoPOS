@@ -102,7 +102,7 @@ class OrdersService
 
         /**
          * We'll now check the attached coupon
-         * and determin wether they can be processed.
+         * and determin whether they can be processed.
          */
         $this->__checkAttachedCoupons( $fields );
 
@@ -309,7 +309,7 @@ class OrdersService
     }
 
     /**
-     * Checks wether the attached coupons are valid
+     * Checks whether the attached coupons are valid
      *
      * @param array $coupons
      * @return void
@@ -639,7 +639,7 @@ class OrdersService
     }
 
     /**
-     * Check wether a discount is valid or
+     * Check whether a discount is valid or
      * not
      *
      * @param array fields
@@ -790,7 +790,7 @@ class OrdersService
         $payment = $this->__saveOrderSinglePayment( $payment, $order );
 
         /**
-         * let's refresh the order to check wether the
+         * let's refresh the order to check whether the
          * payment has made the order complete or not.
          */
         $order->refresh();
@@ -1055,12 +1055,16 @@ class OrdersService
         $gross = 0;
 
         $orderProducts = $products->map(function ($product) use (&$subTotal, &$taxes, &$order, &$gross) {
+
+            $previousQuantity    =   0;
+
             /**
              * if the product id is provided
              * then we can use that id as a reference.
              */
             if ( isset( $product[ 'id' ] ) ) {
                 $orderProduct = OrderProduct::find( $product[ 'id' ] );
+                $previousQuantity    =   $orderProduct->quantity;
             } else {
                 $orderProduct = new OrderProduct;
             }
@@ -1080,7 +1084,7 @@ class OrdersService
             $orderProduct->rate = $product[ 'rate' ] ?? 0;
             $orderProduct->product_id = $product[ 'product' ]->id ?? 0;
             $orderProduct->product_category_id = $product[ 'product' ]->category_id ?? 0;
-            $orderProduct->name = $product[ 'product' ]->name ?? $product[ 'name' ] ?? __( 'Unamed Product' );
+            $orderProduct->name = $product[ 'product' ]->name ?? $product[ 'name' ] ?? __( 'Unnamed Product' );
             $orderProduct->quantity = $product[ 'quantity' ];
 
             /**
@@ -1136,7 +1140,15 @@ class OrdersService
                     'total_price' => $orderProduct->total_price,
                 ];
 
-                $this->productService->stockAdjustment( ProductHistory::ACTION_SOLD, $history );
+                /**
+                 * __deleteUntrackedProducts will delete all products that
+                 * already exists and which are edited. We'll here only records
+                 * products that doesn't exists yet.
+                 */
+                if ( $orderProduct->wasRecentlyCreated ) {
+                    $this->productService->stockAdjustment( ProductHistory::ACTION_SOLD, $history );
+                }
+
             }
 
             event( new OrderProductAfterSavedEvent( $orderProduct, $order, $product ) );
@@ -1217,26 +1229,16 @@ class OrdersService
                                  * We need a fake orderProduct
                                  * that will have necessary attributes for verification.
                                  */
-                                $unitGroup = $this->unitService->getUnitParentGroup( $orderProduct[ 'unit_id' ] );
-                                $currentUnit = $this->unitService->get( $orderProduct[ 'unit_id' ] );
-                                $baseUnit = $currentUnit;
-
-                                /**
-                                 * in case the current unit is not the base unit
-                                 */
-                                if ( ! (bool) $currentUnit->base_unit ) {
-                                    $baseUnit = $this->unitService->getBaseUnit( $unitGroup );
-                                }
+                                $parentUnit = $this->unitService->get( $orderProduct[ 'unit_id' ] );
 
                                 /**
                                  * computing the exact quantity that will be pulled
                                  * from the actual product inventory.
                                  */
                                 $quantity = $this->productService->computeSubItemQuantity(
-                                    baseUnit: $baseUnit,
-                                    currentUnit: $currentUnit,
-                                    orderProductQuantity: $orderProduct[ 'quantity' ],
-                                    subItemQuantity: (float) $subitem->quantity
+                                    subItemQuantity: (float) $subitem->quantity,
+                                    parentUnit: $parentUnit,
+                                    parentQuantity: $orderProduct[ 'quantity' ]
                                 );
 
                                 $newFakeOrderProduct = new OrderProduct;
@@ -1439,7 +1441,7 @@ class OrdersService
         /**
          * If any other attributes needs to be
          * saved while creating the order, it should be
-         * explicitely allowed on this filter
+         * explicitly allowed on this filter
          */
         foreach ( Hook::filter( 'ns-order-attributes', [] ) as $attribute ) {
             if ( ! in_array( $attribute, [
@@ -2102,7 +2104,7 @@ class OrdersService
 
         return [
             'status' => 'success',
-            'message' => __('the order has been succesfully computed.'),
+            'message' => __('the order has been successfully computed.'),
             'data' => compact('order'),
         ];
     }
