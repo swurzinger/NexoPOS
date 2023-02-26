@@ -27,6 +27,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\View;
 
+/**
+ * @group Products
+ */
 class ProductsController extends DashboardController
 {
     /** @var ProductService */
@@ -93,12 +96,9 @@ class ProductsController extends DashboardController
     }
 
     /**
-     * returns a list of available
-     * product
-     *
-     * @return array
+     * @return Product[]
      */
-    public function getProduts()
+    public function getProducts()
     {
         return $this->productService->getProducts();
     }
