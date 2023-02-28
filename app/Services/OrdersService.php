@@ -1356,6 +1356,7 @@ class OrdersService
         $orderProduct[ 'rate' ] = $orderProduct[ 'rate' ] ?? 0;
         $orderProduct[ 'unitQuantity' ] = $productUnitQuantity;
         $orderProduct[ 'cogs' ] = $productUnitQuantity->cogs ?? 0;
+        $orderProduct[ 'unit_price' ] = $orderProduct[ 'unit_price' ] ?? $productUnitQuantity->sale_price;
 
         return $orderProduct;
     }
