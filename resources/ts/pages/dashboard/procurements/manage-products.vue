@@ -221,12 +221,6 @@ export default {
                     const identification    =   this.formValidation.extractFields( variation.tabs.identification.fields );
 
                     if ( identification.type === 'grouped' )  {
-                        for( let index in variation.tabs ) {
-                            if ( ! [ 'identification', 'groups', 'taxes', 'units' ].includes( index ) ) {
-                                variation.tabs[ index ][ 'visible' ]    =   false;
-                            }
-                        }
-
                         /**
                          * explicitly enable the groups tab
                          */
@@ -234,12 +228,6 @@ export default {
                             variation.tabs[ 'groups' ].visible  = true;
                         }
                     } else {
-                        for( let index in variation.tabs ) {
-                            if ( ! [ 'identification', 'groups', 'taxes', 'units' ].includes( index ) ) {
-                                variation.tabs[ index ].visible = true;
-                            }
-                        }
-
                         /**
                          * explicitly disable the groups tab
                          */
