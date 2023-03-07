@@ -476,14 +476,18 @@ export class POS {
          * that needs to be rendered dynamically
          */
         const data = {
-            buttons: {
+            buttons: [
                 nsPosDashboardButton,
                 nsPosPendingOrderButton,
-                nsPosOrderTypeButton,
                 nsPosCustomersButton,
                 nsPosResetButton,
-            }
+            ]
         };
+
+        // only show delivery types selection if there is more than a single option available
+        if (Object.values(this.types.getValue()).length > 1) {
+            data.buttons.splice(2, 0, nsPosOrderTypeButton);
+        }
 
         /**
          * if the cash register is enabled
@@ -491,7 +495,7 @@ export class POS {
          * of button available.
          */
         if (this.options.getValue().ns_pos_registers_enabled === 'yes') {
-            data.buttons['nsPosCashRegister'] = nsPosCashRegister;
+            data.buttons.push(nsPosCashRegister);
         }
 
         /**
