@@ -59,12 +59,12 @@ export default {
          * quantity barcode.
          */
         if ( this.popup.params.product.$original().selectedUnitQuantity !== undefined ) {
-            this.selectUnit( this.popup.params.product.$original().selectedUnitQuantity );
-        } else if ( 
-                this.popup.params.product.$original().unit_quantities !== undefined && 
-                this.popup.params.product.$original().unit_quantities.length === 1 
+            this.selectUnit( this.popup.params.product.$original().selectedUnitQuantity, true );
+        } else if (
+                this.popup.params.product.$original().unit_quantities !== undefined &&
+                this.popup.params.product.$original().unit_quantities.length === 1
             ) {
-                this.selectUnit( this.popup.params.product.$original().unit_quantities[0] );
+                this.selectUnit( this.popup.params.product.$original().unit_quantities[0], true );
         } else {
             this.loadsUnits     =   true;
             this.loadUnits();
@@ -90,9 +90,9 @@ export default {
         loadUnits() {
             nsHttpClient.get( `/api/products/${this.popup.params.product.$original().id}/units/quantities` )
                 .subscribe( result => {
-                    
+
                     if ( result.length === 0 ) {
-                        this.popup.close();
+                        this.popup.close(null, true);
                         return nsSnackBar.error( __( 'This product doesn\'t have any unit defined for selling. Make sure to mark at least one unit as visible.' ) );
                     }
 
@@ -103,7 +103,7 @@ export default {
                      * select a unit if there is only one unit available.
                      */
                     if ( this.unitsQuantities.length === 1 ) {
-                        this.selectUnit( this.unitsQuantities[0] );
+                        this.selectUnit( this.unitsQuantities[0], true );
                     }
                 })
         },
@@ -113,11 +113,11 @@ export default {
          * built at the end
          * @param Unit
          */
-        selectUnit( unitQuantity ) {
+        selectUnit( unitQuantity, immediate ) {
             if ( unitQuantity.unit === null ) {
                 nsSnackBar.error( __( 'The unit attached to this product is missing or not assigned. Please review the "Unit" tab for this product.' ) );
 
-                return this.popup.close();
+                return this.popup.close(null, true);
             }
 
             this.popup.params.resolve({
@@ -126,7 +126,7 @@ export default {
                 $quantities         :   () => unitQuantity
             });
 
-            this.popup.close();
+            this.popup.close(null, immediate);
         }
     }
 }

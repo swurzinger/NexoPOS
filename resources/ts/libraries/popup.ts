@@ -1,5 +1,4 @@
-import { Subject } from "rxjs";
-import { shallowRef } from "vue";
+import { nextTick, Ref, shallowRef } from "vue";
 
 declare const document;
 declare const nsState;
@@ -102,7 +101,7 @@ export class Popup {
         const popup     =   {
             hash: `popup-${this.hash()}-${this.hash()}`,
             component: shallowRef( component ),
-            close: ( callback = null ) => this.close( popup, callback ),
+            close: ( callback = null, immediately: boolean = false ) => this.close( popup, callback, immediately ),
             props,
             params,
             config,
@@ -115,7 +114,7 @@ export class Popup {
         return popup;
     }
 
-    close( popup, callback = null ) {
+    close( popup, callback = null, immediately: boolean = false ) {
         /**
          * For some reason we need to fetch the 
          * primary selector once again.
@@ -135,7 +134,10 @@ export class Popup {
         const container          =   document.querySelector( `#${popup.hash}` );
         container.classList.remove( 'is-popup' );
 
-        setTimeout( () => {
+        const executeLater =
+            immediately ? nextTick : (b => setTimeout(b, 250));   // because the remove animation lasts 250ms
+
+        executeLater( () => {
             const { popups }    =   nsState.state.getValue();
             const index         =   popups.indexOf( popup );
             popups.splice( index, 1 );
@@ -150,6 +152,6 @@ export class Popup {
             if ( callback !== null ) {
                 return callback( popup );
             }
-        }, 250 ); // because the remove animation last 250ms
+        });
     }
 }

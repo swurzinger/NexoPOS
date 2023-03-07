@@ -6,12 +6,13 @@ declare const nsHotPress;
  */
 export default function() {
     if ( this.popup !== undefined ) {
+        const identifier = `popup-esc-${this.popup.hash}`;
         /**
          * We'll listen to "esc" keypress
          * but proceed in certain conditions.
          */
-        nsHotPress.create( `popup-esc-${this.popup.hash}` )
             .whenPressed( 'escape', ( event ) => {
+        nsHotPress.create( identifier )
                 event.preventDefault();
 
                 const currentPopup = document.querySelector( `#${this.popup.hash}` );
@@ -41,7 +42,7 @@ export default function() {
                     }
 
                     this.popup.close();
-                    nsHotPress.destroy( `popup-esc-${this.popup.hash}` );
+                    nsHotPress.destroy( identifier );
                 }
             })
     }

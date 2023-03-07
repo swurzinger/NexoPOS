@@ -54,7 +54,7 @@ export default {
              * we'll automatically select the first payment type
              * if only one is provided. 
              */ 
-            this.select( Object.keys( this.types )[0] );
+            this.select( Object.keys( this.types )[0], true );
         }
 
         this.popupCloser();
@@ -66,7 +66,7 @@ export default {
         
         resolveIfQueued,
 
-        async select( type ) {
+        async select( type, immediate ) {
             Object.values( this.types )
                 .forEach( _type => _type.selected = false );
             
@@ -80,7 +80,7 @@ export default {
              */
             const result    =   await POS.triggerOrderTypeSelection( selectedType );
             POS.types.next( this.types );
-            this.resolveIfQueued( selectedType );
+            this.resolveIfQueued( selectedType, immediate );
         }
     }
 }
