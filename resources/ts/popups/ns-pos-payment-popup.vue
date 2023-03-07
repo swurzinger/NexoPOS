@@ -11,7 +11,7 @@ import nsPosLoadingPopupVue from './ns-pos-loading-popup.vue';
 import samplePaymentVue from '~/pages/dashboard/pos/payments/sample-payment.vue';
 import nsSelectPopupVue from './ns-select-popup.vue';
 import { nsCurrency, nsRawCurrency } from '~/filters/currency';
-import { ref } from 'vue';
+import { ref, toRaw } from 'vue';
 import { nsConfirmPopup } from '~/components/components';
 import { HttpStatusResponse } from '~/interfaces/http-status-response';
 
@@ -50,7 +50,7 @@ export default {
             }
         });
         this.paymentTypesSubscription   =   POS.paymentsType.subscribe( paymentsType => {
-            this.paymentsType   =   paymentsType;
+            this.paymentsType   =   ref(paymentsType);
             paymentsType.filter( payment => {
                 if ( payment.selected ) {
                     POS.selectedPaymentType.next( payment );
@@ -115,7 +115,7 @@ export default {
         },
         select( payment ) {
             this.showPayment    =   false;
-            POS.setPaymentActive( payment );
+            POS.setPaymentActive( toRaw(payment) );
         },
         closePopup() {
             console.log( this.popup );
@@ -123,7 +123,7 @@ export default {
             POS.selectedPaymentType.next( null );
         },
         deletePayment( payment ) {
-            POS.removePayment( payment );
+            POS.removePayment( toRaw(payment) );
         },
         selectPaymentAsActive( event ) {
             this.select( this.paymentsType.filter( payment => payment.identifier === event.target.value )[0] );
