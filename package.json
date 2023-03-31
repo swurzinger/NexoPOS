@@ -7,7 +7,7 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
-    "watch": "vite build --watch",
+    "watch": "vite build --watch --mode development",
     "test": "jest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui --ui-host=0.0.0.0 --ui-port=3333",
