@@ -97,6 +97,7 @@ export default {
         }
     },
     methods: {
+        nsCurrency,
         __,
         refreshReport() {
             Cashier.refreshReport();
