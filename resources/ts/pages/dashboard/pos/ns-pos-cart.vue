@@ -294,6 +294,7 @@ export default {
             cartHeaderButtons: {},
             defaultCartHeaderButtons: {
                 nsPosCartCommentButton: markRaw( nsPosCartCommentButton ),
+                // TODO: no tax button, if options.ns_pos_vat == 'disabled'
                 nsPosCartTaxesButton: markRaw( nsPosCartTaxesButton ),
                 nsPosCartCouponsButton: markRaw( nsPosCartCouponsButton ),
                 nsPosCartSettingsButton: markRaw( nsPosCartSettingsButton ),
