@@ -120,7 +120,7 @@
     </div>
 </template>
 <script >
-import { nsHttpClient, nsSnackBar } from '../../../bootstrap'
+import { nsHttpClient, nsSnackBar } from '~/bootstrap'
 import switchTo from "~/libraries/pos-section-switch";
 import nsPosSearchProductVue from '~/popups/ns-pos-search-product.vue';
 import { __ } from '~/libraries/lang';
