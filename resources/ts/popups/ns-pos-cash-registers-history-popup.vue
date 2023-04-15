@@ -65,14 +65,16 @@
         </div>
     </div>
 </template>
-<script>
+<script lang="ts">
 import popupResolver from '~/libraries/popup-resolver'
 import { nsHttpClient } from '~/bootstrap';
 import { __ } from '~/libraries/lang';
 import { nsCurrency } from '~/filters/currency';
+import NsCloseButton from "~/components/ns-close-button.vue";
 
 export default {
     props: [ 'popup' ],
+    components: {NsCloseButton},
     data() {
         return {
             totalIn: 0,

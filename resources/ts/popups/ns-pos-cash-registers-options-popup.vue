@@ -1,13 +1,18 @@
-<script>
+<script lang="ts">
 import popupCloser from '~/libraries/popup-closer';
 import nsPosCashRegistersActionPopupVue from './ns-pos-cash-registers-action-popup.vue';
 import nsPosCashRegistersHistoryVue from './ns-pos-cash-registers-history-popup.vue';
 import popupResolver from '~/libraries/popup-resolver';
 import { __ } from '~/libraries/lang';
 import { nsCurrency } from '~/filters/currency';
+import {Popup} from "~/libraries/popup";
+import {Register} from "~/interfaces/register";
+import NsCloseButton from "~/components/ns-close-button.vue";
+import NsSpinner from "~/components/ns-spinner.vue";
 import { nsSnackBar } from '~/bootstrap';
 
 export default {
+    components: {NsSpinner, NsCloseButton},
     props: [ 'popup' ],
     mounted() {
         this.settingsSubscriber     =   POS.settings.subscribe( settings => {
@@ -25,7 +30,7 @@ export default {
         return {
             settings: null,
             settingsSubscriber: null,
-            register: {}
+            register: {} as Register
         }
     },
     methods: {

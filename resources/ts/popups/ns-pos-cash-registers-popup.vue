@@ -1,10 +1,12 @@
-<script>
+<script lang="ts">
 import { nsHttpClient, nsSnackBar } from '../bootstrap';
 import FormValidation from '~/libraries/form-validation';
 import nsPosCashRegistersActionPopupVue from './ns-pos-cash-registers-action-popup.vue';
 import nsNumpad from "~/components/ns-numpad.vue";
 import popupResolver from '~/libraries/popup-resolver';
 import { __ } from '~/libraries/lang';
+import {Popup} from "~/libraries/popup";
+import {Register} from "~/interfaces/register";
 
 export default {
     name: 'ns-pos-cash-registers-popup',
@@ -14,12 +16,12 @@ export default {
     },
     data() {
         return {
-            registers: [],
+            registers: [] as Register[],
             priorVerification: false,
             hasLoadedRegisters: false,
             validation: new FormValidation,
             amount: 0,
-            settings: null,
+            settings: null as any,
             settingsSubscription: null,
         }
     },
@@ -41,7 +43,7 @@ export default {
 
         popupResolver,
 
-        async selectRegister( register ) {
+        async selectRegister( register: Register ) {
             if ( register.status !== 'closed' ) {
                 return nsSnackBar.error( __( 'Unable to open this register. Only closed register can be opened.' ) );
             }
@@ -83,7 +85,7 @@ export default {
                     this.hasLoadedRegisters     =   true;
                 })
         },
-        getClass( register ) {
+        getClass( register: Register ) {
             switch( register.status ) {
                 case 'in-use':
                     return 'elevation-surface warning cursor-not-allowed';
