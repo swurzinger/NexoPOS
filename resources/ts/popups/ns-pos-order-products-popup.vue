@@ -2,8 +2,12 @@
 import { nsCurrency } from '~/filters/currency';
 import { nsHttpClient } from '~/bootstrap';
 import { __ } from '~/libraries/lang';
+import NsSpinner from "~/components/ns-spinner.vue";
+import NsCloseButton from "~/components/ns-close-button.vue";
+import NsButton from "~/components/ns-button.vue";
 
 export default {
+    components: {NsButton, NsCloseButton, NsSpinner},
     data() {
         return {
             products: [],
