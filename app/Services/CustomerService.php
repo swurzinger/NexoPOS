@@ -23,6 +23,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 
 class CustomerService
@@ -109,9 +110,17 @@ class CustomerService
      */
     public function search( int|string $argument ): Collection
     {
+        $parts = preg_split('/\s+/', str($argument));
         $customers = Customer::with( [ 'billing', 'shipping', 'group' ] )
-            ->orWhere( 'first_name', 'like', '%' . $argument . '%' )
-            ->orWhere( 'last_name', 'like', '%' . $argument . '%' )
+            ->where(function(Builder $query) use ($parts) {
+                foreach ($parts as $part) {
+                    $query->where(function(Builder $subquery) use ($part) {
+                        $subquery
+                            ->where( 'first_name', 'like', '%' . $part . '%' )
+                            ->orWhere( 'last_name', 'like', '%' . $part . '%' );
+                    });
+                }
+            })
             ->orWhere( 'email', 'like', '%' . $argument . '%' )
             ->orWhere( 'phone', 'like', '%' . $argument . '%' )
             ->limit( 10 )

@@ -42,7 +42,7 @@ class Customer extends UserScope
     {
         return [
             Order::class => ClassesModel::dependant(
-                local_name: 'name',
+                local_name: 'first_name',
                 local_index: 'id',
                 foreign_name: 'code',
                 foreign_index: 'customer_id',
