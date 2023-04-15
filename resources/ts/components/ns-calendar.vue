@@ -153,7 +153,8 @@ export default {
     mounted() {        
         document.addEventListener( 'click', this.checkClickedItem );
 
-        this.currentDay     =   [ undefined, null, '' ].includes( this.date ) ? moment() : moment( this.date );
+        const parsedDate = moment( this.date );
+        this.currentDay     =   parsedDate.isValid() ? parsedDate : moment();
         this.hours          =   this.currentDay.hours();
         this.minutes        =   this.currentDay.minutes();
         this.build();
