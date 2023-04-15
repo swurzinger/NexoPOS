@@ -74,7 +74,7 @@ export default {
             .whenVisible([ '.is-popup' ])
             .whenPressed( 'enter', () => this.inputValue({ identifier: 'next' }))
     },
-    beforeDestroy() {
+    beforeUnmount() {
         nsHotPress.destroy( 'numpad-backspace' );
         nsHotPress.destroy( 'numpad-increase' );
         nsHotPress.destroy( 'numpad-reduce' );

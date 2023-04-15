@@ -23,7 +23,7 @@ export default {
 
         this.loadRegisterSummary();
     },
-    beforeDestroy() {
+    beforeUnmount() {
         this.settingsSubscriber.unsubscribe();
     },
     data() {

@@ -44,7 +44,7 @@ export default {
         }
     },
 
-    beforeDestroy() {
+    beforeUnmount() {
         this.optionsSubscriber.unsubscribe();
     },
 

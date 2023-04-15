@@ -140,7 +140,7 @@ export default {
                 }
             })
     },
-    beforeDestroy() {
+    beforeUnmount() {
         nsHotPress.destroy( 'numpad-keys' );
         nsHotPress.destroy( 'numpad-backspace' );
         nsHotPress.destroy( 'numpad-save' );

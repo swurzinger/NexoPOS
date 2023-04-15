@@ -17,7 +17,7 @@ export default {
             Popup.show( nsPosOrderTypePopupVue );
         }
     },
-    beforeDestroy() {
+    beforeUnmount() {
         nsHotPress.destroy( 'ns_pos_keyboard_order_type' );
     },
     mounted() {

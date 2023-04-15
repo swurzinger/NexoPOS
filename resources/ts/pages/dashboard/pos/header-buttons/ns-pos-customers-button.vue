@@ -11,7 +11,7 @@ export default {
             Popup.show( NsPosCustomers );
         }
     },
-    beforeDestroy() {
+    beforeUnmount() {
         nsHotPress.destroy( 'ns_pos_keyboard_create_customer' );
     },
     mounted() {

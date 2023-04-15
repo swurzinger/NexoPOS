@@ -132,7 +132,7 @@ export default {
             }
         }
     },
-    beforeDestroy() {
+    beforeUnmount() {
         nsHotPress.destroy( 'numpad-backspace' );
         nsHotPress.destroy( 'numpad-increase' );
         nsHotPress.destroy( 'numpad-reduce' );

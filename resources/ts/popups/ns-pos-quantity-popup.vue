@@ -42,7 +42,7 @@ export default {
             isLoading: false,
         }
     },
-    beforeDestroy() {
+    beforeUnmount() {
         this.optionsSubscription.unsubscribe();
     },
     mounted() {
