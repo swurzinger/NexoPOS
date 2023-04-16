@@ -114,6 +114,7 @@ import { __ } from "~/libraries/lang";
 import nsPosCustomerSelectPopupVue from './ns-pos-customer-select-popup.vue';
 import nsNotice from '~/components/ns-notice.vue';
 import { ref } from "vue";
+import {nsCurrency} from "~/filters/currency";
 
 export default {
     name: 'ns-pos-coupons-load-popup',

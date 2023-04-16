@@ -73,13 +73,19 @@
 </template>
 <script>
 import FormValidation from '~/libraries/form-validation';
-import { nsHttpClient, nsSnackBar } from '~/bootstrap';
-import { __ } from '~/libraries/lang';
-import { nsCurrency } from '~/filters/currency';
+import {nsHttpClient, nsSnackBar} from '~/bootstrap';
+import {__} from '~/libraries/lang';
+import { nsCurrency, nsRawCurrency } from '~/filters/currency';
+import moment from "moment";
+import NsCloseButton from "~/components/ns-close-button.vue";
+import NsSpinner from "~/components/ns-spinner.vue";
+import NsField from "~/components/ns-field.vue";
+import NsButton from "~/components/ns-button.vue";
 
 export default {
     name: 'ns-pos-layaway-popup',
     props: [ 'popup' ],
+    components: {NsButton, NsField, NsSpinner, NsCloseButton},
     data() {
         return {
             fields: [],
