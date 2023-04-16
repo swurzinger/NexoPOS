@@ -27,7 +27,7 @@ const nsCurrency    =   ( value, format = 'full', locale = 'en' ) => {
 
     let newValue;
 
-    if ( format === 'full' ) {
+    if ( format === 'full' || format === 'abbreviate' ) {
         const config            =   {
             decimal: ns.currency.ns_currency_decimal_separator,
             separator: ns.currency.ns_currency_thousand_separator,
