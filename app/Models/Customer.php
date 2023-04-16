@@ -6,6 +6,7 @@ use App\Classes\Model as ClassesModel;
 use App\Events\CustomerModelBootedEvent;
 use App\Traits\NsCustomerAddress;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +33,8 @@ class Customer extends UserScope
     use HasFactory, NsCustomerAddress;
 
     protected $table = 'nexopos_' . 'users';
+
+    protected $appends = [ 'name' ];
 
     protected $hidden = [
         'password',
@@ -63,6 +66,13 @@ class Customer extends UserScope
 
             CustomerModelBootedEvent::dispatch( $builder );
         } );
+    }
+
+    protected function name(): Attribute
+    {
+        return Attribute::make(
+            get: fn (mixed $value, array $attributes) => "{$attributes['first_name']} {$attributes['last_name']}",
+        )->withoutObjectCaching();
     }
 
     /**

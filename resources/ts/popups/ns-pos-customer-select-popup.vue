@@ -7,7 +7,7 @@
             <div class="p-2 border-b ns-box-body items-center flex justify-between">
                 <span>{{ __( 'Selected' ) }} : </span>
                 <div class="flex items-center justify-between">
-                    <span>{{ order.customer ? `${order.customer.first_name} ${order.customer.last_name}` : 'N/A' }}</span>
+                    <span>{{ order.customer ? order.customer.name : 'N/A' }}</span>
                     <button v-if="order.customer" @click="openCustomerHistory( order.customer, $event )" class="mx-2 rounded-full h-8 w-8 flex items-center justify-center border ns-inset-button hover:border-transparent">
                         <i class="las la-eye"></i>
                     </button>
@@ -34,7 +34,7 @@
                     </li>
                     <li @click="selectCustomer( customer )" v-for="customer of customers" :key="customer.id" class="cursor-pointer p-2 border-b text-fontcolor flex justify-between items-center">
                         <div class="flex flex-col">
-                            <span>{{ customer.first_name }} {{ customer.last_name }}</span>
+                            <span>{{ customer.name }}</span>
                             <small class="text-xs text-fontcolor-soft" v-if="customer.group">{{ customer.group.name }}</small>
                             <small class="text-xs text-fontcolor-soft" v-else>{{ __( 'No Group Assigned' ) }}</small>
                         </div>

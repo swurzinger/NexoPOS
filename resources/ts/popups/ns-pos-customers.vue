@@ -37,7 +37,7 @@
                         <div class="flex-auto p-2 flex flex-col">
                             <div class="flex flex-wrap">
                                 <div class="px-4 mb-4 w-full">
-                                    <h2 class="font-semibold text-primary">{{ __( 'Summary For' ) }} : {{ customer.first_name }} {{ customer.last_name }}</h2>
+                                    <h2 class="font-semibold text-primary">{{ __( 'Summary For' ) }} : {{ customer.name }}</h2>
                                 </div>
                                 <div class="flex flex-wrap ns-tab-cards -mx-2 w-full">
                                     <div class="px-2 mb-4 w-full md:w-1/4 flex">

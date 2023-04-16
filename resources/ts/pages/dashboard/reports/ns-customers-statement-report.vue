@@ -27,7 +27,7 @@
         <div>
             <ns-search
                 :placeholder="__( 'Search Customer...' )"
-                :label="[ 'first_name', 'last_name' ]"
+                label="name"
                 value="id"
                 @select="handleSelectedCustomer( $event )"
                 :url="searchUrl"
@@ -150,7 +150,7 @@ export default {
                 return __( 'N/A' );
             }
 
-            return `${this.selectedCustomer.first_name} ${this.selectedCustomer.last_name}` ;
+            return this.selectedCustomer.name;
         },
     },
     methods: {
