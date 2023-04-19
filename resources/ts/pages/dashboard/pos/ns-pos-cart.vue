@@ -139,7 +139,9 @@
                                     </td>
                                 </template>
                                 <template v-else>
-                                    <td width="200" class="border p-2"></td>
+                                    <td width="200" class="border p-2">
+                                        <b>Kunde Gesamt: {{ customerTotal }}</b>
+                                    </td>
                                 </template>
                                 <td width="200" class="border p-2">{{ __( 'Total' ) }}</td>
                                 <td width="200" class="border p-2 text-right">{{ nsCurrency( order.total ) }}</td>
@@ -201,6 +203,7 @@
                             </tr>
                             <tr class="success">
                                 <td width="200" class="border p-2">
+                                    <b>Kunde Gesamt: {{ customerTotal }}</b>
                                     <template v-if="options.ns_pos_vat !== 'disabled'">
                                         <template v-if="order && options.ns_pos_tax_type === 'exclusive'">
                                             <a v-if="options.ns_pos_prefered_price === 'gross_prices'" @click="openTaxSummary()" class="cursor-pointer outline-hidden border-dashed py-1 border-b border-secondary text-sm">{{ __( 'Tax' ) }}: {{ nsCurrency( order.tax_value ) }}</a>
@@ -252,6 +255,8 @@ import nsPosPayButton from '~/pages/dashboard/pos/cart-buttons/ns-pos-pay-button
 import nsPosHoldButton from '~/pages/dashboard/pos/cart-buttons/ns-pos-hold-button.vue';
 import nsPosDiscountButton from '~/pages/dashboard/pos/cart-buttons/ns-pos-discount-button.vue';
 import nsPosVoidButton from '~/pages/dashboard/pos/cart-buttons/ns-pos-void-button.vue';
+import nsPosBookButton from '~/pages/dashboard/pos/cart-buttons/ns-pos-book-button.vue';
+import nsPosMultiPayButton from '~/pages/dashboard/pos/cart-buttons/ns-pos-multipay-button.vue';
 
 import nsPosCartCommentButton from '~/pages/dashboard/pos/cart-header-buttons/ns-pos-cart-comment-button.vue';
 import nsPosCartTaxesButton from '~/pages/dashboard/pos/cart-header-buttons/ns-pos-cart-taxes-button.vue';
@@ -274,13 +279,10 @@ import nsPosQuickProductPopupVue from '~/popups/ns-pos-quick-product-popup.vue';
 declare const POS, nsShortcuts, nsHotPress, nsHooks;
 
 import { ref, markRaw } from '@vue/reactivity';
-import {toRaw} from "vue";
 import { Order } from '~/interfaces/order';
 import { defineAsyncComponent, Ref } from 'vue';
 import ActionPermissions from '~/libraries/action-permissions';
 
-
-import {BookingQueue} from "~/pages/dashboard/pos/queues/order/booking-queue";
 
 export default {
     name: 'ns-pos-cart',
@@ -290,10 +292,12 @@ export default {
             cartButtons: {},
             products: [],
             defaultCartButtons: {
-                nsPosPayButton: markRaw( nsPosPayButton ),
-                nsPosHoldButton: markRaw( nsPosHoldButton ),
-                nsPosDiscountButton: markRaw( nsPosDiscountButton ),
-                nsPosVoidButton: markRaw( nsPosVoidButton ),
+              nsPosMultiPayButton: markRaw( nsPosMultiPayButton ),
+              nsPosBookButton: markRaw( nsPosBookButton ),
+                // nsPosPayButton: markRaw( nsPosPayButton ),
+                // nsPosHoldButton: markRaw( nsPosHoldButton ),
+                // nsPosDiscountButton: markRaw( nsPosDiscountButton ),
+                // nsPosVoidButton: markRaw( nsPosVoidButton ),
             },
             cartHeaderButtons: {},
             defaultCartHeaderButtons: {
@@ -328,6 +332,9 @@ export default {
         },
         customerName() {
             return this.order.customer ? this.order.customer.name : 'N/A';
+        },
+        customerTotal() {
+            return this.order.customer ? nsCurrency(this.order.customer.owed_amount) : 'N/A';
         },
         couponName() {
             return __( 'Apply Coupon' );

@@ -3,6 +3,7 @@ import { ProductUnitPromise } from "./pages/dashboard/pos/queues/products/produc
 import { CustomerQueue } from "./pages/dashboard/pos/queues/order/customer-queue";
 import { PaymentQueue } from "./pages/dashboard/pos/queues/order/payment-queue";
 import {BookingQueue} from "./pages/dashboard/pos/queues/order/booking-queue";
+import {MultiPaymentQueue} from "~/pages/dashboard/pos/queues/order/multi-payment-queue";
 import { ProductsQueue } from "./pages/dashboard/pos/queues/order/products-queue";
 import { TypeQueue } from "./pages/dashboard/pos/queues/order/type-queue";
 import { BehaviorSubject } from "rxjs";
@@ -49,6 +50,8 @@ const nsPosCashRegister         = (<any>window).nsPosCashRegister = defineAsyncC
 ( window as any ).PaymentQueue      =   PaymentQueue;
 ( window as any ).ProductsQueue     =   ProductsQueue;
 ( window as any ).TypeQueue         =   TypeQueue;
+( window as any ).BookingQueue         =   BookingQueue;
+( window as any ).MultiPaymentQueue         =   MultiPaymentQueue;
 
 declare const systemOptions;
 declare const systemUrls;
@@ -1995,6 +1998,28 @@ export class POS {
             CustomerQueue,
             TypeQueue,
             BookingQueue,
+        ]);
+
+        for( let index in queues ) {
+            try {
+                const promise   =   new queues[ index ]( this.order.getValue() );
+                const response  =   await promise.run();
+            } catch( exception ) {
+                /**
+                 * in case there is something broken
+                 * on the promise, we just stop the queue.
+                 */
+                console.log( exception );
+                return false;
+            }
+        }
+    }
+
+
+    async runMultiPayQueue() {
+        const queues    =   nsHooks.applyFilters( 'ns-multi-pay-queue', [
+            CustomerQueue,
+            MultiPaymentQueue,
         ]);
 
         for( let index in queues ) {
