@@ -158,6 +158,7 @@
                         </tr>
                         <tr class="success">
                             <td width="200" class="border p-2">
+                                <b>Kunde Gesamt: {{ customerTotal }}</b>
                                 <template v-if="order && options.ns_pos_tax_type === 'exclusive'">
                                     <a v-if="options.ns_pos_price_with_tax === 'yes'" @click="openTaxSummary()" class="cursor-pointer outline-none border-dashed py-1 border-b border-info-primary text-sm">{{ __( 'Tax Included' ) }}: {{ nsCurrency( order.total_tax_value + order.products_tax_value ) }}</a>
                                     <a v-else-if="options.ns_pos_price_with_tax === 'no'" @click="openTaxSummary()" class="cursor-pointer outline-none border-dashed py-1 border-b border-info-primary text-sm">{{ __( 'Tax' ) }}: {{ nsCurrency( order.total_tax_value ) }}</a>
@@ -214,6 +215,7 @@
                         </tr>
                         <tr class="success">
                             <td width="200" class="border p-2">
+                                <b>Kunde Gesamt: {{ customerTotal }}</b>
                                 <template v-if="order && options.ns_pos_tax_type === 'exclusive'">
                                     <a v-if="options.ns_pos_price_with_tax === 'yes'" @click="openTaxSummary()" class="cursor-pointer outline-none border-dashed py-1 border-b border-info-primary text-sm">{{ __( 'Tax' ) }}: {{ nsCurrency( order.total_tax_value ) }}</a>
                                     <a v-else-if="options.ns_pos_price_with_tax === 'no'" @click="openTaxSummary()" class="cursor-pointer outline-none border-dashed py-1 border-b border-info-primary text-sm">{{ __( 'Tax Inclusive' ) }}: {{ nsCurrency( order.total_tax_value + order.products_tax_value ) }}</a>
@@ -233,7 +235,7 @@
                     </table>
                 </div>
                 <div class="h-16 flex flex-shrink-0 border-t border-box-edge" id="cart-bottom-buttons">
-                    <div @click="payOrder()" id="pay-button" class="flex-shrink-0 w-1/2 flex items-center font-bold cursor-pointer justify-center bg-green-500 text-white hover:bg-green-600 border-r border-green-600 flex-auto">
+                    <div @click="multiPay()" id="pay-button" class="flex-shrink-0 w-1/2 flex items-center font-bold cursor-pointer justify-center bg-green-500 text-white hover:bg-green-600 border-r border-green-600 flex-auto">
                         <i class="mr-2 text-2xl lg:text-xl las la-cash-register"></i>
                         <span class="text-lg hidden md:inline lg:text-2xl">{{ __( 'Pay' ) }}</span>
                     </div>
@@ -294,6 +296,7 @@ import nsPosQuickProductPopupVue from '~/popups/ns-pos-quick-product-popup.vue';
 import { ref } from '@vue/reactivity';
 import {toRaw} from "vue";
 import {BookingQueue} from "~/pages/dashboard/pos/queues/order/booking-queue";
+import {MultiPaymentQueue} from "~/pages/dashboard/pos/queues/order/multi-payment-queue";
 
 export default {
     name: 'ns-pos-cart',
@@ -323,6 +326,9 @@ export default {
         },
         customerName() {
             return this.order.customer ? this.order.customer.name : 'N/A';
+        },
+        customerTotal() {
+            return this.order.customer ? nsCurrency(this.order.customer.owed_amount) : 'N/A';
         },
         couponName() {
             return __( 'Apply Coupon' );
@@ -738,6 +744,26 @@ export default {
                 CustomerQueue,
                 TypeQueue,
                 PaymentQueue
+            ]);
+
+            for( let index in queues ) {
+                try {
+                    const promise   =   new queues[ index ]( this.order );
+                    const response  =   await promise.run();
+                } catch( exception ) {
+                    /**
+                     * in case there is something broken
+                     * on the promise, we just stop the queue.
+                     */
+                    return false;
+                }
+            }
+        },
+
+        async multiPay() {
+            const queues    =   nsHooks.applyFilters( 'ns-multi-pay-queue', [
+                CustomerQueue,
+                MultiPaymentQueue,
             ]);
 
             for( let index in queues ) {
