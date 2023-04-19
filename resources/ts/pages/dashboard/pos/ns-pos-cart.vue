@@ -274,9 +274,13 @@ import nsPosQuickProductPopupVue from '~/popups/ns-pos-quick-product-popup.vue';
 declare const POS, nsShortcuts, nsHotPress, nsHooks;
 
 import { ref, markRaw } from '@vue/reactivity';
+import {toRaw} from "vue";
 import { Order } from '~/interfaces/order';
 import { defineAsyncComponent, Ref } from 'vue';
 import ActionPermissions from '~/libraries/action-permissions';
+
+
+import {BookingQueue} from "~/pages/dashboard/pos/queues/order/booking-queue";
 
 export default {
     name: 'ns-pos-cart',

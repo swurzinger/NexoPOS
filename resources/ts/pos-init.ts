@@ -2,6 +2,7 @@ import { ProductQuantityPromise } from "./pages/dashboard/pos/queues/products/pr
 import { ProductUnitPromise } from "./pages/dashboard/pos/queues/products/product-unit";
 import { CustomerQueue } from "./pages/dashboard/pos/queues/order/customer-queue";
 import { PaymentQueue } from "./pages/dashboard/pos/queues/order/payment-queue";
+import {BookingQueue} from "./pages/dashboard/pos/queues/order/booking-queue";
 import { ProductsQueue } from "./pages/dashboard/pos/queues/order/products-queue";
 import { TypeQueue } from "./pages/dashboard/pos/queues/order/type-queue";
 import { BehaviorSubject } from "rxjs";
@@ -1987,6 +1988,30 @@ export class POS {
             }
         }
     }
+
+    async runBookingQueue() {
+        const queues    =   nsHooks.applyFilters( 'ns-booking-queue', [
+            ProductsQueue,
+            CustomerQueue,
+            TypeQueue,
+            BookingQueue,
+        ]);
+
+        for( let index in queues ) {
+            try {
+                const promise   =   new queues[ index ]( this.order.getValue() );
+                const response  =   await promise.run();
+            } catch( exception ) {
+                /**
+                 * in case there is something broken
+                 * on the promise, we just stop the queue.
+                 */
+                console.log( exception );
+                return false;
+            }
+        }
+    }
+
 
     computeDiscount( product ) {
         if (['flat', 'percentage'].includes(product.discount_type)) {
