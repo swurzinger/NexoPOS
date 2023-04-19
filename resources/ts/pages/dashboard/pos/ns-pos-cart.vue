@@ -233,6 +233,15 @@
                     </table>
                 </div>
                 <div class="h-16 flex flex-shrink-0 border-t border-box-edge" id="cart-bottom-buttons">
+                    <div @click="payOrder()" id="pay-button" class="flex-shrink-0 w-1/2 flex items-center font-bold cursor-pointer justify-center bg-green-500 text-white hover:bg-green-600 border-r border-green-600 flex-auto">
+                        <i class="mr-2 text-2xl lg:text-xl las la-cash-register"></i>
+                        <span class="text-lg hidden md:inline lg:text-2xl">{{ __( 'Pay' ) }}</span>
+                    </div>
+                    <div @click="bookOrder()" id="book-button" class="flex-shrink-0 w-1/2 flex items-center font-bold cursor-pointer justify-center bg-blue-500 text-white hover:bg-blue-600 border-r border-blue-600 flex-auto">
+                        <i class="mr-2 text-2xl lg:text-xl las la-shopping-basket"></i>
+                        <span class="text-lg hidden md:inline lg:text-2xl">{{ __( 'Book' ) }}</span>
+                    </div>
+                    <!--
                     <div @click="payOrder()" id="pay-button" class="flex-shrink-0 w-1/4 flex items-center font-bold cursor-pointer justify-center bg-green-500 text-white hover:bg-green-600 border-r border-green-600 flex-auto">
                         <i class="mr-2 text-2xl lg:text-xl las la-cash-register"></i>
                         <span class="text-lg hidden md:inline lg:text-2xl">{{ __( 'Pay' ) }}</span>
@@ -249,6 +258,7 @@
                         <i class="mr-2 text-2xl lg:text-xl las la-trash"></i>
                         <span class="text-lg hidden md:inline lg:text-2xl">{{ __( 'Void' ) }}</span>
                     </div>
+                    -->
                 </div>
             </div>
         </div>
@@ -283,6 +293,7 @@ import nsPosProductPricePopupVue from '~/popups/ns-pos-product-price-popup.vue';
 import nsPosQuickProductPopupVue from '~/popups/ns-pos-quick-product-popup.vue';
 import { ref } from '@vue/reactivity';
 import {toRaw} from "vue";
+import {BookingQueue} from "~/pages/dashboard/pos/queues/order/booking-queue";
 
 export default {
     name: 'ns-pos-cart',
@@ -696,6 +707,28 @@ export default {
                 }).then( result => {
                     POS.updateProduct( product, result, index );
                 });
+            }
+        },
+
+        async bookOrder() {
+            const queues    =   nsHooks.applyFilters( 'ns-booking-queue', [
+                ProductsQueue,
+                CustomerQueue,
+                TypeQueue,
+                BookingQueue,
+            ]);
+
+            for( let index in queues ) {
+                try {
+                    const promise   =   new queues[ index ]( this.order );
+                    const response  =   await promise.run();
+                } catch( exception ) {
+                    /**
+                     * in case there is something broken
+                     * on the promise, we just stop the queue.
+                     */
+                    return false;
+                }
             }
         },
 
