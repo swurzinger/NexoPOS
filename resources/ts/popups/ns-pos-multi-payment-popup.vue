@@ -1,9 +1,9 @@
 <script>
-import { ref, toRaw } from 'vue'
+import {ref, toRaw} from 'vue'
 import {nsHttpClient, nsSnackBar} from '~/bootstrap';
 import resolveIfQueued from "~/libraries/popup-resolver";
-import { Popup } from '~/libraries/popup';
-import { __ } from '~/libraries/lang';
+import {Popup} from '~/libraries/popup';
+import {__} from '~/libraries/lang';
 import CashPayment from "~/pages/dashboard/pos/payments/cash-payment.vue";
 import CreditCardPayment from "~/pages/dashboard/pos/payments/creditcard-payment.vue";
 import BankPayment from '~/pages/dashboard/pos/payments/bank-payment.vue';
@@ -11,15 +11,17 @@ import AccountPayment from '~/pages/dashboard/pos/payments/account-payment.vue';
 import nsPosLoadingPopupVue from './ns-pos-loading-popup.vue';
 import samplePaymentVue from '~/pages/dashboard/pos/payments/sample-payment.vue';
 import nsSelectPopupVue from './ns-select-popup.vue';
-import { nsCurrency, nsRawCurrency } from '~/filters/currency';
+import {nsCurrency, nsRawCurrency} from '~/filters/currency';
 import NsButton from "~/components/ns-button.vue";
 import NsCloseButton from "~/components/ns-close-button.vue";
 import NsSpinner from "~/components/ns-spinner.vue";
 import {firstValueFrom} from "rxjs";
+import MultiPayment from "~/pages/dashboard/pos/payments/multi-payment.vue";
+import NsMultiPayment from "~/pages/dashboard/pos/payments/multi-payment.vue";
 
 export default {
     name: 'ns-pos-multi-payment',
-    components: {NsSpinner, NsCloseButton, NsButton},
+    components: {NsMultiPayment, NsSpinner, NsCloseButton, NsButton},
     data() {
         return {
             isLoading: true,
@@ -27,7 +29,7 @@ export default {
             paymentTypesSubscription: null,
             paymentTypes: [],
             order: null,
-            showPayment: false,
+            tab: 'multi',
             orderSubscription: null,
             currentPaymentComponent: null,
         }
@@ -35,7 +37,7 @@ export default {
     computed: {
         activePayment() {
             let payment;
-            return ( payment = this.paymentTypes.filter( p => p.selected ) ).length > 0 ? payment[0] : false;
+            return (payment = this.paymentTypes.filter(p => p.selected)).length > 0 ? payment[0] : false;
         },
         allOrders() {
             if (this.order.total - this.order.tendered > 0) {
@@ -44,51 +46,43 @@ export default {
             } else {
                 return this.unpaidOrders;
             }
-        },
-        sums() {
-            return this.allOrders().reduce(function (result, order) {
-                return {
-                    total: result.total + max(0, order.total - order.tendered),
-                    paid: result.paid + order.tendered + order.payments.sum( p => p.amount)
-                };
-            }, { total: 0, paid: 0 });
         }
     },
     mounted() {
-        this.$popup.event.subscribe( action => {
-            switch( action.event ) {
+        this.$popup.event.subscribe(action => {
+            switch (action.event) {
                 case 'click-overlay':
                     this.closePopup();
-                break;
+                    break;
             }
         });
 
-        this.orderSubscription = POS.order.subscribe( order => {
+        this.orderSubscription = POS.order.subscribe(order => {
             this.order = ref(order);
         })
-        this.paymentTypesSubscription   =   POS.paymentsType.subscribe( paymentTypes => {
-            this.paymentTypes   =   ref(paymentTypes);
-            paymentTypes.filter( payment => {
-                if ( payment.selected ) {
-                    POS.selectedPaymentType.next( payment );
+        this.paymentTypesSubscription = POS.paymentsType.subscribe(paymentTypes => {
+            this.paymentTypes = ref(paymentTypes);
+            paymentTypes.filter(payment => {
+                if (payment.selected) {
+                    POS.selectedPaymentType.next(payment);
                 }
             });
         });
 
         this.loadUnpaidOrders();
 
-        nsHooks.doAction( 'ns-pos-payment-mounted', this );
+        nsHooks.doAction('ns-pos-payment-mounted', this);
     },
     watch: {
-        activePayment( value ) {
-            this.loadPaymentComponent( value );
+        activePayment(value) {
+            this.loadPaymentComponent(value);
         }
     },
     unmounted() {
         this.paymentTypesSubscription.unsubscribe();
         this.orderSubscription.unsubscribe();
 
-        nsHooks.doAction( 'ns-pos-payment-destroyed', this );
+        nsHooks.doAction('ns-pos-payment-destroyed', this);
     },
     methods: {
         __,
@@ -98,92 +92,91 @@ export default {
 
         async loadUnpaidOrders() {
             const result = await firstValueFrom(nsHttpClient.get(`/api/mvl/customer/${this.order.customer.id}/orders/unpaid`));
-            this.unpaidOrders = result.map(order => ({ ...order, payments: [] }));
+            this.unpaidOrders = result.map(order => ({...order, payments: []}));
             this.isLoading = false;
         },
 
-        loadPaymentComponent( payment ) {
-            switch( payment.identifier ) {
+        loadPaymentComponent(payment) {
+            switch (payment.identifier) {
                 case 'cash-payment':
-                    this.currentPaymentComponent    =   CashPayment;
-                break;
-                case 'creditcard-payment':
-                    this.currentPaymentComponent    =   CreditCardPayment;
-                break;
-                case 'bank-payment':
-                    this.currentPaymentComponent    =   BankPayment;
-                break;
+                    this.currentPaymentComponent = CashPayment;
+                    break;
                 case 'account-payment':
-                    this.currentPaymentComponent    =   AccountPayment;
-                break;
+                    this.currentPaymentComponent = AccountPayment;
+                    break;
                 default:
-                    this.currentPaymentComponent    =   samplePaymentVue;
-                break;
+                    this.currentPaymentComponent = samplePaymentVue;
+                    break;
             }
         },
         async selectPayment() {
             try {
-                const result    =   await new Promise( ( resolve, reject ) => {
-                    Popup.show( nsSelectPopupVue, {
-                        label: __( 'Select Payment Gateway' ),
-                        options: this.paymentTypes.map( payment => {
-                            return {
-                                label: payment.label,
-                                value: payment.identifier
-                            }
-                        }),
+                const result = await new Promise((resolve, reject) => {
+                    Popup.show(nsSelectPopupVue, {
+                        label: __('Select Payment Gateway'),
+                        options: [{
+                            label: 'Multi',
+                            value: 'multi',
+                        }].concat(this.paymentTypes.map(payment => ({
+                            label: payment.label,
+                            value: payment.identifier,
+                        }))),
                         value: this.activePayment.identifier,
                         resolve, reject
                     })
                 });
 
-                this.select( this.paymentTypes.filter( p => p.identifier === result[0].value )[0] );
-            } catch( exception ) {
+                if (result[0].value === 'multi') {
+                    this.tab = 'multi';
+                } else {
+                    this.select(this.paymentTypes.filter(p => p.identifier === result[0].value)[0]);
+                }
+            } catch (exception) {
                 // not necessary to throw an error.
             }
         },
-        select( payment ) {
-            this.showPayment    =   false;
-            POS.setPaymentActive( toRaw(payment) );
+        select(payment) {
+            this.tab = 'pay';
+            POS.setPaymentActive(toRaw(payment));
         },
         closePopup() {
             this.$popup.close();
-            POS.selectedPaymentType.next( null );
+            POS.selectedPaymentType.next(null);
         },
-        deletePayment( payment ) {
-            POS.removePayment( toRaw(payment) );
+        deletePayment(payment) {
+            POS.removePayment(toRaw(payment));
         },
-        selectPaymentAsActive( event ) {
-            this.select( this.paymentTypes.filter( payment => payment.identifier === event.target.value )[0] );
+        selectPaymentAsActive(event) {
+            this.select(this.paymentTypes.filter(payment => payment.identifier === event.target.value)[0]);
         },
-        submitOrder( data = {}) {
-            const popup     =   Popup.show( nsPosLoadingPopupVue );
+        submitOrder(data = {}) {
+            const popup = Popup.show(nsPosLoadingPopupVue);
 
             try {
 
-                const order     =   { ...POS.order.getValue(), ...data };
+                const order = {...POS.order.getValue(), ...data};
 
-                POS.submitOrder( order ).then( result => {
+                POS.submitOrder(order).then(result => {
                     // close spinner
                     popup.close();
 
-                    nsSnackBar.success( result.message ).subscribe();
+                    nsSnackBar.success(result.message).subscribe();
 
-                    POS.printOrderReceipt( result.data.order, 'silent' );
+                    POS.printOrderReceipt(result.data.order, 'silent');
                     // close payment popup
                     this.$popup.close();
-                }, ( error ) => {
+                }, (error) => {
                     // close loading popup
                     popup.close();
 
                     // show error message
-                    nsSnackBar.error( error.message ).subscribe();
+                    nsSnackBar.error(error.message).subscribe();
                 });
-            } catch( exception ) {
+            } catch (exception) {
                 popup.close();
 
                 // show error message
-                nsSnackBar.error( error.message ).subscribe();
+                nsSnackBar.error(error.message).subscribe();
             }
         }
     }
@@ -196,13 +189,24 @@ export default {
         </div>
         <div class="flex flex-col flex-auto lg:flex-row shadow-xl" v-if="!isLoading">
             <div class="w-full lg:w-56 lg:h-full flex justify-between px-2 lg:px-0 lg:block items-center lg:items-start">
-                <h3 class="lg:hidden text-xl text-center my-4 font-bold lg:my-8">{{ __( 'Gateway' ) }} <span>: {{ activePayment.label }}</span></h3>
+                <h3 class="lg:hidden text-xl text-center my-4 font-bold lg:my-8">{{ __('Gateway') }}
+                    <span>: {{ activePayment.label }}</span></h3>
                 <div class="h-16 hidden lg:block"></div>
                 <ul class="hidden lg:block">
-                    <li @click="select( payment )" v-for="payment of paymentTypes" :class="payment.selected && ! showPayment ? 'ns-visible' : ''" :key="payment.identifier" class="cursor-pointer ns-payment-gateway py-2 px-3">{{ payment.label }}</li>
-                    <li @click="showPayment = true" :class="showPayment ? 'ns-visible' : ''" class="cursor-pointer py-2 px-3 ns-payment-list border-t mt-4 flex items-center justify-between">
-                        <span>{{ __( 'Payment List' ) }}</span>
-                        <span class="px-2 rounded-full h-8 w-8 flex items-center justify-center ns-label">{{ order.payments.length }}</span>
+                    <li @click="tab = 'multi'" :class="tab === 'multi' ? 'ns-visible' : ''"
+                        class="cursor-pointer ns-payment-gateway py-2 px-3">
+                        Multi
+                    </li>
+                    <li @click="select( payment )" v-for="payment of paymentTypes"
+                        :class="payment.selected && tab === 'pay' ? 'ns-visible' : ''" :key="payment.identifier"
+                        class="cursor-pointer ns-payment-gateway py-2 px-3">{{ payment.label }}
+                    </li>
+                    <li @click="tab = 'list'" :class="tab === 'list' ? 'ns-visible' : ''"
+                        class="cursor-pointer py-2 px-3 ns-payment-list border-t mt-4 flex items-center justify-between">
+                        <span>{{ __('Payment List') }}</span>
+                        <span class="px-2 rounded-full h-8 w-8 flex items-center justify-center ns-label">{{
+                            order.payments.length
+                            }}</span>
                     </li>
                 </ul>
                 <ns-close-button class="lg:hidden" @click="closePopup()"></ns-close-button>
@@ -211,30 +215,40 @@ export default {
                 <div class="flex flex-col flex-auto overflow-hidden">
                     <div class="h-12 hidden items-center justify-between lg:flex">
                         <div>
-                            <h3 class="text-xl hidden lg:block text-center my-4 font-bold lg:my-8">{{ __( 'Gateway' ) }} <span class="hidden-md">: {{ activePayment.label }}</span></h3>
+                            <h3 class="text-xl hidden lg:block text-center my-4 font-bold lg:my-8">{{ __('Gateway') }}
+                                <span class="hidden-md">: {{ activePayment.label }}</span></h3>
                         </div>
                         <div class="px-2">
                             <ns-close-button @click="closePopup()"></ns-close-button>
                         </div>
                     </div>
-                    <div class="flex flex-auto ns-payment-wrapper overflow-y-auto" v-if="! showPayment">
-                        <component
-                            @submit="submitOrder()"
-                            :label="activePayment.label"
-                            :identifier="activePayment.identifier"
-                            v-bind:is="currentPaymentComponent"></component>
+                    <div class="flex flex-auto ns-payment-wrapper overflow-y-auto" v-if="tab === 'multi'">
+                        <ns-multi-payment
+                                :orders="allOrders"
+                        />
                     </div>
-                    <div class="flex flex-auto ns-payment-wrapper overflow-y-auto p-2 flex-col" v-if="showPayment">
-                        <h3 class="text-center font-bold py-2">{{ __( 'List Of Payments' ) }}</h3>
+                    <div class="flex flex-auto ns-payment-wrapper overflow-y-auto" v-if="tab === 'pay'">
+                        <component
+                                @submit="submitOrder()"
+                                :label="activePayment.label"
+                                :identifier="activePayment.identifier"
+                                v-bind:is="currentPaymentComponent"></component>
+                    </div>
+                    <div class="flex flex-auto ns-payment-wrapper overflow-y-auto p-2 flex-col" v-if="tab === 'list'">
+                        <h3 class="text-center font-bold py-2">{{ __('List Of Payments') }}</h3>
                         <ul class="flex-auto">
                             <li :key="index" v-for="(order, index) of allOrders">
-                                <h3 class="font-semibold">{{ __( 'Order' ) }} {{ order.code }} {{ nsCurrency(order.total) }}</h3>
+                                <h3 class="font-semibold">{{ __('Order') }} {{ order.code }} {{
+                                    nsCurrency(order.total)
+                                    }}</h3>
                                 <ul>
-                                    <li :key="index" v-for="(payment,index) of order.payments" class="p-2 flex justify-between mb-2 items-center">
-                                        <span>{{ payment.label}}</span>
+                                    <li :key="index" v-for="(payment,index) of order.payments"
+                                        class="p-2 flex justify-between mb-2 items-center">
+                                        <span>{{ payment.label }}</span>
                                         <div class="flex items-center">
-                                            <span>{{ nsCurrency( payment.value ) }}</span>
-                                            <button @click="deletePayment( order, payment )" class="rounded-full  h-8 w-8 flex items-center justify-center ml-2">
+                                            <span>{{ nsCurrency(payment.value) }}</span>
+                                            <button @click="deletePayment( order, payment )"
+                                                    class="rounded-full  h-8 w-8 flex items-center justify-center ml-2">
                                                 <i class="las la-trash-alt"></i>
                                             </button>
                                         </div>
@@ -245,27 +259,36 @@ export default {
                     </div>
                 </div>
                 <div class="flex lg:hidden ns-payment-buttons">
-                    <button @click="selectPayment()" class="flex items-center justify-center w-1/3 text-2xl flex-auto h-12 font-bold ns-payment-type-button">
-                        <span class="text-sm">{{ __( 'Payment Type' ) }}</span>
+                    <button @click="selectPayment()"
+                            class="flex items-center justify-center w-1/3 text-2xl flex-auto h-12 font-bold ns-payment-type-button">
+                        <span class="text-sm">{{ __('Payment Type') }}</span>
                     </button>
-                    <button v-if="order.tendered >= order.total" @click="submitOrder()" class="flex items-center justify-center w-1/3 text-2xl flex-auto h-12 ns-submit-button font-bold">
-                        <span class="text-sm">{{ __( 'Submit Payment' ) }}</span>
+                    <button v-if="order.tendered >= order.total" @click="submitOrder()"
+                            class="flex items-center justify-center w-1/3 text-2xl flex-auto h-12 ns-submit-button font-bold">
+                        <span class="text-sm">{{ __('Submit Payment') }}</span>
                     </button>
-                    <button v-if="order.tendered < order.total" @click="submitOrder({ payment_status: 'unpaid' })" class="flex items-center justify-center w-1/3 text-2xl flex-auto h-12 ns-layaway-button font-bold">
-                        <span class="text-sm">{{ __( 'Layaway' ) }}</span>
+                    <button v-if="order.tendered < order.total" @click="submitOrder({ payment_status: 'unpaid' })"
+                            class="flex items-center justify-center w-1/3 text-2xl flex-auto h-12 ns-layaway-button font-bold">
+                        <span class="text-sm">{{ __('Layaway') }}</span>
                     </button>
-                    <button @click="showPayment = true" class="w-1/3 flex ns-payment-button text-2xl flex-auto h-12 items-center justify-center font-bold">
-                        <span class="text-sm mr-1">{{ __( 'Payment List' ) }}</span>
-                        <span class="px-2 rounded-full h-6 w-6 text-xs flex items-center justify-center ns-label">{{ order.payments.length }}</span>
+                    <button @click="tab = 'list'"
+                            class="w-1/3 flex ns-payment-button text-2xl flex-auto h-12 items-center justify-center font-bold">
+                        <span class="text-sm mr-1">{{ __('Payment List') }}</span>
+                        <span class="px-2 rounded-full h-6 w-6 text-xs flex items-center justify-center ns-label">{{
+                            order.payments.length
+                            }}</span>
                     </button>
                 </div>
                 <div class="flex-col sm:flex-row w-full ns-payment-footer justify-end p-2 hidden lg:flex">
                     <div class="flex justify-end">
-                        <ns-button v-if="order.tendered >= order.total" @click="submitOrder()" :type="order.tendered >= order.total ? 'success' : 'info'">
-                            <span ><i class="las la-cash-register"></i> {{ __( 'Submit Payment' ) }}</span>
+                        <ns-button v-if="order.tendered >= order.total" @click="submitOrder()"
+                                   :type="order.tendered >= order.total ? 'success' : 'info'">
+                            <span><i class="las la-cash-register"></i> {{ __('Submit Payment') }}</span>
                         </ns-button>
-                        <ns-button v-if="order.tendered < order.total" @click="submitOrder({ payment_status: 'unpaid' })" :type="order.tendered >= order.total ? 'success' : 'info'">
-                            <span><i class="las la-bookmark"></i> {{ __( 'Pay Later' ) }} </span>
+                        <ns-button v-if="order.tendered < order.total"
+                                   @click="submitOrder({ payment_status: 'unpaid' })"
+                                   :type="order.tendered >= order.total ? 'success' : 'info'">
+                            <span><i class="las la-bookmark"></i> {{ __('Pay Later') }} </span>
                         </ns-button>
                     </div>
                 </div>
