@@ -11,11 +11,11 @@ import nsPosLoadingPopupVue from './ns-pos-loading-popup.vue';
 import samplePaymentVue from '~/pages/dashboard/pos/payments/sample-payment.vue';
 import nsSelectPopupVue from './ns-select-popup.vue';
 import { nsCurrency, nsRawCurrency } from '~/filters/currency';
-import { ref, toRaw } from 'vue';
+import { shallowRef, ref, toRaw } from 'vue';
 import { nsConfirmPopup } from '~/components/components';
 import { HttpStatusResponse } from '~/interfaces/http-status-response';
 
-declare const POS, nsHooks, nsCloseButton, nsButton, shallowRef;
+declare const POS, nsHooks, nsCloseButton, nsButton;
 
 export default {
     name: 'ns-pos-payment',
@@ -50,7 +50,7 @@ export default {
             }
         });
         this.paymentTypesSubscription   =   POS.paymentsType.subscribe( paymentsType => {
-            this.paymentsType   =   ref(paymentsType);
+            this.paymentsType   =   paymentsType;
             paymentsType.filter( payment => {
                 if ( payment.selected ) {
                     POS.selectedPaymentType.next( payment );
