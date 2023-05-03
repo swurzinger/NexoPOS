@@ -4,9 +4,8 @@
     "node": "16.x"
   },
   "scripts": {
-    "build": "vite build",
-    "dev": "vite",
-    "watch": "vite build --watch"
+    "watch": "npx vite build --mode development --watch",
+    "production": "npx vite build --mode production"
   },
   "devDependencies": {
     "@types/node": "^18.8.4",

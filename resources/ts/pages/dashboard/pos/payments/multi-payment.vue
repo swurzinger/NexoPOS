@@ -31,14 +31,19 @@
         <div class="px-2 pb-2">
             <div class="-mx-2 flex flex-wrap">
                 <div class="pl-2 pr-1 flex-auto">
-                    <ns-numpad :floating="true" @changed="handleChange( $event )" @next="proceedAddingPayment( $event )">
-                        <template v-slot:numpad-footer>
-                            <div
-                            @click="makeFullPayment()"
-                            class="hover:bg-success-tertiary col-span-3 bg-success-secondary text-2xl text-white border border-success-secondary h-16 flex items-center justify-center cursor-pointer">
-                            {{ __( 'Full Payment' ) }}</div>
-                        </template>
-                    </ns-numpad>
+                    <div
+                        @click="autoAssign()"
+                        class="elevation-surface border hoverable text-2xl text-primary h-16 flex items-center justify-center cursor-pointer">
+                        <span>Automatisch zuweisen</span>
+                    </div>
+<!--                    <ns-numpad :floating="true" @changed="handleChange( $event )" @next="proceedAddingPayment( $event )">-->
+<!--                        <template v-slot:numpad-footer>-->
+<!--                            <div-->
+<!--                            @click="makeFullPayment()"-->
+<!--                            class="hover:bg-success-tertiary col-span-3 bg-success-secondary text-2xl text-white border border-success-secondary h-16 flex items-center justify-center cursor-pointer">-->
+<!--                            {{ __( 'Full Payment' ) }}</div>-->
+<!--                        </template>-->
+<!--                    </ns-numpad>-->
                 </div>
                 <div class="w-1/2 md:w-72 pr-2 pl-1">
                     <div class="grid grid-flow-row grid-rows-1 gap-2">
@@ -135,6 +140,22 @@ export default {
         },
         proceedFullPayment() {
             this.proceedAddingPayment( this.order.total );
+        },
+        autoAssign() {
+            let customer = this.order.customer;
+            for (const o of this.orders) {
+                if (customer.account_amount <= 0) break;
+                const toBePaid = Math.max(0, o.total - o.tendered);
+                if (toBePaid > 0) {
+                    const payment = Math.min(customer.account_amount, toBePaid);
+                    o.payments.push({
+                        'label': 'Kundenkonto',
+                        'method': 'account-payment',
+                        'value': payment,
+                    });
+                    customer.account_amount -= payment;
+                }
+            }
         },
         makeFullPayment() {
             Popup.show( nsPosConfirmPopupVue, {
