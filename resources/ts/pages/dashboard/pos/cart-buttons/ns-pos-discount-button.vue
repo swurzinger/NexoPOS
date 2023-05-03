@@ -14,6 +14,8 @@ export default {
     props: [ 'order', 'settings' ],
     methods: {
         __,
+
+        // TODO: duplicated functionality in ns-pos-cart.vue
         async openDiscountPopup( reference, type, productIndex = null ) {
             if ( ! this.settings.products_discount && type === 'product' ) {
                 return nsSnackBar.error( __( `You're not allowed to add a discount on the product.` ) );
