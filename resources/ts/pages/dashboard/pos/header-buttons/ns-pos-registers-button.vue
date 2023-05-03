@@ -47,6 +47,10 @@ export default {
         registerInitialQueue() {
             POS.initialQueue.push( () => new Promise( async ( resolve, reject ) => {
                 try {
+                    if (this.settings.register !== undefined) {
+                        return;
+                    }
+
                     const response  =   await new Promise( ( resolve, reject ) => {
                         if ( this.settings.register === undefined ) {
                             return Popup.show( nsPosCashRegistersPopupVue, { resolve, reject }, {
