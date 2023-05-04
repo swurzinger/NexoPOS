@@ -21,6 +21,7 @@ import NsMultiPayment from "~/pages/dashboard/pos/payments/multi-payment.vue";
 
 export default {
     name: 'ns-pos-multi-payment',
+    props: [ 'popup' ],
     components: {NsMultiPayment, NsSpinner, NsCloseButton, NsButton},
     data() {
         return {
@@ -49,14 +50,6 @@ export default {
         }
     },
     mounted() {
-        this.$popup.event.subscribe(action => {
-            switch (action.event) {
-                case 'click-overlay':
-                    this.closePopup();
-                    break;
-            }
-        });
-
         this.orderSubscription = POS.order.subscribe(order => {
             this.order = ref(order);
         })
@@ -140,7 +133,7 @@ export default {
             POS.setPaymentActive(toRaw(payment));
         },
         closePopup() {
-            this.$popup.close();
+            this.popup.close();
             POS.selectedPaymentType.next(null);
         },
         deletePayment(payment) {
@@ -164,7 +157,7 @@ export default {
 
                     POS.printOrderReceipt(result.data.order, 'silent');
                     // close payment popup
-                    this.$popup.close();
+                    this.popup.close();
                 }, (error) => {
                     // close loading popup
                     popup.close();

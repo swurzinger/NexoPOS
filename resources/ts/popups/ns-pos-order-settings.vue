@@ -16,15 +16,18 @@
 </template>
 <script>
 import FormValidation from '~/libraries/form-validation';
+import popupCloser from "~/libraries/popup-closer";
+import popupResolver from "~/libraries/popup-resolver";
 export default {
     name: 'ns-pos-order-settings',
+    props: [ 'popup' ],
     mounted() {
         nsHttpClient.get( '/api/fields/ns.pos-order-settings' )
             .subscribe( fields => {
                 fields.forEach( field => {
-                    field.value     =   this.$popupParams.order[ field.name ] || '';
+                    field.value     =   this.popup.params.order[ field.name ] || '';
                 });
-                
+
                 this.fields     =   this.validation.createFields( fields );
             }, ( error ) => {
 
@@ -41,7 +44,7 @@ export default {
     methods: {
         __,
 
-        popupCloser, 
+        popupCloser,
         popupResolver,
 
         closePopup() {

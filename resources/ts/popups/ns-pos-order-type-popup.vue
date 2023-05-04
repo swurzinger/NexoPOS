@@ -43,13 +43,8 @@ export default {
             urls: {}
         }
     },
+    props: [ 'popup' ],
     mounted() {
-        this.$popup.event.subscribe( action => {
-            if ( action.event === 'click-overlay' ) {
-                this.resolveIfQueued( false );
-            }
-        });
-
         this.settingsSubscription   =   POS.settings.subscribe( settings => {
             this.urls    =   settings.urls;
         });
@@ -94,8 +89,7 @@ export default {
             try {
                 const result    =   await POS.triggerOrderTypeSelection( selectedType );
                 POS.types.next( this.types );
-                this.resolveIfQueued( selectedType );
-                if (immediate) this.$popup.close(true);
+                this.resolveIfQueued( selectedType, immediate );
             } catch( exception ) {
                 // ...
             }

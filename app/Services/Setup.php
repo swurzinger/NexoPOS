@@ -6,21 +6,12 @@ use App\Events\UserAfterActivationSuccessfulEvent;
 use App\Models\Migration;
 use App\Models\PaymentType;
 use App\Models\User;
-use App\Widgets\BestCashiersWidget;
-use App\Widgets\BestCustomersWidget;
-use App\Widgets\ExpenseCardWidget;
-use App\Widgets\IncompleteSaleCardWidget;
-use App\Widgets\OrdersChartWidget;
-use App\Widgets\OrdersSummaryWidget;
-use App\Widgets\ProfileWidget;
-use App\Widgets\SaleCardWidget;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Jackiedo\DotenvEditor\Facades\DotenvEditor;
 
 class Setup
 {
@@ -99,17 +90,15 @@ class Setup
             return response()->json( $message, 403 );
         }
 
-        DotEnvEditor::load();
-        DotEnvEditor::setKey( 'MAIL_MAILER', 'log' );
-        DotEnvEditor::setKey( 'DB_HOST', $request->input( 'hostname' ) );
-        DotEnvEditor::setKey( 'DB_DATABASE', $request->input( 'database_name' ) ?: database_path( 'database.sqlite' ) );
-        DotEnvEditor::setKey( 'DB_USERNAME', $request->input( 'username' ) );
-        DotEnvEditor::setKey( 'DB_PASSWORD', $request->input( 'password' ) );
-        DotEnvEditor::setKey( 'DB_PREFIX', $request->input( 'database_prefix' ) );
-        DotEnvEditor::setKey( 'DB_PORT', $request->input( 'database_port' ) ?: 3306 );
-        DotEnvEditor::setKey( 'DB_CONNECTION', $request->input( 'database_driver' ) ?: 'mysql' );
-        DotEnvEditor::setKey( 'APP_URL', url()->to( '/' ) );
-        DotenvEditor::save();
+        ns()->envEditor->set( 'MAIL_MAILER', 'log' );
+        ns()->envEditor->set( 'DB_HOST', $request->input( 'hostname' ) );
+        ns()->envEditor->set( 'DB_DATABASE', $request->input( 'database_name' ) ?: database_path( 'database.sqlite' ) );
+        ns()->envEditor->set( 'DB_USERNAME', $request->input( 'username' ) );
+        ns()->envEditor->set( 'DB_PASSWORD', $request->input( 'password' ) );
+        ns()->envEditor->set( 'DB_PREFIX', $request->input( 'database_prefix' ) );
+        ns()->envEditor->set( 'DB_PORT', $request->input( 'database_port' ) ?: 3306 );
+        ns()->envEditor->set( 'DB_CONNECTION', $request->input( 'database_driver' ) ?: 'mysql' );
+        ns()->envEditor->set( 'APP_URL', url()->to( '/' ) );
 
         /**
          * Link the resource storage
@@ -149,6 +138,14 @@ class Setup
             '--symlink' => true,
         ]);
 
+        $domain = pathinfo( url()->to( '/' ) );
+        ns()->envEditor->set( 'NS_VERSION', config( 'nexopos.version' ) );
+        ns()->envEditor->set( 'NS_AUTHORIZATION', Str::random(20) );
+        ns()->envEditor->set( 'NS_SOCKET_PORT', 6001 );
+        ns()->envEditor->set( 'NS_SOCKET_DOMAIN', $domain[ 'basename' ] );
+        ns()->envEditor->set( 'NS_SOCKET_ENABLED', 'false' );
+        ns()->envEditor->set( 'NS_ENV', 'production' );
+        
         /**
          * we'll register all "update" migration
          * as already run as these migration are supposed
@@ -176,8 +173,13 @@ class Setup
                 ns()->update->assumeExecuted( $file );
             });
 
-        $userID = rand(1, 99);
+        /**
+         * From this moment, new permissions has been created.
+         * However Laravel gates aren't aware of them. We'll fix this here.
+         */
+        ns()->registerGatePermissions();
 
+        $userID = rand(1, 99);
         $user = new User;
         $user->id = $userID;
         $user->username = $fields[ 'admin_username' ];
@@ -198,17 +200,6 @@ class Setup
         UserAfterActivationSuccessfulEvent::dispatch( $user );
                 
         $this->createDefaultPayment( $user );
-
-        $domain = pathinfo( url()->to( '/' ) );
-
-        DotenvEditor::load();
-        DotenvEditor::setKey( 'NS_VERSION', config( 'nexopos.version' ) );
-        DotenvEditor::setKey( 'NS_AUTHORIZATION', Str::random(20) );
-        DotenvEditor::setKey( 'NS_SOCKET_PORT', 6001 );
-        DotenvEditor::setKey( 'NS_SOCKET_DOMAIN', $domain[ 'basename' ] );
-        DotenvEditor::setKey( 'NS_SOCKET_ENABLED', 'false' );
-        DotenvEditor::setKey( 'NS_ENV', 'production' );
-        DotenvEditor::save();
 
         /**
          * We assume so far the application is installed
