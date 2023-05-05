@@ -15,15 +15,15 @@
                     <span>{{ __( 'Paid' ) }} : </span>
                     <span>{{ nsCurrency( sums.paid ) }}</span>
                 </div>
-                <div id="paid" class="h-16 flex justify-between items-center elevation-surface success border text-xl md:text-3xl p-2">
-                    <span>{{ __( 'Paid (Cash)' ) }} : </span>
-                    <span>{{ nsCurrency( sums.paidCash ) }}</span>
-                </div>
-
                 <div id="change" class="h-16 flex justify-between items-center elevation-surface warning border text-xl md:text-3xl p-2">
                     <span>{{ __( 'To Pay' ) }} : </span>
                     <span>{{ nsCurrency( sums.remaining ) }}</span>
                 </div>
+                <div id="paid" class="h-16 flex justify-between items-center elevation-surface success border text-xl md:text-3xl p-2">
+                    <span>{{ __( 'Cash' ) }} : </span>
+                    <span>{{ nsCurrency( sums.paidCash ) }}</span>
+                </div>
+
                 <div id="change" class="col-span-2 h-16 flex justify-between items-center elevation-surface border success text-xl md:text-3xl p-2">
                     <span>{{ __( 'Current Balance' ) }} : </span>
                     <span>{{ nsCurrency( sums.accountBalance ) }}</span>
@@ -79,9 +79,10 @@ import nsNumpad from "~/components/ns-numpad.vue";
 import { nsSnackBar } from '~/bootstrap';
 import nsPosConfirmPopupVue from '~/popups/ns-pos-confirm-popup.vue';
 import { __ } from '~/libraries/lang';
-import { nsCurrency } from '~/filters/currency';
+import {nsCurrency, nsMoney} from '~/filters/currency';
 import { Popup } from "~/libraries/popup";
 import nsCustomersTransactionPopupVue from "~/popups/ns-customers-transaction-popup.vue";
+import {ref} from "@vue/reactivity";
 
 declare const POS;
 
@@ -101,18 +102,26 @@ export default {
     computed: {
         sums() {
             let sums = this.orders.reduce(function (result, order) {
-                let paidCash = order.payments.filter( p => p.identifier === 'cash-payment').reduce( (t, p) => t + p.value, 0 );
-                let paidAccount = order.payments.filter( p => p.identifier === 'account-payment').reduce( (t, p) => t + p.value, 0 );
+                let paidCash = order.payments.filter( p => p.identifier === 'cash-payment')
+                    .reduce( (t, p) => t.add(p.value), nsMoney(0) );
+                let paidAccount = order.payments.filter( p => p.identifier === 'account-payment')
+                    .reduce( (t, p) => t.add(p.value), nsMoney(0) );
                 return {
-                    total: result.total + Math.max(0, order.total - order.tendered),
-                    paid: result.paid + paidCash + paidAccount,
-                    paidCash: result.paidCash + paidCash,
-                    paidAccount: result.paidAccount + paidAccount,
+                    total: result.total.add(Math.max(0, order.total - order.tendered)),
+                    paid: result.paid.add(paidCash).add(paidAccount),
+                    paidCash: result.paidCash.add(paidCash),
+                    paidAccount: result.paidAccount.add(paidAccount),
                 };
-            }, { total: 0, paid: 0, paidCash: 0, paidAccount: 0 });
-            sums.remaining = Math.max(0, sums.total - sums.paid);
-            sums.accountBalance = this.order ? this.order.customer.account_amount - sums.paidAccount : 0;
-            return sums;
+            }, { total: nsMoney(0), paid: nsMoney(0), paidCash: nsMoney(0), paidAccount: nsMoney(0) });
+            const accountBalance = this.order?.customer ? nsMoney(this.order.customer.account_amount).subtract(sums.paidAccount) : 0;
+            return {
+                total: Number(sums.total),
+                paid: Number(sums.paid),
+                paidCash: Number(sums.paidCash),
+                paidAccount: Number(sums.paidAccount),
+                remaining: Math.max(0, sums.total.subtract(sums.paid).value),
+                accountBalance: Number(accountBalance)
+            };
         }
     },
     methods: {
@@ -159,17 +168,19 @@ export default {
         //     this.proceedAddingPayment( this.order.total );
         // },
         autoAssign( amountToAssign: number, paymentMethod: string ) {
+            let remainingAmount = nsMoney(amountToAssign);
             for (const o of this.orders) {
-                if (amountToAssign <= 0) break;
-                const toBePaid = Math.max(0, o.total - o.tendered - o.payments.reduce( (t, p) => t + p.value, 0 ));
+                if (remainingAmount.intValue <= 0) break;
+                const totalPayments = o.payments.reduce( (t, p) => t.add(p.value), nsMoney(0) );
+                const toBePaid = Math.max(0, nsMoney(o.total).subtract(o.tendered).subtract(totalPayments).value);
                 if (toBePaid > 0) {
-                    const payment = Math.min(amountToAssign, toBePaid);
+                    const payment = Math.min(remainingAmount.value, toBePaid);
                     o.payments.push({
                         'label': paymentMethod === 'cash-payment' ? 'Barzahlung' : 'Kundenkonto',
                         'identifier': paymentMethod,
                         'value': payment,
                     });
-                    amountToAssign -= payment;
+                    remainingAmount = remainingAmount.subtract(payment);
                 }
             }
         },
@@ -205,7 +216,7 @@ export default {
         // },
     },
     mounted() {
-        this.subscription   =   POS.order.subscribe( order => this.order = order );
+        this.subscription   =   POS.order.subscribe( order => this.order = ref(order) );
     },
     unmounted() {
         this.subscription.unsubscribe();

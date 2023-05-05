@@ -35,7 +35,7 @@ const nsCurrency    =   ( value, format = 'full', locale = 'en' ) => {
             precision : parseInt( ns.currency.ns_currency_precision ),
             symbol: ''
         };
-    
+
         newValue    =   currency( value, config ).format();
     } else {
         newValue    =   NumeralJS( value ).format( '0.0a' );
@@ -59,4 +59,14 @@ const nsNumberAbbreviate    =   ( value ) => {
     return NumeralJS( value ).format( '0a' );
 }
 
-export { nsCurrency, nsRawCurrency, nsNumberAbbreviate };
+const nsMoney = (value) => {
+    const config            =   {
+        decimal: ns.currency.ns_currency_decimal_separator,
+        separator: ns.currency.ns_currency_thousand_separator,
+        precision : parseInt( ns.currency.ns_currency_precision ),
+        symbol: ns.currency.ns_currency_symbol,
+    };
+    return currency(value, config);
+}
+
+export { nsCurrency, nsRawCurrency, nsNumberAbbreviate, nsMoney };
