@@ -1,40 +1,53 @@
 <template>
     <div class="h-full w-full py-2">
-        <div class="px-2 pb-2" v-if="order">
+        <div class="px-2 pb-2">
             <div class="grid grid-cols-2 gap-2">
                 <div id="details" class="h-16 flex justify-between items-center elevation-surface border info text-xl md:text-3xl p-2">
                     <span>{{ __( 'Total' ) }} : </span>
-                    <span>{{ nsCurrency( order.total ) }}</span>
+                    <span>{{ nsCurrency( sums.total ) }}</span>
                 </div>
+                <!--
                 <div id="discount" @click="toggleDiscount()" class="cursor-pointer h-16 flex justify-between items-center elevation-surface error border text-xl md:text-3xl p-2">
                     <span>{{ __( 'Discount' ) }} : </span>
                     <span>{{ nsCurrency( order.discount ) }}</span>
-                </div>
+                </div>-->
                 <div id="paid" class="h-16 flex justify-between items-center elevation-surface success border text-xl md:text-3xl p-2">
                     <span>{{ __( 'Paid' ) }} : </span>
-                    <span>{{ nsCurrency( order.tendered ) }}</span>
+                    <span>{{ nsCurrency( sums.paid ) }}</span>
                 </div>
+                <div id="paid" class="h-16 flex justify-between items-center elevation-surface success border text-xl md:text-3xl p-2">
+                    <span>{{ __( 'Paid (Cash)' ) }} : </span>
+                    <span>{{ nsCurrency( sums.paidCash ) }}</span>
+                </div>
+
                 <div id="change" class="h-16 flex justify-between items-center elevation-surface warning border text-xl md:text-3xl p-2">
-                    <span>{{ __( 'Change' ) }} : </span>
-                    <span>{{ nsCurrency( order.change ) }}</span>
+                    <span>{{ __( 'To Pay' ) }} : </span>
+                    <span>{{ nsCurrency( sums.remaining ) }}</span>
                 </div>
                 <div id="change" class="col-span-2 h-16 flex justify-between items-center elevation-surface border success text-xl md:text-3xl p-2">
                     <span>{{ __( 'Current Balance' ) }} : </span>
-                    <span>{{ nsCurrency( order.customer.account_amount ) }}</span>
+                    <span>{{ nsCurrency( sums.accountBalance ) }}</span>
                 </div>
+                <!--
                 <div id="change" class="col-span-2 h-16 flex justify-between items-center elevation-surface border text-primary text-xl md:text-3xl p-2">
                     <span>{{ __( 'Screen' ) }} : </span>
                     <span>{{ nsCurrency( screenValue ) }}</span>
                 </div>
+                -->
             </div>
         </div>
         <div class="px-2 pb-2">
             <div class="-mx-2 flex flex-wrap">
                 <div class="pl-2 pr-1 flex-auto">
                     <div
-                        @click="autoAssign()"
+                        @click="autoAssign( sums.accountBalance, 'account-payment')"
                         class="elevation-surface border hoverable text-2xl text-primary h-16 flex items-center justify-center cursor-pointer">
                         <span>Automatisch zuweisen</span>
+                    </div>
+                    <div
+                        @click="autoAssign( sums.remaining, 'cash-payment' )"
+                        class="mt-2 elevation-surface border hoverable text-2xl text-primary h-16 flex items-center justify-center cursor-pointer">
+                        <span>Barzahlung {{ nsCurrency( sums.remaining ) }}</span>
                     </div>
 <!--                    <ns-numpad :floating="true" @changed="handleChange( $event )" @next="proceedAddingPayment( $event )">-->
 <!--                        <template v-slot:numpad-footer>-->
@@ -47,20 +60,13 @@
                 </div>
                 <div class="w-1/2 md:w-72 pr-2 pl-1">
                     <div class="grid grid-flow-row grid-rows-1 gap-2">
-                        <div
-                            @click="increaseBy({ value : 100 })"
-                            class="elevation-surface border hoverable text-2xl text-primary h-16 flex items-center justify-center cursor-pointer">
-                            <span>{{ nsCurrency( 100 ) }}</span>
+                        <div class="text-xl text-primary items-center justify-center flex">
+                            Aufladen:
                         </div>
-                        <div
-                            @click="increaseBy({ value : 500 })"
-                            class="elevation-surface border hoverable text-2xl text-primary h-16 flex items-center justify-center cursor-pointer">
-                            <span >{{ nsCurrency( 500 ) }}</span>
-                        </div>
-                        <div
-                            @click="increaseBy({ value : 1000 })"
-                            class="elevation-surface border hoverable text-2xl text-primary h-16 flex items-center justify-center cursor-pointer">
-                            <span >{{ nsCurrency( 1000 ) }}</span>
+                        <div :key="index" v-for="( value, index ) of [10, 20, 50, 100]"
+                             @click="accountTransaction(value)"
+                             class="elevation-surface border hoverable text-2xl text-primary h-16 flex items-center justify-center cursor-pointer">
+                            <span>{{ nsCurrency( value ) }}</span>
                         </div>
                     </div>
                 </div>
@@ -68,12 +74,16 @@
         </div>
     </div>
 </template>
-<script>
+<script lang="ts">
 import nsNumpad from "~/components/ns-numpad.vue";
 import { nsSnackBar } from '~/bootstrap';
 import nsPosConfirmPopupVue from '~/popups/ns-pos-confirm-popup.vue';
 import { __ } from '~/libraries/lang';
 import { nsCurrency } from '~/filters/currency';
+import { Popup } from "~/libraries/popup";
+import nsCustomersTransactionPopupVue from "~/popups/ns-customers-transaction-popup.vue";
+
+declare const POS;
 
 export default {
     name: "ns-multi-payment",
@@ -90,84 +100,109 @@ export default {
     },
     computed: {
         sums() {
-            return this.orders.reduce(function (result, order) {
+            let sums = this.orders.reduce(function (result, order) {
+                let paidCash = order.payments.filter( p => p.identifier === 'cash-payment').reduce( (t, p) => t + p.value, 0 );
+                let paidAccount = order.payments.filter( p => p.identifier === 'account-payment').reduce( (t, p) => t + p.value, 0 );
                 return {
                     total: result.total + Math.max(0, order.total - order.tendered),
-                    paid: result.paid + order.tendered + order.payments.sum( p => p.amount)
+                    paid: result.paid + paidCash + paidAccount,
+                    paidCash: result.paidCash + paidCash,
+                    paidAccount: result.paidAccount + paidAccount,
                 };
-            }, { total: 0, paid: 0 });
+            }, { total: 0, paid: 0, paidCash: 0, paidAccount: 0 });
+            sums.remaining = Math.max(0, sums.total - sums.paid);
+            sums.accountBalance = this.order ? this.order.customer.account_amount - sums.paidAccount : 0;
+            return sums;
         }
     },
     methods: {
         __,
         nsCurrency,
-        handleChange( event ) {
-            this.screenValue    =   event;
-        },
-        proceedAddingPayment( event ) {
-            const value    =   parseFloat( event );
-            const payments  =   this.order.payments;
-
-            if ( value <= 0 ) {
-                return nsSnackBar.error( __( 'Please provide a valid payment amount.' ) )
-                    .subscribe();
-            }
-
-            if ( payments.filter( p => p.identifier === 'account-payment' ).length > 0 ) {
-                return nsSnackBar.error( __( 'The customer account can only be used once per order. Consider deleting the previously used payment.' ) )
-                    .subscribe();
-            }
-
-            if ( value > this.order.customer.account_amount ) {
-                return nsSnackBar.error( __( 'Not enough funds to add {amount} as a payment. Available balance {balance}.' )
-                    .replace( '{amount}', nsCurrency( value ) )
-                    .replace( '{balance}', nsCurrency( this.order.customer.account_amount ) )
-                ).subscribe();
-            }
-
-            POS.addPayment({
-                value,
-                identifier: 'account-payment',
-                selected: false,
-                label: 'Account payment',
-                readonly: false,
-            });
-
-            this.order.customer.account_amount  -=  value;
-            POS.selectCustomer( this.order.customer );
-
-            this.$emit( 'submit' );
-        },
-        proceedFullPayment() {
-            this.proceedAddingPayment( this.order.total );
-        },
-        autoAssign() {
-            let customer = this.order.customer;
+        // handleChange( event ) {
+        //     this.screenValue    =   event;
+        // },
+        // proceedAddingPayment( event ) {
+        //     const value    =   parseFloat( event );
+        //     const payments  =   this.order.payments;
+        //
+        //     if ( value <= 0 ) {
+        //         return nsSnackBar.error( __( 'Please provide a valid payment amount.' ) )
+        //             .subscribe();
+        //     }
+        //
+        //     if ( payments.filter( p => p.identifier === 'account-payment' ).length > 0 ) {
+        //         return nsSnackBar.error( __( 'The customer account can only be used once per order. Consider deleting the previously used payment.' ) )
+        //             .subscribe();
+        //     }
+        //
+        //     if ( value > this.order.customer.account_amount ) {
+        //         return nsSnackBar.error( __( 'Not enough funds to add {amount} as a payment. Available balance {balance}.' )
+        //             .replace( '{amount}', nsCurrency( value ) )
+        //             .replace( '{balance}', nsCurrency( this.order.customer.account_amount ) )
+        //         ).subscribe();
+        //     }
+        //
+        //     POS.addPayment({
+        //         value,
+        //         identifier: 'account-payment',
+        //         selected: false,
+        //         label: 'Account payment',
+        //         readonly: false,
+        //     });
+        //
+        //     this.order.customer.account_amount  -=  value;
+        //     POS.selectCustomer( this.order.customer );
+        //
+        //     this.$emit( 'submit' );
+        // },
+        // proceedFullPayment() {
+        //     this.proceedAddingPayment( this.order.total );
+        // },
+        autoAssign( amountToAssign: number, paymentMethod: string ) {
             for (const o of this.orders) {
-                if (customer.account_amount <= 0) break;
-                const toBePaid = Math.max(0, o.total - o.tendered);
+                if (amountToAssign <= 0) break;
+                const toBePaid = Math.max(0, o.total - o.tendered - o.payments.reduce( (t, p) => t + p.value, 0 ));
                 if (toBePaid > 0) {
-                    const payment = Math.min(customer.account_amount, toBePaid);
+                    const payment = Math.min(amountToAssign, toBePaid);
                     o.payments.push({
-                        'label': 'Kundenkonto',
-                        'method': 'account-payment',
+                        'label': paymentMethod === 'cash-payment' ? 'Barzahlung' : 'Kundenkonto',
+                        'identifier': paymentMethod,
                         'value': payment,
                     });
-                    customer.account_amount -= payment;
+                    amountToAssign -= payment;
                 }
             }
         },
-        makeFullPayment() {
-            Popup.show( nsPosConfirmPopupVue, {
-                title: __( 'Confirm Full Payment' ),
-                message: __( 'You\'re about to use {amount} from the customer account to make a payment. Would you like to proceed ?' ).replace( '{amount}', nsCurrency( this.order.total ) ),
-                onAction: ( action ) => {
-                    if ( action ) {
-                        this.proceedFullPayment();
-                    }
-                }
+        accountTransaction( value ) {
+            const customer = this.order.customer;
+            const promise = new Promise((resolve, reject) => {
+                Popup.show(nsCustomersTransactionPopupVue, {
+                    customer,
+                    resolve,
+                    reject,
+                    defaults: {"operation": "add", "amount": value, "description": "Aufladung"}
+                });
             });
+
+            promise.then( result => {
+                POS.loadCustomer( customer.id )
+                    .subscribe( _customer => {
+                        POS.selectCustomer( _customer );
+                    });
+            })
         },
+
+        // makeFullPayment() {
+        //     Popup.show( nsPosConfirmPopupVue, {
+        //         title: __( 'Confirm Full Payment' ),
+        //         message: __( 'You\'re about to use {amount} from the customer account to make a payment. Would you like to proceed ?' ).replace( '{amount}', nsCurrency( this.order.total ) ),
+        //         onAction: ( action ) => {
+        //             if ( action ) {
+        //                 this.proceedFullPayment();
+        //             }
+        //         }
+        //     });
+        // },
     },
     mounted() {
         this.subscription   =   POS.order.subscribe( order => this.order = order );

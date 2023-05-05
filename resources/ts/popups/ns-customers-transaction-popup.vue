@@ -87,8 +87,19 @@ export default {
                 .subscribe({
                     next: fields => {
                         this.fields     =   this.formValidation.createFields( fields );
+                        this.populateDefaults();
                     }
                 })
+        },
+
+        populateDefaults() {
+            const defaults = this.popup.params.defaults;
+            for (let field of this.fields) {
+                const defaultValue = defaults[field.name];
+                if (defaultValue !== undefined) {
+                    field.value = defaultValue;
+                }
+            }
         }
     }
 }
