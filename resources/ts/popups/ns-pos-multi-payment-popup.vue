@@ -47,6 +47,9 @@ export default {
             } else {
                 return this.unpaidOrders;
             }
+        },
+        totalPaymentsCount() {
+            return this.allOrders.reduce( (count, order) => count + order.payments.length, 0 );
         }
     },
     mounted() {
@@ -54,12 +57,14 @@ export default {
             this.order = ref(order);
         })
         this.paymentTypesSubscription = POS.paymentsType.subscribe(paymentTypes => {
-            this.paymentTypes = ref(paymentTypes);
-            paymentTypes.filter(payment => {
-                if (payment.selected) {
-                    POS.selectedPaymentType.next(payment);
-                }
-            });
+            // this.paymentTypes = ref(paymentTypes);
+            // paymentTypes.filter(payment => {
+            //     if (payment.selected) {
+            //         POS.selectedPaymentType.next(payment);
+            //     }
+            // });
+            // TODO: cash/account payment don't support multiple orders yet
+            this.paymentTypes = [];
         });
 
         this.loadUnpaidOrders();
@@ -136,8 +141,13 @@ export default {
             this.popup.close();
             POS.selectedPaymentType.next(null);
         },
-        deletePayment(payment) {
-            POS.removePayment(toRaw(payment));
+        deletePayment( order, payment) {
+            if ( order === this.order ) {
+                POS.removePayment(toRaw(payment));
+            } else {
+                const index = order.payments.indexOf(payment);
+                order.payments.splice(index, 1);
+            }
         },
         selectPaymentAsActive(event) {
             this.select(this.paymentTypes.filter(payment => payment.identifier === event.target.value)[0]);
@@ -198,7 +208,7 @@ export default {
                         class="cursor-pointer py-2 px-3 ns-payment-list border-t mt-4 flex items-center justify-between">
                         <span>{{ __('Payment List') }}</span>
                         <span class="px-2 rounded-full h-8 w-8 flex items-center justify-center ns-label">{{
-                            order.payments.length
+                            totalPaymentsCount
                             }}</span>
                     </li>
                 </ul>
@@ -208,8 +218,8 @@ export default {
                 <div class="flex flex-col flex-auto overflow-hidden">
                     <div class="h-12 hidden items-center justify-between lg:flex">
                         <div>
-                            <h3 class="text-xl hidden lg:block text-center my-4 font-bold lg:my-8">{{ __('Gateway') }}
-                                <span class="hidden-md">: {{ activePayment.label }}</span></h3>
+                            <h3 class="text-xl hidden lg:block text-center my-4 font-bold lg:my-8">{{ __('Kunde') }}
+                                <span class="hidden-md">: {{ order.customer.name }}</span></h3>
                         </div>
                         <div class="px-2">
                             <ns-close-button @click="closePopup()"></ns-close-button>
