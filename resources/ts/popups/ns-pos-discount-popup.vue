@@ -20,33 +20,36 @@
             <hr v-if="! popup.params.reference.disable_flat" class="border-r border-box-edge">
             <button v-if="! popup.params.reference.disable_percentage" @click="setPercentageType('percentage')" :class="( mode === 'percentage' ? 'bg-tab-active' : 'bg-tab-inactive text-secondary' ) + ' ' + ( ! popup.params.reference.disable_flat ? 'w-1/2' : 'w-full' )" class="outline-hidden py-2 flex items-center justify-center">{{ __( 'Percentage' ) }}</button>
         </div>
-        <ns-numpad :floating="true" @next="submitValue()" @changed="inputValue( $event )" :value="finalValue" limit="1000"></ns-numpad>
-    </div>
+      <ns-numpad v-if="options.ns_pos_numpad === 'default'" :floating="options.ns_pos_allow_decimal_quantities"
+                 @changed="updateValue( $event )" @next="resolveValue( $event )"
+                 :value="rawValue"></ns-numpad>
+      <ns-numpad-plus v-if="options.ns_pos_numpad === 'advanced'" @changed="updateValue( $event )"
+                      @next="resolveValue( $event )" :value="rawValue"></ns-numpad-plus>    </div>
 </template>
 <script lang="ts">
 import { nsCurrency } from '~/filters/currency';
 import { __ } from '~/libraries/lang';
+import {nsNumpad, nsNumpadPlus} from "~/components/components";
+import {ref} from "@vue/reactivity";
+import NsCloseButton from "~/components/ns-close-button.vue";
 import popupCloser from '~/libraries/popup-closer';
 import popupResolver from '~/libraries/popup-resolver';
 
 export default {
     name: 'ns-pos-discount-popup',
+    components: {NsCloseButton, nsNumpadPlus, nsNumpad},
     props: [ 'popup' ],
     data() {
         return {
             finalValue: 1,
+            rawValue: 0,
             virtualStock: null,
             popupSubscription: null,
             mode: '',
             type: '',
-            allSelected: true,
             isLoading: false,
-            keys: [
-                ...([7,8,9].map( key => ({ identifier: key, value: key }))),
-                ...([4,5,6].map( key => ({ identifier: key, value: key }))),
-                ...([1,2,3].map( key => ({ identifier: key, value: key }))),
-                ...[{ identifier: 'backspace', icon : 'la-backspace' },{ identifier: 0, value: 0 }, { identifier: 'next', icon: 'la-share' }],
-            ]
+            optionsSubscription: null,
+            options: {},
         }
     },
     mounted() {
@@ -59,7 +62,14 @@ export default {
             this.finalValue     =   this.popup.params.reference.discount || 1;
         }
 
+        this.optionsSubscription = POS.options.subscribe(options => {
+            this.options = ref(options);
+        });
+
         this.popupCloser();
+    },
+    beforeUnmount() {
+        this.optionsSubscription.unsubscribe();
     },
     methods: {
         __,
@@ -67,14 +77,13 @@ export default {
         popupResolver,
         popupCloser,
 
-        submitValue() {
-            this.popup.params.onSubmit({
-                discount_type           :   this.mode,
-                discount_percentage     :   this.mode === 'percentage' ? this.finalValue : undefined,
-                discount                :   this.mode === 'flat' ? this.finalValue : undefined
-            });
-
-            this.popup.close();
+        resolveValue(value) {
+          this.popup.params.onSubmit({
+            discount_type           :   this.mode,
+            discount_percentage     :   this.mode === 'percentage' ? this.finalValue : undefined,
+            discount                :   this.mode === 'flat' ? this.finalValue : undefined
+          });
+          this.popup.close();
         },
         
         setPercentageType( mode ) {
@@ -84,8 +93,9 @@ export default {
             this.popup.close();
         },
 
-        inputValue( key ) {
-            this.finalValue = key;
+        updateValue(value) {
+            this.rawValue = value;
+            this.finalValue = parseFloat(value) || 0;
         }
     }
 }
