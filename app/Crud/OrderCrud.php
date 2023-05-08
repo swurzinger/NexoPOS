@@ -485,41 +485,41 @@ class OrderCrud extends CrudService
                 '$sort' => false,
                 'width' => '120px',
             ],
-            'customer_phone' => [
-                'label' => __( 'Phone' ),
-                '$direction' => '',
-                '$sort' => false,
-            ],
+//            'customer_phone' => [
+//                'label' => __( 'Phone' ),
+//                '$direction' => '',
+//                '$sort' => false,
+//            ],
             'discount' => [
                 'label' => __( 'Discount' ),
                 '$direction' => '',
                 '$sort' => false,
             ],
-            'delivery_status' => [
-                'label' => __( 'Delivery Status' ),
-                '$direction' => '',
-                '$sort' => false,
-            ],
+//            'delivery_status' => [
+//                'label' => __( 'Delivery Status' ),
+//                '$direction' => '',
+//                '$sort' => false,
+//            ],
             'payment_status' => [
                 'label' => __( 'Payment Status' ),
                 '$direction' => '',
                 '$sort' => false,
             ],
-            'process_status' => [
-                'label' => __( 'Process Status' ),
-                '$direction' => '',
-                '$sort' => false,
-            ],
+//            'process_status' => [
+//                'label' => __( 'Process Status' ),
+//                '$direction' => '',
+//                '$sort' => false,
+//            ],
             'total' => [
                 'label' => __( 'Total' ),
                 '$direction' => '',
                 '$sort' => false,
             ],
-            'type' => [
-                'label' => __( 'Type' ),
-                '$direction' => '',
-                '$sort' => false,
-            ],
+//            'type' => [
+//                'label' => __( 'Type' ),
+//                '$direction' => '',
+//                '$sort' => false,
+//            ],
             'author_username' => [
                 'label' => __( 'Author' ),
                 '$direction' => '',
