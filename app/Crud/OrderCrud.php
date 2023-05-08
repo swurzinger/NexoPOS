@@ -69,7 +69,7 @@ class OrderCrud extends CrudService
 
     public $pick = [
         'author' => [ 'username' ],
-        'customer' => [ 'first_name', 'phone' ],
+        'customer' => [ 'first_name', 'last_name', 'phone' ],
     ];
 
     public $queryFilters = [];
@@ -166,10 +166,16 @@ class OrderCrud extends CrudService
                 'options' => Helper::toJsOptions( $UserClass::get(), [ 'id', 'username' ] ),
             ], [
                 'type' => 'select',
-                'label' => __( 'Customer' ),
+                'label' => __( 'Customer First Name' ),
                 'name' => 'customer_id',
-                'description' => __( 'Filter the orders by the customer.' ),
+                'description' => __( 'Filter the orders by the customer first name.' ),
                 'options' => Helper::toJsOptions( Customer::get(), [ 'id', 'first_name' ] ),
+            ], [
+                'type' => 'select',
+                'label' => __( 'Customer Last Name' ),
+                'name' => 'customer_id',
+                'description' => __( 'Filter the orders by the customer last name.' ),
+                'options' => Helper::toJsOptions( Customer::get(), [ 'id', 'last_name' ]),
             ], [
                 'type' => 'text',
                 'label' => __( 'Customer Phone' ),
@@ -332,7 +338,7 @@ class OrderCrud extends CrudService
                 width: '170px'
             ),
             CrudTable::column( label: __( 'Type' ), identifier: 'type', width: '100px' ),
-            CrudTable::column( label: __( 'Customer' ), identifier: 'customer_first_name', width: '100px' ),
+            CrudTable::column( label: __( 'Customer' ), identifier: 'customer_name', width: '100px' ),
             CrudTable::column( label: __( 'Delivery' ), identifier: 'delivery_status', width: '150px' ),
             CrudTable::column( label: __( 'Payment' ), identifier: 'payment_status', width: '150px' ),
             CrudTable::column( label: __( 'Tax' ), identifier: 'tax_value', width: '100px' ),
@@ -354,6 +360,8 @@ class OrderCrud extends CrudService
      */
     public function setActions( CrudEntry $entry ): CrudEntry
     {
+        $entry->{ 'customer_name' } = $entry->customer_first_name . ' ' . $entry->customer_last_name;
+
         $entry->{ '$cssClass' } = match ( $entry->__raw->payment_status ) {
             Order::PAYMENT_PAID => 'success border text-sm',
             Order::PAYMENT_UNPAID => 'danger border text-sm',
