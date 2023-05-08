@@ -1,3 +1,5 @@
+import { defineAsyncComponent } from 'vue';
+
 declare const nsHooks: any;
 declare const nsExtraComponents: any;
 
@@ -26,3 +28,11 @@ const dashboardContentElement = document.querySelector('#dashboard-content');
 if ((window as any).nsDashboardContent && dashboardContentElement) {
     (window as any).nsDashboardContent.mount(dashboardContentElement);
 }
+
+//*************************************************
+// MVL-specific
+// TODO: extract into module
+
+nsExtraComponents.nsCustomerAccountsReport = defineAsyncComponent( () => import( './pages/dashboard/reports/ns-customer-accounts-report.vue' ) );
+
+//*************************************************
