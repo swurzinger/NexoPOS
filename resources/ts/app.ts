@@ -1,5 +1,5 @@
 /**
- * Will bootstrap time and 
+ * Will bootstrap time and
  * start counting
  */
 import './shared/time';
@@ -40,12 +40,20 @@ const nsStockAdjustment             =   defineAsyncComponent( () => import( './p
 const nsOrderInvoice                =   defineAsyncComponent( () => import( './pages/dashboard/orders/ns-order-invoice.vue' ) );
 
 declare const window;
-declare let nsExtraComponents;   
+declare let nsExtraComponents;
 
 const nsState               =   window[ 'nsState' ];
-const nsScreen              =   window[ 'nsScreen' ]; 
+const nsScreen              =   window[ 'nsScreen' ];
 
 nsExtraComponents.nsToken       =   defineAsyncComponent( () => import( './pages/dashboard/profile/ns-token.vue' ) );
+
+//*************************************************
+// MVL-specific
+// TODO: extract into module
+
+nsExtraComponents.nsCustomerAccountsReport = defineAsyncComponent( () => import( './pages/dashboard/reports/ns-customer-accounts-report.vue' ) );
+
+//*************************************************
 
 window.nsHotPress            =   new NsHotPress;
 
@@ -141,7 +149,7 @@ window.nsDashboardHeader    =   createApp({
         },
         toggleSideMenu() {
             if ([ 'lg', 'xl' ].includes( nsScreen.breakpoint ) ) {
-                nsState.setState({ sidebar: this.sidebar === 'hidden' ? 'visible': 'hidden' });    
+                nsState.setState({ sidebar: this.sidebar === 'hidden' ? 'visible': 'hidden' });
             } else {
                 nsState.setState({ sidebar: this.sidebar === 'hidden' ? 'visible': 'hidden' });
             }
