@@ -788,7 +788,7 @@ class CrudService
          * We're caching the table columns, since we would like to
          * avoid many DB Calls
          */
-        if ( ! empty( Cache::get( 'table-columns-' . $table ) ) && true === false ) {
+        if ( ! empty( Cache::get( 'table-columns-' . $table ) ) ) {
             $columns = Cache::get( 'table-columns-' . $table );
         } else {
             $columns = Schema::getColumnListing( $table );
