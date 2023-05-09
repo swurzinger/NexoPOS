@@ -8,7 +8,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-class ExtractTranslation extends Command
+class TranslateCommand extends Command
 {
     private $modulesService;
 
@@ -17,7 +17,7 @@ class ExtractTranslation extends Command
      *
      * @var string
      */
-    protected $signature = 'ns:translate {module?} {--extract} {--lang=en}';
+    protected $signature = 'ns:translate {module?} {--extract} {--lang=en} {--build}';
 
     /**
      * The console command description.
@@ -48,6 +48,8 @@ class ExtractTranslation extends Command
     {
         if ( $this->option( 'extract' ) ) {
             $this->extracting();
+        } elseif ( $this->option( 'build' ) ) {
+            $this->build();
         }
     }
 
@@ -66,7 +68,7 @@ class ExtractTranslation extends Command
         $finalArray = $this->extractLocalization( $files->flatten() );
         $finalArray = $this->flushTranslation( $finalArray, $filePath );
 
-        Storage::disk( 'ns' )->put( $filePath, json_encode( $finalArray ) );
+        Storage::disk( 'ns' )->put( $filePath, json_encode( $finalArray, JSON_PRETTY_PRINT ) );
 
         $this->newLine();
         $this->info( sprintf( __( 'Localization for %s extracted to %s' ), config( 'nexopos.languages' )[ $lang ], $filePath ) );
@@ -137,7 +139,7 @@ class ExtractTranslation extends Command
         $finalArray = $this->extractLocalization( $files );
         $finalArray = $this->flushTranslation( $finalArray, $filePath );
 
-        Storage::disk( 'ns' )->put( 'lang/' . $lang . '.json', json_encode( $finalArray ) );
+        Storage::disk( 'ns' )->put( 'lang/' . $lang . '.json', json_encode( $finalArray, JSON_PRETTY_PRINT ) );
 
         $this->newLine();
         $this->info( 'Extraction complete for language : ' . config( 'nexopos.languages' )[ $lang ] );
@@ -219,5 +221,60 @@ class ExtractTranslation extends Command
         return collect( $exportable )->mapWithKeys( function ( $exportable ) {
             return [ $exportable[ 'string' ] => $exportable[ 'string' ] ];
         } )->toArray();
+    }
+
+    public function build(): void
+    {
+        $locales = array_keys( config( 'nexopos.languages' ) );
+
+        Storage::disk( 'ns-public' )->deleteDirectory( 'lang' );
+        Storage::disk( 'ns-public' )->makeDirectory( 'lang' );
+
+        foreach ( $locales as $locale ) {
+            $lang = $this->compileLanguageFile( $locale );
+            $langFilePath = 'lang' . DIRECTORY_SEPARATOR . $locale . '.json';
+            Storage::disk( 'ns-public' )->put( $langFilePath, json_encode( $lang, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) );
+        }
+
+        $this->info( 'Translation build is complete !' );
+    }
+
+    private function compileLanguageFile( string $locale ): array
+    {
+        $lang = [];
+
+        if ( Storage::disk( 'ns' )->exists( "lang/$locale.json" ) ) {
+            $lang = $this->readLanguageJson( "lang/$locale.json" );
+        }
+
+        $activeModules = $this->modulesService->getEnabled();
+
+        foreach ( $activeModules as $module ) {
+            if (
+                isset( $module['langFiles'] ) &&
+                isset( $module['langFiles'][$locale] ) &&
+                Storage::disk( 'ns-modules' )->exists( $module['langFiles'][$locale] )
+            ) {
+                $moduleLang = $this->readLanguageJson( $module['langFiles'][$locale], $module['namespace'] );
+                $lang = array_merge( $lang, $moduleLang );
+            }
+        }
+
+        return $lang;
+    }
+
+    private function readLanguageJson( string $file, ?string $namespace = null ): array
+    {
+        $disk = empty( $namespace ) ? 'ns' : 'ns-modules';
+        $contents = Storage::disk( $disk )->get( $file );
+        $locales = json_decode( $contents, true );
+
+        if ( empty( $namespace ) ) {
+            return $locales;
+        } else {
+            return collect( $locales )->mapWithKeys( function ( $value, $key ) use ( $namespace ) {
+                return ["$namespace.$key" => $value];
+            } )->toArray();
+        }
     }
 }
