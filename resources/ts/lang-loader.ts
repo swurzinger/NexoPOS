@@ -11,24 +11,13 @@ class NsLanguage {
     }
 
     loadJson() {
-        this.fetchLang( `/lang/${ns.language}` )
-        .then( () => {
-            this.loadReadyScripts();
-            this.loadReadyCallbacks();
-        });
-    }
-
-    fetchLang( file ) {
-        return new Promise( ( resolve, reject ) => {
-            const xhttp                 =   new XMLHttpRequest();
-            xhttp.onreadystatechange    =   ( e ) => {
-                if ( (<XMLHttpRequest>e.target).readyState == 4 && (<XMLHttpRequest>e.target).status == 200) {
-                    this.languages = JSON.parse(xhttp.responseText);
-                    resolve( this.languages );
-                }
-            };
-            xhttp.open("GET", file, true);
-            xhttp.send();
+        fetch( `/lang/${ns.language}.json` )
+        .then( (response) => {
+            if (response.ok) {
+                this.languages = response.json();
+                this.loadReadyScripts();
+                this.loadReadyCallbacks();
+            }
         });
     }
 

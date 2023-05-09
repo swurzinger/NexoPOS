@@ -1479,6 +1479,8 @@ class ModulesService
              */
             $this->createSymLink( $namespace );
 
+            Artisan::call( 'ns:translate --build' );
+
             ModulesAfterEnabledEvent::dispatch( $module );
             Artisan::call( 'cache:clear' );
 
@@ -1525,6 +1527,8 @@ class ModulesService
             }
 
             $this->options->set( 'enabled_modules', $enabledModules );
+
+            Artisan::call( 'ns:translate --build' );
 
             ModulesAfterDisabledEvent::dispatch( $module );
 
