@@ -22,7 +22,6 @@ public/export/*
 !public/modules/index.html
 public/lang
 public/modules-lang/*
-!public/modules-lang/index.html
 public/mapping.json
 public/build
 public/docs
@@ -33,6 +32,7 @@ tests/database.sqlite-journal
 tests/Post/*
 storage/snapshots/*.sql
 storage/temporary-files/*
+storage/lang-cache
 .idea
 .scribe
 public/hot
