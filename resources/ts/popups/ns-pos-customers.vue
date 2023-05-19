@@ -260,6 +260,9 @@
                                             </div>
                                         </template>
                                     </ns-tabs-item>
+                                  <ns-tabs-item identifier="actions" :label="__('Actions')">
+                                    <ns-button @click="resetCustomerPin( customer )" type="error">{{ __( 'Reset PIN' ) }}</ns-button>
+                                  </ns-tabs-item>
                                 </ns-tabs>
                             </div>
                         </div>
@@ -500,6 +503,18 @@ export default {
                         POS.selectCustomer( _customer );
                     });
             })
+        },
+
+        resetCustomerPin(customer) {
+          nsHttpClient.put( `/api/mvl/customer/${customer.id}/pin`, { pin: null } )
+              .subscribe({
+                next: orders => {
+                  nsSnackBar.success( 'PIN zurückgesetzt' ).subscribe();
+                },
+                error: e => {
+                  nsSnackBar.error( 'Fehler beim PIN zurücksetzen' ).subscribe();
+                }
+              });
         },
 
         applyCoupon( customerCoupon ) {
