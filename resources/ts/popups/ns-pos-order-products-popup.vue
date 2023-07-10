@@ -34,6 +34,21 @@ export default {
             this.isLoading  =   true;
             const id    =   this.popup.params.order.id;
 
+            if (id === undefined && this.popup.params.order) {
+                // current order (not yet placed)
+                this.isLoading = false;
+                this.products = this.popup.params.order.products.map(p => ({
+                  id: p.id,
+                  name: p.name,
+                  quantity: p.quantity,
+                  total_price: p.total_price,
+                  unit: {
+                    name: p.unit_name,
+                  },
+                }));
+                return;
+            }
+
             nsHttpClient.get( `/api/orders/${id}/products` )
                 .subscribe( result => {
                     this.isLoading  =   false;
@@ -80,7 +95,7 @@ export default {
         <div class="flex justify-end p-2 border-t ns-box-footer">
             <div class="px-1">
                 <div class="-mx-2 flex">
-                    <div class="px-1">
+                    <div class="px-1" v-if="order.id">
                         <ns-button @click="openOrder()" type="info">{{ __( 'Open' ) }}</ns-button>
                     </div>
                     <div class="px-1">
