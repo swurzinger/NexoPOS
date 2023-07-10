@@ -328,9 +328,13 @@ export default {
                             class="flex items-center justify-center w-1/3 text-2xl flex-auto h-12 ns-submit-button font-bold">
                         <span class="text-sm">{{ __('Submit Payment') }}</span>
                     </button>
-                    <button v-if="totalPaymentsCount === 0" @click="submitOrder()"
+                    <button v-if="totalPaymentsCount === 0 && order.tendered < order.total" @click="submitOrder()"
                             class="flex items-center justify-center w-1/3 text-2xl flex-auto h-12 ns-layaway-button font-bold">
                         <span class="text-sm">{{ __('Pay Later') }}</span>
+                    </button>
+                    <button v-if="totalPaymentsCount === 0 && order.tendered >= order.total" @click="closePopup()"
+                            class="flex items-center justify-center w-1/3 text-2xl flex-auto h-12 font-bold">
+                      <span class="text-sm">{{ __('Close') }}</span>
                     </button>
                     <button @click="tab = 'list'"
                             class="w-1/3 flex ns-payment-button text-2xl flex-auto h-12 items-center justify-center font-bold">
@@ -350,6 +354,11 @@ export default {
                                    @click="submitOrder()"
                                    :type="order.tendered >= order.total ? 'success' : 'info'">
                             <span><i class="las la-bookmark"></i> {{ __('Pay Later') }} </span>
+                        </ns-button>
+                        <ns-button v-if="totalPaymentsCount === 0 && order.tendered >= order.total"
+                                   @click="closePopup()"
+                                   type="info">
+                          <span>{{ __('Close') }}</span>
                         </ns-button>
                     </div>
                 </div>
