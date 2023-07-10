@@ -287,8 +287,11 @@ export default {
                         <ul class="flex-auto">
                             <li :key="index" v-for="(order, index) of allOrders">
                                 <div class="flex justify-between p-1 items-center">
-                                    <h3 class="font-semibold">
+                                    <h3 class="font-semibold" v-if="order.id">
                                         {{ __('Order') }} {{ order.code }} {{nsCurrency(order.total)}}
+                                    </h3>
+                                    <h3 class="font-semibold" v-else>
+                                        {{ __('Current Order') }} {{nsCurrency(order.total)}}
                                     </h3>
                                     <span class="font-semibold" :class="{ 'text-error-tertiary': calculateRemaining(order) > 0 }">
                                         {{nsCurrency(calculateRemaining(order))}} offen
