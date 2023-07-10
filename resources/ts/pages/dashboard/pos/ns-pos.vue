@@ -1,9 +1,18 @@
 <template>
     <div class="h-full flex-auto flex flex-col" id="pos-container">
         <div class="flex overflow-hidden flex-shrink-0 px-2 pt-2">
-            <div class="-mx-2 flex overflow-x-auto pb-1">
+            <div class="-mx-2 flex flex-auto overflow-x-auto pb-1">
                 <div class="header-buttons flex px-2 flex-shrink-0" :key="index" v-for="(component,index) of buttons">
                     <component :is="component"></component>
+                </div>
+              <!-- TODO: extract to component and inject via plugin -->
+                <div class="header-buttons flex px-2 flex-shrink-0" style="margin-left: auto;">
+                  <div class="ns-button info">
+                    <a href="/sign-out" class="rounded shadow flex-shrink-0 h-12 flex items-center px-2 py-1 text-sm">
+                      <i class="mr-1 text-xl  las la-sign-out-alt"></i>
+                      <span>Logout</span>
+                    </a>
+                  </div>
                 </div>
             </div>
         </div>
