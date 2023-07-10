@@ -25,7 +25,7 @@
                 </div>
 
                 <div id="change" class="col-span-2 h-16 flex justify-between items-center elevation-surface border success text-xl md:text-3xl p-2">
-                    <span>{{ __( 'Current Balance' ) }} : </span>
+                    <span>{{ __( 'Current Balance' ) }} ({{ __( 'Customer Account' ) }}) : </span>
                     <span>{{ nsCurrency( sums.accountBalance ) }}</span>
                 </div>
                 <!--
@@ -38,13 +38,14 @@
         </div>
         <div class="px-2 pb-2">
             <div class="-mx-2 flex flex-wrap">
-                <div class="pl-2 pr-1 flex-auto">
+                <div class="pl-2 pr-1 flex-auto" v-if="sums.total > 0">
                     <div
                         @click="autoAssign( sums.accountBalance, 'account-payment')"
                         class="elevation-surface border hoverable text-2xl text-primary h-16 flex items-center justify-center cursor-pointer">
                         <span>Automatisch zuweisen</span>
                     </div>
                     <div
+                        v-if="sums.remaining > 0"
                         @click="autoAssign( sums.remaining, 'cash-payment' )"
                         class="mt-2 elevation-surface border hoverable text-2xl text-primary h-16 flex items-center justify-center cursor-pointer">
                         <span>Barzahlung {{ nsCurrency( sums.remaining ) }}</span>
@@ -57,6 +58,11 @@
 <!--                            {{ __( 'Full Payment' ) }}</div>-->
 <!--                        </template>-->
 <!--                    </ns-numpad>-->
+                </div>
+                <div class="pl-2 pr-1 flex-auto items-center justify-center flex" v-else>
+                  <span class="text-xl text-primary">
+                    Nichts zu bezahlen 😎
+                  </span>
                 </div>
                 <div class="w-1/2 md:w-72 pr-2 pl-1">
                     <div class="grid grid-flow-row grid-rows-1 gap-2">
