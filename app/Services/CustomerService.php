@@ -308,16 +308,16 @@ class CustomerService
      */
     public function saveTransaction( Customer $customer, string $operation, float $amount, string $description = '', array $details = [] ): array
     {
-        if ( in_array( $operation, [
-            CustomerAccountHistory::OPERATION_DEDUCT,
-            CustomerAccountHistory::OPERATION_PAYMENT,
-        ]) && $customer->account_amount - $amount < 0 ) {
-            throw new NotAllowedException( sprintf(
-                __( 'Not enough credits on the customer account. Requested : %s, Remaining: %s.' ),
-                Currency::fresh( abs( $amount ) ),
-                Currency::fresh( $customer->account_amount ),
-            ) );
-        }
+//        if ( in_array( $operation, [
+//            CustomerAccountHistory::OPERATION_DEDUCT,
+//            CustomerAccountHistory::OPERATION_PAYMENT,
+//        ]) && $customer->account_amount - $amount < 0 ) {
+//            throw new NotAllowedException( sprintf(
+//                __( 'Not enough credits on the customer account. Requested : %s, Remaining: %s.' ),
+//                Currency::fresh( abs( $amount ) ),
+//                Currency::fresh( $customer->account_amount ),
+//            ) );
+//        }
 
         /**
          * We'll pull the last recent record
