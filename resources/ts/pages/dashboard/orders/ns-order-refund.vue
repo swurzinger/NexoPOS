@@ -73,7 +73,7 @@
                     <span>{{ nsCurrency( screen ) }}</span>
                 </div>
                 <div>
-                    <ns-numpad-plus :currency="true" @changed="updateScreen( $event )" :value="screen" @next="proceedPayment( $event )"></ns-numpad-plus>
+                    <ns-numpad-plus :currency="true" @changed="updateScreen( $event )" :value="rawScreen" @next="proceedPayment( $event )"></ns-numpad-plus>
                 </div>
             </div>
         </div>
@@ -121,6 +121,7 @@ export default {
             refundShipping: false,
             selectedPaymentGateway: false,
             screen: 0,
+            rawScreen: 0,
             selectFields: [
                 {
                     type: 'select',
@@ -143,7 +144,8 @@ export default {
         nsCurrency,
         
         updateScreen( value ) {
-            this.screen     =   value;
+            this.rawScreen     =   value;
+            this.screen = parseFloat(value) || 0;
         },
 
         toggleRefundShipping( event ) {
