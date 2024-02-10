@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Classes\Currency;
 use App\Classes\Hook;
+use App\Events\BeforeSaveOrderTaxEvent;
 use App\Events\DueOrdersEvent;
 use App\Events\OrderAfterCheckPerformedEvent;
 use App\Events\OrderAfterCreatedEvent;
@@ -83,11 +84,11 @@ class OrdersService
      * @param Order|null $order (optional)
      * @return array
      */
-    public function create( $fields, Order $order = null )
+    public function create($fields, Order $order = null)
     {
         $isNew = ! $order instanceof Order;
         $customer = $this->__customerIsDefined($fields);
-        $fields[ 'products' ] = $this->__buildOrderProducts( $fields['products'] );
+        $fields[ 'products' ] = $this->__buildOrderProducts($fields['products']);
 
         /**
          * determine the value of the product
@@ -99,104 +100,104 @@ class OrdersService
          * @param array $payments
          * @param string $paymentStatus
          */
-        extract( $this->__checkOrderPayments( $fields, $order, $customer ) );
+        extract($this->__checkOrderPayments($fields, $order, $customer));
 
         /**
          * We'll now check the attached coupon
          * and determin whether they can be processed.
          */
-        $this->__checkAttachedCoupons( $fields );
+        $this->__checkAttachedCoupons($fields);
 
         /**
          * As no payment might be provided
          * we make sure to build the products only in case the
          * order is just saved as hold, otherwise a check is made on the available stock
          */
-        if ( in_array( $paymentStatus, [ 'paid', 'partially_paid', 'unpaid' ] ) ) {
-            $fields[ 'products' ] = $this->__checkProductStock( $fields['products'], $order );
+        if (in_array($paymentStatus, [ 'paid', 'partially_paid', 'unpaid' ])) {
+            $fields[ 'products' ] = $this->__checkProductStock($fields['products'], $order);
         }
 
         /**
          * check discount validity and throw an
          * error is something is not set correctly.
          */
-        $this->__checkDiscountValidity( $fields );
+        $this->__checkDiscountValidity($fields);
 
         /**
          * check delivery informations before
          * proceeding
          */
-        $fields = $this->__checkAddressesInformations( $fields );
+        $fields = $this->__checkAddressesInformations($fields);
 
         /**
          * Check if instalments are provided and if they are all
          * valid regarding the total order price
          */
-        $this->__checkProvidedInstalments( $fields );
+        $this->__checkProvidedInstalments($fields);
 
         /**
          * If any other module wants to perform a verification
          * and block processing, they might use this event.
          */
-        OrderAfterCheckPerformedEvent::dispatch( $fields, $order );
+        OrderAfterCheckPerformedEvent::dispatch($fields, $order);
 
         DB::beginTransaction();
         try {
 
-            $order = $this->__initOrder( $fields, $paymentStatus, $order );
+            $order = $this->__initOrder($fields, $paymentStatus, $order);
 
             /**
              * if we're editing an order. We need to loop the products in order
              * to recover all the products that has been deleted from the POS and therefore
              * aren't tracked no more. This also make stock adjustment for product which has changed.
              */
-            $this->__deleteUntrackedProducts( $order, $fields[ 'products' ] );
+            $this->__deleteUntrackedProducts($order, $fields['products']);
 
-            $this->__saveAddressInformations( $order, $fields );
+            $this->__saveAddressInformations($order, $fields);
 
             /**
              * if the order has a valid payment
              * method, then we can save that and attach it the ongoing order.
              */
-            if ( in_array( $paymentStatus, [
+            if (in_array($paymentStatus, [
                 Order::PAYMENT_PAID,
                 Order::PAYMENT_PARTIALLY,
                 Order::PAYMENT_UNPAID,
-            ] ) ) {
-                $this->__saveOrderPayments( $order, $payments, $customer );
+            ])) {
+                $this->__saveOrderPayments($order, $payments, $customer);
             }
 
             /**
              * save order instalments
              */
-            $this->__saveOrderInstalments( $order, $fields[ 'instalments' ] ?? [] );
+            $this->__saveOrderInstalments($order, $fields['instalments'] ?? []);
 
             /**
              * save order coupons
              */
-            $this->__saveOrderCoupons( $order, $fields[ 'coupons' ] ?? [] );
+            $this->__saveOrderCoupons($order, $fields['coupons'] ?? []);
 
             /**
              * @var Order $order
              * @var float $taxes
              * @var float $subTotal
              */
-            extract( $this->__saveOrderProducts( $order, $fields[ 'products' ] ) );
+            extract($this->__saveOrderProducts($order, $fields['products']));
 
             /**
              * register taxes for the order
              */
-            $this->__registerTaxes( $order, $fields[ 'taxes' ] ?? [] );
+            $this->__registerTaxes($order, $fields['taxes'] ?? []);
 
             /**
              * compute order total
              */
-            $this->__computeOrderTotal( compact( 'order', 'subTotal', 'paymentStatus', 'totalPayments') );
+            $this->__computeOrderTotal(compact('order', 'subTotal', 'paymentStatus', 'totalPayments'));
 
             $order->save();
-            $order->load( 'payments' );
-            $order->load( 'products' );
-            $order->load( 'coupons' );
+            $order->load('payments');
+            $order->load('products');
+            $order->load('coupons');
 
             DB::commit();
 
@@ -210,13 +211,13 @@ class OrdersService
          * new order has been placed
          */
         $isNew ?
-            event( new OrderAfterCreatedEvent( $order, $fields ) ) :
-            event( new OrderAfterUpdatedEvent( $order, $fields ) );
+            event(new OrderAfterCreatedEvent($order, $fields)) :
+            event(new OrderAfterUpdatedEvent($order, $fields));
 
         return [
             'status' => 'success',
-            'message' => $isNew ? __( 'The order has been placed.' ) : __( 'The order has been updated' ),
-            'data' => compact( 'order' ),
+            'message' => $isNew ? __('The order has been placed.') : __('The order has been updated'),
+            'data' => compact('order'),
         ];
     }
 
@@ -227,23 +228,23 @@ class OrdersService
      * @param array $instalments
      * @return void
      */
-    public function __saveOrderInstalments( Order $order, $instalments = [] )
+    public function __saveOrderInstalments(Order $order, $instalments = [])
     {
-        if ( ! empty( $instalments ) ) {
+        if (! empty($instalments)) {
             /**
              * delete previous instalments
              */
-            $order->instalments->each( fn( $instalment ) => $instalment->delete() );
+            $order->instalments->each(fn($instalment) => $instalment->delete());
 
             $tracked = [];
 
-            foreach ( $instalments as $instalment ) {
+            foreach ($instalments as $instalment) {
                 $newInstalment = new OrderInstalment;
 
-                if ( isset( $instalment[ 'paid' ] ) && $instalment[ 'paid' ] ) {
-                    $payment = OrderPayment::where( 'order_id', $order->id )
-                        ->where( 'value', $instalment[ 'amount' ] )
-                        ->whereNotIn( 'id', $tracked )
+                if (isset($instalment[ 'paid' ]) && $instalment[ 'paid' ]) {
+                    $payment = OrderPayment::where('order_id', $order->id)
+                        ->where('value', $instalment[ 'amount' ])
+                        ->whereNotIn('id', $tracked)
                         ->first();
 
                     /**
@@ -262,7 +263,7 @@ class OrdersService
                 $newInstalment->amount = $instalment[ 'amount' ];
                 $newInstalment->order_id = $order->id;
                 $newInstalment->paid = $instalment[ 'paid' ] ?? false;
-                $newInstalment->date = Carbon::parse( $instalment[ 'date' ] )->toDateTimeString();
+                $newInstalment->date = Carbon::parse($instalment[ 'date' ])->toDateTimeString();
                 $newInstalment->save();
             }
         }
@@ -278,31 +279,31 @@ class OrdersService
      *
      * @throws NotAllowedException
      */
-    public function __checkProvidedInstalments( $fields )
+    public function __checkProvidedInstalments($fields)
     {
         if (
-            isset( $fields[ 'instalments' ] ) &&
-            ! empty( $fields[ 'instalments' ] ) &&
-            ! in_array( $fields[ 'payment_status' ] ?? null, [ Order::PAYMENT_HOLD ] )
+            isset($fields[ 'instalments' ]) &&
+            ! empty($fields[ 'instalments' ]) &&
+            ! in_array($fields[ 'payment_status' ] ?? null, [ Order::PAYMENT_HOLD ])
         ) {
-            $instalments = collect( $fields[ 'instalments' ] );
-            $customer = Customer::find( $fields[ 'customer_id' ] );
+            $instalments = collect($fields[ 'instalments' ]);
+            $customer = Customer::find($fields[ 'customer_id' ]);
 
-            if ( (float) $customer->group->minimal_credit_payment > 0 ) {
-                $minimal = Currency::define( $fields[ 'total' ] )
-                    ->multipliedBy( $customer->group->minimal_credit_payment )
-                    ->dividedBy( 100 )
+            if ((float) $customer->group->minimal_credit_payment > 0) {
+                $minimal = Currency::define($fields[ 'total' ])
+                    ->multipliedBy($customer->group->minimal_credit_payment)
+                    ->dividedBy(100)
                     ->getRaw();
 
                 /**
                  * if the minimal provided
                  * amount thoses match the required amount.
                  */
-                if ( $minimal > Currency::raw( $fields[ 'tendered' ] ) ) {
+                if ($minimal > Currency::raw($fields[ 'tendered' ])) {
                     throw new NotAllowedException(
                         sprintf(
-                            __( 'The minimal payment of %s has\'nt been provided.' ),
-                            (string) Currency::define( $minimal )
+                            __('The minimal payment of %s has\'nt been provided.'),
+                            (string) Currency::define($minimal)
                         )
                     );
                 }
@@ -316,10 +317,10 @@ class OrdersService
      * @param array $coupons
      * @return void
      */
-    public function __checkAttachedCoupons( $fields )
+    public function __checkAttachedCoupons($fields)
     {
-        collect( $fields[ 'coupons' ] ?? [] )->each( function( $coupon ) use ( $fields ) {
-            $result = $this->customerService->checkCouponExistence( $coupon, $fields );
+        collect($fields[ 'coupons' ] ?? [])->each(function ($coupon) use ($fields) {
+            $result = $this->customerService->checkCouponExistence($coupon, $fields);
         });
     }
 
@@ -330,12 +331,12 @@ class OrdersService
      * @param float $subtotal
      * @return float
      */
-    private function __computeOrderCoupons( $fields, $subtotal )
+    private function __computeOrderCoupons($fields, $subtotal)
     {
-        if ( isset( $fields[ 'coupons' ] ) ) {
-            return collect( $fields[ 'coupons' ] )->map( function( $coupon ) use ( $subtotal ) {
-                if ( ! isset( $coupon[ 'value' ] ) ) {
-                    return $this->__computeCouponValue( $coupon, $subtotal );
+        if (isset($fields[ 'coupons' ])) {
+            return collect($fields[ 'coupons' ])->map(function ($coupon) use ($subtotal) {
+                if (! isset($coupon[ 'value' ])) {
+                    return $this->__computeCouponValue($coupon, $subtotal);
                 }
 
                 return $coupon[ 'value' ];
@@ -345,10 +346,10 @@ class OrdersService
         return 0;
     }
 
-    private function __computeCouponValue( $coupon, $subtotal )
+    private function __computeCouponValue($coupon, $subtotal)
     {
-        return match ( $coupon[ 'discount_type' ] ) {
-            'percentage_discount' => $this->computeDiscountValues( $coupon[ 'discount_value' ], $subtotal ),
+        return match ($coupon[ 'discount_type' ]) {
+            'percentage_discount' => $this->computeDiscountValues($coupon[ 'discount_value' ], $subtotal),
             'flat_discount' => $coupon[ 'discount_value' ]
         };
     }
@@ -359,26 +360,26 @@ class OrdersService
      * @param array $coupons
      * @return void
      */
-    public function __saveOrderCoupons( Order $order, $coupons )
+    public function __saveOrderCoupons(Order $order, $coupons)
     {
         $savedCoupons = [];
 
         $order->total_coupons = 0;
 
-        foreach ( $coupons as $arrayCoupon ) {
-            $coupon = Coupon::find( $arrayCoupon[ 'coupon_id' ] );
+        foreach ($coupons as $arrayCoupon) {
+            $coupon = Coupon::find($arrayCoupon[ 'coupon_id' ]);
 
-            OrderCouponBeforeCreatedEvent::dispatch( $coupon, $order );
+            OrderCouponBeforeCreatedEvent::dispatch($coupon, $order);
 
-            $existingCoupon = OrderCoupon::where( 'order_id', $order->id )
-                ->where( 'coupon_id', $coupon->id )
+            $existingCoupon = OrderCoupon::where('order_id', $order->id)
+                ->where('coupon_id', $coupon->id)
                 ->first();
 
-            $customerCoupon = CustomerCoupon::where( 'coupon_id', $coupon->id )
-                ->where( 'customer_id', $order->customer_id )
+            $customerCoupon = CustomerCoupon::where('coupon_id', $coupon->id)
+                ->where('customer_id', $order->customer_id)
                 ->firstOrFail();
 
-            if ( ! $existingCoupon instanceof OrderCoupon ) {
+            if (! $existingCoupon instanceof OrderCoupon) {
                 $existingCoupon = new OrderCoupon;
                 $existingCoupon->order_id = $order->id;
                 $existingCoupon->coupon_id = $coupon[ 'id' ];
@@ -395,7 +396,7 @@ class OrdersService
 
             $existingCoupon->value = $coupon[ 'value' ] ?: (
                 $arrayCoupon[ 'type' ] === 'percentage_discount' ?
-                    $this->computeDiscountValues( $arrayCoupon[ 'discount_value' ], $order->subtotal ) :
+                    $this->computeDiscountValues($arrayCoupon[ 'discount_value' ], $order->subtotal) :
                     $arrayCoupon[ 'discount_value' ]
             );
 
@@ -407,7 +408,7 @@ class OrdersService
 
             $existingCoupon->save();
 
-            OrderCouponAfterCreatedEvent::dispatch( $existingCoupon, $order );
+            OrderCouponAfterCreatedEvent::dispatch($existingCoupon, $order);
 
             $savedCoupons[] = $existingCoupon->id;
         }
@@ -416,42 +417,45 @@ class OrdersService
          * Every coupon that is not processed
          * should be deleted.
          */
-        OrderCoupon::where( 'order_id', $order->id )
-            ->whereNotIn( 'id', $savedCoupons )
+        OrderCoupon::where('order_id', $order->id)
+            ->whereNotIn('id', $savedCoupons)
             ->delete();
     }
 
     /**
      * Will compute the taxes assigned to an order
      */
-    public function __saveOrderTaxes( Order $order, $taxes ): float
+    public function __saveOrderTaxes(Order $order, $taxes): float
     {
         /**
          * if previous taxes had been registered,
          * we need to clear them
          */
-        OrderTax::where( 'order_id', $order->id )->delete();
+        OrderTax::where('order_id', $order->id)->delete();
 
         $taxCollection = collect([]);
 
-        if ( count( $taxes ) > 0 ) {
-            $percentages = collect( $taxes )->map( fn( $tax ) => $tax[ 'rate' ] );
+        if (count($taxes) > 0) {
+            $percentages = collect($taxes)->map(fn($tax) => $tax[ 'rate' ]);
             $response = $this->taxService->getTaxesComputed(
                 tax_type: $order->tax_type,
                 rates: $percentages->toArray(),
-                value: ns()->currency->define( $order->subtotal )->subtractBy( $order->discount )->toFloat()
+                value: ns()->currency->define($order->subtotal)->subtractBy($order->discount)->toFloat()
             );
 
-            foreach ( $taxes as $index => $tax ) {
+            foreach ($taxes as $index => $tax) {
                 $orderTax = new OrderTax;
                 $orderTax->tax_name = $tax[ 'tax_name' ];
                 $orderTax->tax_value = $response[ 'percentages' ][ $index ][ 'tax' ];
                 $orderTax->rate = $tax[ 'rate' ];
                 $orderTax->tax_id = $tax[ 'tax_id' ];
                 $orderTax->order_id = $order->id;
+
+                BeforeSaveOrderTaxEvent::dispatch($orderTax, $tax);
+
                 $orderTax->save();
 
-                $taxCollection->push( $orderTax );
+                $taxCollection->push($orderTax);
             }
         }
 
@@ -459,7 +463,7 @@ class OrdersService
          * we'll increase the tax value and
          * update the value on the order tax object
          */
-        return $taxCollection->map( fn( $tax ) => $tax->tax_value )->sum();
+        return $taxCollection->map(fn($tax) => $tax->tax_value)->sum();
     }
 
     /**
@@ -468,21 +472,21 @@ class OrdersService
      * @param array $taxes
      * @return void
      */
-    public function __registerTaxes( Order $order, $taxes )
+    public function __registerTaxes(Order $order, $taxes)
     {
-        switch ( ns()->option->get( 'ns_pos_vat' ) ) {
+        switch (ns()->option->get('ns_pos_vat')) {
             case 'products_vat':
-                $order->products_tax_value = $this->getOrderProductsTaxes( $order );
+                $order->products_tax_value = $this->getOrderProductsTaxes($order);
                 break;
             case 'flat_vat':
             case 'variable_vat':
-                $order->tax_value = Currency::define( $this->__saveOrderTaxes( $order, $taxes ) )->toFloat();
+                $order->tax_value = Currency::define($this->__saveOrderTaxes($order, $taxes))->toFloat();
                 $order->products_tax_value = 0;
                 break;
             case 'products_variable_vat':
             case 'products_flat_vat':
-                $order->tax_value = Currency::define( $this->__saveOrderTaxes( $order, $taxes ) )->toFloat();
-                $order->products_tax_value = $this->getOrderProductsTaxes( $order );
+                $order->tax_value = Currency::define($this->__saveOrderTaxes($order, $taxes))->toFloat();
+                $order->products_tax_value = $this->getOrderProductsTaxes($order);
                 break;
         }
 
@@ -497,12 +501,12 @@ class OrdersService
      * @param array $products
      * @return void
      */
-    public function __deleteUntrackedProducts( $order, $products )
+    public function __deleteUntrackedProducts($order, $products)
     {
-        if ( $order instanceof Order ) {
-            $ids = collect( $products )
-                ->filter( fn( $product ) => isset( $product[ 'id' ] ) && isset( $product[ 'unit_id' ] ) )
-                ->map( fn( $product ) => $product[ 'id' ] . '-' . $product[ 'unit_id' ] )
+        if ($order instanceof Order) {
+            $ids = collect($products)
+                ->filter(fn($product) => isset($product[ 'id' ]) && isset($product[ 'unit_id' ]))
+                ->map(fn($product) => $product[ 'id' ] . '-' . $product[ 'unit_id' ])
                 ->toArray();
 
             /**
@@ -510,24 +514,24 @@ class OrdersService
              * each product is different from the previous known quantity, to perform
              * adjustment accordingly. In that case we'll use adjustment-return & sale.
              */
-            if ( $order->payment_status !== Order::PAYMENT_HOLD ) {
-                $order->products->map( function( OrderProduct $product ) use ( $products ) {
-                    $productHistory = ProductHistory::where( 'operation_type', ProductHistory::ACTION_SOLD )
-                        ->where( 'order_product_id', $product->id )
+            if ($order->payment_status !== Order::PAYMENT_HOLD) {
+                $order->products->map(function (OrderProduct $product) use ($products) {
+                    $productHistory = ProductHistory::where('operation_type', ProductHistory::ACTION_SOLD)
+                        ->where('order_product_id', $product->id)
                         ->first();
 
                     /**
                      * We should restore or retreive quantities when the
                      * product has initially be marked as sold.
                      */
-                    if ( $productHistory instanceof ProductHistory ) {
-                        $products = collect( $products )
-                                ->filter( fn( $product ) => isset( $product[ 'id' ] ) )
-                                ->mapWithKeys( fn( $product ) => [ $product[ 'id' ] => $product ] )
-                                ->toArray();
+                    if ($productHistory instanceof ProductHistory) {
+                        $products = collect($products)
+                            ->filter(fn($product) => isset($product[ 'id' ]))
+                            ->mapWithKeys(fn($product) => [ $product[ 'id' ] => $product ])
+                            ->toArray();
 
-                        if ( in_array( $product->id, array_keys( $products ) ) ) {
-                            if ( $product->quantity < $products[ $product->id ][ 'quantity' ] ) {
+                        if (in_array($product->id, array_keys($products))) {
+                            if ($product->quantity < $products[ $product->id ][ 'quantity' ]) {
                                 return [
                                     'operation' => 'add',
                                     'unit_price' => $products[ $product->id ][ 'unit_price' ],
@@ -535,7 +539,7 @@ class OrdersService
                                     'quantity' => $products[ $product->id ][ 'quantity' ] - $product->quantity,
                                     'orderProduct' => $product,
                                 ];
-                            } elseif ( $product->quantity > $products[ $product->id ][ 'quantity' ] ) {
+                            } elseif ($product->quantity > $products[ $product->id ][ 'quantity' ]) {
                                 return [
                                     'operation' => 'remove',
                                     'unit_price' => $products[ $product->id ][ 'unit_price' ],
@@ -553,44 +557,44 @@ class OrdersService
                      */
                     return false;
                 })
-                ->filter( fn( $adjustment ) => $adjustment !== false )
-                ->each( function( $adjustment ) use ( $order ) {
-                    if ( $adjustment[ 'operation' ] === 'remove' ) {
-                        $adjustment[ 'orderProduct' ]->quantity -= $adjustment[ 'quantity' ];
+                    ->filter(fn($adjustment) => $adjustment !== false)
+                    ->each(function ($adjustment) use ($order) {
+                        if ($adjustment[ 'operation' ] === 'remove') {
+                            $adjustment[ 'orderProduct' ]->quantity -= $adjustment[ 'quantity' ];
 
-                        $this->productService->stockAdjustment(
-                            ProductHistory::ACTION_ADJUSTMENT_RETURN, [
-                                'unit_id' => $adjustment[ 'orderProduct' ]->unit_id,
-                                'unit_price' => $adjustment[ 'orderProduct' ]->unit_price,
-                                'product_id' => $adjustment[ 'orderProduct' ]->product_id,
-                                'quantity' => $adjustment[ 'quantity' ],
-                                'orderProduct' => $adjustment[ 'orderProduct' ],
-                                'order_id' => $order->id,
-                            ]
-                        );
-                    } else {
-                        $adjustment[ 'orderProduct' ]->quantity += $adjustment[ 'quantity' ];
+                            $this->productService->stockAdjustment(
+                                ProductHistory::ACTION_ADJUSTMENT_RETURN, [
+                                    'unit_id' => $adjustment[ 'orderProduct' ]->unit_id,
+                                    'unit_price' => $adjustment[ 'orderProduct' ]->unit_price,
+                                    'product_id' => $adjustment[ 'orderProduct' ]->product_id,
+                                    'quantity' => $adjustment[ 'quantity' ],
+                                    'orderProduct' => $adjustment[ 'orderProduct' ],
+                                    'order_id' => $order->id,
+                                ]
+                            );
+                        } else {
+                            $adjustment[ 'orderProduct' ]->quantity += $adjustment[ 'quantity' ];
 
-                        $this->productService->stockAdjustment(
-                            ProductHistory::ACTION_ADJUSTMENT_SALE, [
-                                'unit_id' => $adjustment[ 'orderProduct' ]->unit_id,
-                                'unit_price' => $adjustment[ 'orderProduct' ]->unit_price,
-                                'product_id' => $adjustment[ 'orderProduct' ]->product_id,
-                                'orderProduct' => $adjustment[ 'orderProduct' ],
-                                'quantity' => $adjustment[ 'quantity' ],
-                                'order_id' => $order->id,
-                            ]
-                        );
-                    }
+                            $this->productService->stockAdjustment(
+                                ProductHistory::ACTION_ADJUSTMENT_SALE, [
+                                    'unit_id' => $adjustment[ 'orderProduct' ]->unit_id,
+                                    'unit_price' => $adjustment[ 'orderProduct' ]->unit_price,
+                                    'product_id' => $adjustment[ 'orderProduct' ]->product_id,
+                                    'orderProduct' => $adjustment[ 'orderProduct' ],
+                                    'quantity' => $adjustment[ 'quantity' ],
+                                    'order_id' => $order->id,
+                                ]
+                            );
+                        }
 
-                    /**
-                     * for the product that was already tracked
-                     * we'll just update the price and quantity
-                     */
-                    $adjustment[ 'orderProduct' ]->unit_price = $adjustment[ 'unit_price' ];
-                    $adjustment[ 'orderProduct' ]->total_price = $adjustment[ 'total_price' ];
-                    $adjustment[ 'orderProduct' ]->save();
-                });
+                        /**
+                         * for the product that was already tracked
+                         * we'll just update the price and quantity
+                         */
+                        $adjustment[ 'orderProduct' ]->unit_price = $adjustment[ 'unit_price' ];
+                        $adjustment[ 'orderProduct' ]->total_price = $adjustment[ 'total_price' ];
+                        $adjustment[ 'orderProduct' ]->save();
+                    });
             }
 
             /**
@@ -598,7 +602,7 @@ class OrdersService
              * proceesed another time should be removed. If the order has
              * already affected the stock, we should make some adjustments.
              */
-            $order->products->each( function( $orderProduct ) use ( $ids, $order ) {
+            $order->products->each(function ($orderProduct) use ($ids, $order) {
                 /**
                  * if a product has the unit id changed
                  * the product he considered as new and the old is returned
@@ -606,14 +610,14 @@ class OrdersService
                  */
                 $reference = $orderProduct->id . '-' . $orderProduct->unit_id;
 
-                if ( ! in_array( $reference, $ids ) ) {
+                if (! in_array($reference, $ids)) {
                     $orderProduct->delete();
 
                     /**
                      * If the order has changed the stock. The operation
                      * that update it should affect the stock as well.
                      */
-                    if ( $order->payment_status !== Order::PAYMENT_HOLD ) {
+                    if ($order->payment_status !== Order::PAYMENT_HOLD) {
                         $this->productService->stockAdjustment(
                             ProductHistory::ACTION_ADJUSTMENT_RETURN, [
                                 'unit_id' => $orderProduct->unit_id,
@@ -638,7 +642,7 @@ class OrdersService
      */
     private function __getShippingFee($fields): float
     {
-        return $this->currencyService->getRaw( $fields['shipping'] ?? 0 );
+        return $this->currencyService->getRaw($fields['shipping'] ?? 0);
     }
 
     /**
@@ -650,20 +654,20 @@ class OrdersService
      *
      * @throws NotAllowedException
      */
-    public function __checkDiscountValidity( $fields )
+    public function __checkDiscountValidity($fields)
     {
         if (! empty(@$fields['discount_type'])) {
             if ($fields['discount_type'] === 'percentage' && (floatval($fields['discount_percentage']) < 0) || (floatval($fields['discount_percentage']) > 100)) {
-                throw new NotAllowedException( __('The percentage discount provided is not valid.') );
+                throw new NotAllowedException(__('The percentage discount provided is not valid.'));
             } elseif ($fields['discount_type'] === 'flat') {
                 $productsTotal = $fields[ 'products' ]->map(function ($product) {
-                    return $this->currencyService->define( $product['quantity'] )
-                        ->multiplyBy( floatval($product['unit_price']) )
+                    return $this->currencyService->define($product['quantity'])
+                        ->multiplyBy(floatval($product['unit_price']))
                         ->getRaw();
                 })->sum();
 
-                if ( $fields['discount'] > $productsTotal ) {
-                    throw new NotAllowedException( __('A discount cannot exceed the sub total value of an order.') );
+                if ($fields['discount'] > $productsTotal) {
+                    throw new NotAllowedException(__('A discount cannot exceed the sub total value of an order.'));
                 }
             }
         }
@@ -696,13 +700,13 @@ class OrdersService
          * this will erase the unsupported
          * attribute before saving the customer addresses.
          */
-        if ( ! empty( $fields[ 'addresses' ] ) ) {
+        if (! empty($fields[ 'addresses' ])) {
             foreach (['shipping', 'billing'] as $type) {
-                if ( isset( $fields['addresses'][$type] ) ) {
+                if (isset($fields['addresses'][$type])) {
                     $keys = array_keys($fields['addresses'][$type]);
                     foreach ($keys as $key) {
                         if (! in_array($key, $allowedKeys)) {
-                            unset( $fields[ 'addresses' ][ $type ][ $key ] );
+                            unset($fields[ 'addresses' ][ $type ][ $key ]);
                         }
                     }
                 }
@@ -730,8 +734,8 @@ class OrdersService
              * @todo add a verification to enforce address to be attached
              * to the processed order.
              */
-            if ( isset( $fields[ 'addresses' ][ $type ][ 'id' ] ) ) {
-                $orderShipping = OrderAddress::find( $fields[ 'addresses' ][ $type ][ 'id' ] );
+            if (isset($fields[ 'addresses' ][ $type ][ 'id' ])) {
+                $orderShipping = OrderAddress::find($fields[ 'addresses' ][ $type ][ 'id' ]);
             } else {
                 $orderShipping = new OrderAddress;
             }
@@ -750,7 +754,7 @@ class OrdersService
         }
     }
 
-    private function __saveOrderPayments($order, $payments, $customer )
+    private function __saveOrderPayments($order, $payments, $customer)
     {
         /**
          * As we're about to record new payments,
@@ -759,10 +763,10 @@ class OrdersService
          * order and only update them.
          */
         foreach ($payments as $payment) {
-            $this->__saveOrderSinglePayment( $payment, $order );
+            $this->__saveOrderSinglePayment($payment, $order);
         }
 
-        $order->tendered = $this->currencyService->getRaw( collect( $payments )->map( fn( $payment ) => floatval( $payment[ 'value' ] ) )->sum() );
+        $order->tendered = $this->currencyService->getRaw(collect($payments)->map(fn($payment) => floatval($payment[ 'value' ]))->sum());
     }
 
     /**
@@ -772,24 +776,29 @@ class OrdersService
      * @param array $payment
      * @return array
      */
-    public function makeOrderSinglePayment( $payment, Order $order )
+    public function makeOrderSinglePayment($payment, Order $order)
     {
+        // Check if the order is already paid
+        if ($order->payment_status === Order::PAYMENT_PAID) {
+            throw new NotAllowedException(__('Unable to proceed as the order is already paid.'));
+        }
+
         /**
          * We should check if the order allow instalments.
          */
-        if ( $order->instalments->count() > 0 && $order->support_instalments ) {
+        if ($order->instalments->count() > 0 && $order->support_instalments) {
             $paymentToday = $order->instalments()
-                ->where( 'paid', false )
-                ->where( 'date', '>=', ns()->date->copy()->startOfDay()->toDateTimeString() )
-                ->where( 'date', '<=', ns()->date->copy()->endOfDay()->toDateTimeString() )
+                ->where('paid', false)
+                ->where('date', '>=', ns()->date->copy()->startOfDay()->toDateTimeString())
+                ->where('date', '<=', ns()->date->copy()->endOfDay()->toDateTimeString())
                 ->get();
 
-            if ( $paymentToday->count() === 0 ) {
-                throw new NotFoundException( __( 'No payment is expected at the moment. If the customer want to pay early, consider adjusting instalment payments date.' ) );
+            if ($paymentToday->count() === 0) {
+                throw new NotFoundException(__('No payment is expected at the moment. If the customer want to pay early, consider adjusting instalment payments date.'));
             }
         }
 
-        $payment = $this->__saveOrderSinglePayment( $payment, $order );
+        $payment = $this->__saveOrderSinglePayment($payment, $order);
 
         /**
          * let's refresh the order to check whether the
@@ -797,12 +806,12 @@ class OrdersService
          */
         $order->refresh();
 
-        $this->refreshOrder( $order );
+        $this->refreshOrder($order);
 
         return [
             'status' => 'success',
-            'message' => __( 'The payment has been saved.' ),
-            'data' => compact( 'payment' ),
+            'message' => __('The payment has been saved.'),
+            'data' => compact('payment'),
         ];
     }
 
@@ -812,13 +821,13 @@ class OrdersService
      *
      * @param array $payment
      */
-    private function __saveOrderSinglePayment( $payment, Order $order ): OrderPayment
+    private function __saveOrderSinglePayment($payment, Order $order): OrderPayment
     {
-        event( new OrderBeforePaymentCreatedEvent( $payment, $order->customer ) );
+        event(new OrderBeforePaymentCreatedEvent($payment, $order->customer));
 
-        $orderPayment = isset( $payment[ 'id' ] ) ? OrderPayment::find( $payment[ 'id' ] ) : false;
+        $orderPayment = isset($payment[ 'id' ]) ? OrderPayment::find($payment[ 'id' ]) : false;
 
-        if ( ! $orderPayment instanceof OrderPayment ) {
+        if (! $orderPayment instanceof OrderPayment) {
             $orderPayment = new OrderPayment;
         }
 
@@ -826,12 +835,12 @@ class OrdersService
          * When the customer is making some payment
          * we store it on his history.
          */
-        if ( $payment[ 'identifier' ] === OrderPayment::PAYMENT_ACCOUNT ) {
+        if ($payment[ 'identifier' ] === OrderPayment::PAYMENT_ACCOUNT) {
             $this->customerService->saveTransaction(
                 $order->customer,
                 CustomerAccountHistory::OPERATION_PAYMENT,
                 $payment[ 'value' ],
-                __( 'Order Payment' ), [
+                __('Order Payment'), [
                     'order_id' => $order->id,
                 ]
             );
@@ -839,11 +848,11 @@ class OrdersService
 
         $orderPayment->order_id = $order->id;
         $orderPayment->identifier = $payment['identifier'];
-        $orderPayment->value = $this->currencyService->getRaw( $payment['value'] );
+        $orderPayment->value = $this->currencyService->getRaw($payment['value']);
         $orderPayment->author = $order->author ?? Auth::id();
         $orderPayment->save();
 
-        OrderAfterPaymentCreatedEvent::dispatch( $orderPayment, $order );
+        OrderAfterPaymentCreatedEvent::dispatch($orderPayment, $order);
 
         return $orderPayment;
     }
@@ -856,14 +865,14 @@ class OrdersService
      * @param Collection $products
      * @param array field
      */
-    private function __checkOrderPayments( $fields, Order $order = null, Customer $customer  )
+    private function __checkOrderPayments($fields, ?Order $order, Customer $customer)
     {
         /**
          * we shouldn't process order if while
          * editing an order it seems that order is already paid.
          */
-        if ( $order !== null && $order->payment_status === Order::PAYMENT_PAID ) {
-            throw new NotAllowedException( __( 'Unable to edit an order that is completely paid.' ) );
+        if ($order !== null && $order->payment_status === Order::PAYMENT_PAID) {
+            throw new NotAllowedException(__('Unable to edit an order that is completely paid.'));
         }
 
         /**
@@ -871,15 +880,15 @@ class OrdersService
          * some product, we need to make sure that the previously submitted
          * payment hasn't been deleted.
          */
-        if ( $order instanceof Order ) {
-            $paymentIds = collect( $fields[ 'payments' ] ?? [] )
-                ->map( fn( $payment ) => $payment[ 'id' ] ?? false )
-                ->filter( fn( $payment ) => $payment !== false )
+        if ($order instanceof Order) {
+            $paymentIds = collect($fields[ 'payments' ] ?? [])
+                ->map(fn($payment) => $payment[ 'id' ] ?? false)
+                ->filter(fn($payment) => $payment !== false)
                 ->toArray();
 
-            $order->payments->each( function( $payment ) use ( $paymentIds ) {
-                if ( ! in_array( $payment->id, $paymentIds ) ) {
-                    throw new NotAllowedException( __( 'Unable to proceed as one of the previous submitted payment is missing from the order.' ) );
+            $order->payments->each(function ($payment) use ($paymentIds) {
+                if (! in_array($payment->id, $paymentIds)) {
+                    throw new NotAllowedException(__('Unable to proceed as one of the previous submitted payment is missing from the order.'));
                 }
             });
 
@@ -887,45 +896,45 @@ class OrdersService
              * if the order was no more "hold"
              * we shouldn't allow the order to switch to hold.
              */
-            if ( $order->payment_status !== Order::PAYMENT_HOLD && isset( $fields[ 'payment_status' ] ) && $fields[ 'payment_status' ] === Order::PAYMENT_HOLD ) {
-                throw new NotAllowedException( __( 'The order payment status cannot switch to hold as a payment has already been made on that order.' ) );
+            if ($order->payment_status !== Order::PAYMENT_HOLD && isset($fields[ 'payment_status' ]) && $fields[ 'payment_status' ] === Order::PAYMENT_HOLD) {
+                throw new NotAllowedException(__('The order payment status cannot switch to hold as a payment has already been made on that order.'));
             }
         }
 
         $totalPayments = 0;
 
-        $subtotal = Currency::raw( collect( $fields[ 'products' ] )->map(function ($product) {
+        $subtotal = Currency::raw(collect($fields[ 'products' ])->map(function ($product) {
             return floatval($product['total_price']);
-        })->sum() );
+        })->sum());
 
         $total = $this->currencyService->define(
             $subtotal + $this->__getShippingFee($fields)
         )
-            ->subtractBy( ( $fields[ 'discount' ] ?? $this->computeDiscountValues( $fields[ 'discount_percentage' ] ?? 0, $subtotal ) ) )
-            ->subtractBy( $this->__computeOrderCoupons( $fields, $subtotal ) )
+            ->subtractBy(($fields[ 'discount' ] ?? $this->computeDiscountValues($fields[ 'discount_percentage' ] ?? 0, $subtotal)))
+            ->subtractBy($this->__computeOrderCoupons($fields, $subtotal))
             ->getRaw();
 
         $allowedPaymentsGateways = PaymentType::active()
             ->get()
-            ->map( fn( $paymentType ) => $paymentType->identifier )
+            ->map(fn($paymentType) => $paymentType->identifier)
             ->toArray();
 
-        if ( ! empty( $fields[ 'payments' ] ) ) {
-            foreach ( $fields[ 'payments' ] as $payment) {
-                if (in_array($payment['identifier'], $allowedPaymentsGateways ) ) {
+        if (! empty($fields[ 'payments' ])) {
+            foreach ($fields[ 'payments' ] as $payment) {
+                if (in_array($payment['identifier'], $allowedPaymentsGateways)) {
                     /**
                      * check if the customer account balance is enough for the account-payment
                      * when that payment is provided
                      */
-                    if ( $payment[ 'identifier' ] === 'account-payment' && $customer->account_amount < floatval( $payment[ 'value' ] ) ) {
-                        throw new NotAllowedException( __( 'The customer account funds are\'nt enough to process the payment.' ) );
+                    if ($payment[ 'identifier' ] === 'account-payment' && $customer->account_amount < floatval($payment[ 'value' ])) {
+                        throw new NotAllowedException(__('The customer account funds are\'nt enough to process the payment.'));
                     }
 
                     $totalPayments = $this->currencyService->define($totalPayments)
                         ->additionateBy($payment['value'])
                         ->get();
                 } else {
-                    throw new NotAllowedException( __('Unable to proceed. One of the submitted payment type is not supported.') );
+                    throw new NotAllowedException(__('Unable to proceed. One of the submitted payment type is not supported.'));
                 }
             }
         }
@@ -934,17 +943,17 @@ class OrdersService
          * determine if according to the payment
          * we're free to proceed with that
          */
-        if ( $totalPayments < $total ) {
+        if ($totalPayments < $total) {
             if (
-                $this->optionsService->get( 'ns_orders_allow_partial', true ) === false &&
+                $this->optionsService->get('ns_orders_allow_partial', true) === false &&
                 $totalPayments > 0
             ) {
-                throw new NotAllowedException( __('Unable to proceed. Partially paid orders aren\'t allowed. This option could be changed on the settings.') );
+                throw new NotAllowedException(__('Unable to proceed. Partially paid orders aren\'t allowed. This option could be changed on the settings.'));
             } elseif (
                 $this->optionsService->get('ns_orders_allow_incomplete', true) === false &&
                 $totalPayments === 0
             ) {
-                throw new NotAllowedException( __('Unable to proceed. Unpaid orders aren\'t allowed. This option could be changed on the settings.') );
+                throw new NotAllowedException(__('Unable to proceed. Unpaid orders aren\'t allowed. This option could be changed on the settings.'));
             }
 
             /**
@@ -955,21 +964,21 @@ class OrdersService
                 (float) $customer->credit_limit_amount > 0
                 && $totalPayments === 0
                 && $fields[ 'payment_status' ] !== Order::PAYMENT_HOLD
-                && (float) $customer->credit_limit_amount < (float) $customer->owed_amount + (float) $total ) {
-                throw new NotAllowedException( sprintf(
-                    __( 'By proceeding this order, the customer will exceed the maximum credit allowed for his account: %s.' ),
-                    (string) ns()->currency->fresh( $customer->credit_limit_amount )
-                ) );
+                && (float) $customer->credit_limit_amount < (float) $customer->owed_amount + (float) $total) {
+                throw new NotAllowedException(sprintf(
+                    __('By proceeding this order, the customer will exceed the maximum credit allowed for his account: %s.'),
+                    (string) ns()->currency->fresh($customer->credit_limit_amount)
+                ));
             }
         }
 
-        if ( $totalPayments >= $total ) {
+        if ($totalPayments >= $total && count($fields[ 'payments' ] ?? []) > 0) {
             $paymentStatus = Order::PAYMENT_PAID;
         } elseif ($totalPayments < $total && $totalPayments > 0) {
             $paymentStatus = Order::PAYMENT_PARTIALLY;
-        } elseif ( $totalPayments === 0 && ( ! isset( $fields[ 'payment_status' ] ) || ( $fields[ 'payment_status' ] !== Order::PAYMENT_HOLD ) ) ) {
+        } elseif ($totalPayments === 0 && (! isset($fields[ 'payment_status' ]) || ($fields[ 'payment_status' ] !== Order::PAYMENT_HOLD))) {
             $paymentStatus = Order::PAYMENT_UNPAID;
-        } elseif ( $totalPayments === 0 && ( isset( $fields[ 'payment_status' ] ) && ( $fields[ 'payment_status' ] === Order::PAYMENT_HOLD ) ) ) {
+        } elseif ($totalPayments === 0 && (isset($fields[ 'payment_status' ]) && ($fields[ 'payment_status' ] === Order::PAYMENT_HOLD))) {
             $paymentStatus = Order::PAYMENT_HOLD;
         }
 
@@ -977,8 +986,8 @@ class OrdersService
          * Ultimately, we'll check when a payment is provided
          * the logged user must have the rights to perform a payment
          */
-        if ( $totalPayments > 0 ) {
-            ns()->restrict( 'nexopos.make-payment.orders', __( 'You\'re not allowed to make payments.' ) );
+        if ($totalPayments > 0) {
+            ns()->restrict('nexopos.make-payment.orders', __('You\'re not allowed to make payments.'));
         }
 
         return [
@@ -996,7 +1005,7 @@ class OrdersService
      * @param array $data
      * @return array $order
      */
-    private function __computeOrderTotal($data)
+    protected function __computeOrderTotal($data)
     {
         /**
          * @param float $order
@@ -1010,14 +1019,14 @@ class OrdersService
          * increase the total with the
          * shipping fees and subtract the discounts
          */
-        $order->total = Currency::fresh( $order->subtotal )
-            ->additionateBy( $order->shipping )
+        $order->total = Currency::fresh($order->subtotal)
+            ->additionateBy($order->shipping)
             ->additionateBy(
-                ( $order->tax_type === 'exclusive' ? $order->tax_value : 0 )
+                ($order->tax_type === 'exclusive' ? $order->tax_value : 0)
             )
             ->subtractBy(
-                Currency::fresh( $order->total_coupons )
-                    ->additionateBy( $order->discount )
+                Currency::fresh($order->total_coupons)
+                    ->additionateBy($order->discount)
                     ->getRaw()
             )
             ->getRaw();
@@ -1027,8 +1036,8 @@ class OrdersService
         /**
          * compute change
          */
-        $order->change = Currency::fresh( $order->tendered )
-            ->subtractBy( $order->total )
+        $order->change = Currency::fresh($order->tendered)
+            ->subtractBy($order->total)
             ->getRaw();
 
         /**
@@ -1036,10 +1045,10 @@ class OrdersService
          *
          * @todo not accurate
          */
-        $order->total_without_tax = Currency::fresh( $order->subtotal )
-            ->subtractBy( $order->discount )
-            ->subtractBy( $order->total_coupons )
-            ->subtractBy( $order->tax_value )
+        $order->total_without_tax = Currency::fresh($order->subtotal)
+            ->subtractBy($order->discount)
+            ->subtractBy($order->total_coupons)
+            ->subtractBy($order->tax_value)
             ->getRaw();
 
         return $order;
@@ -1061,8 +1070,8 @@ class OrdersService
              * if the product id is provided
              * then we can use that id as a reference.
              */
-            if ( isset( $product[ 'id' ] ) ) {
-                $orderProduct = OrderProduct::find( $product[ 'id' ] );
+            if (isset($product[ 'id' ])) {
+                $orderProduct = OrderProduct::find($product[ 'id' ]);
             } else {
                 $orderProduct = new OrderProduct;
             }
@@ -1071,7 +1080,7 @@ class OrdersService
              * this can be useful to allow injecting
              * data that can later on be compted.
              */
-            OrderProductBeforeSavedEvent::dispatch( $orderProduct, $product );
+            OrderProductBeforeSavedEvent::dispatch($orderProduct, $product);
 
             /**
              * We'll retreive the unit used for
@@ -1079,7 +1088,7 @@ class OrdersService
              *
              * @var Unit $unit
              */
-            $unit = Unit::find( $product[ 'unit_id' ] );
+            $unit = Unit::find($product[ 'unit_id' ]);
 
             $orderProduct->order_id = $order->id;
             $orderProduct->unit_quantity_id = $product[ 'unit_quantity_id' ];
@@ -1090,7 +1099,7 @@ class OrdersService
             $orderProduct->rate = $product[ 'rate' ] ?? 0;
             $orderProduct->product_id = $product[ 'product' ]->id ?? 0;
             $orderProduct->product_category_id = $product[ 'product' ]->category_id ?? 0;
-            $orderProduct->name = $product[ 'product' ]->name ?? $product[ 'name' ] ?? __( 'Unnamed Product' );
+            $orderProduct->name = $product[ 'product' ]->name ?? $product[ 'name' ] ?? __('Unnamed Product');
             $orderProduct->quantity = $product[ 'quantity' ];
             $orderProduct->price_with_tax = $product[ 'price_with_tax' ] ?? 0;
             $orderProduct->price_without_tax = $product[ 'price_without_tax' ] ?? 0;
@@ -1099,44 +1108,48 @@ class OrdersService
              * We might need to have another consideration
              * on how we do compute the taxes
              */
-            if ( $product[ 'product' ] instanceof Product && $product[ 'product' ]->tax_type !== 'disabled' && ! empty( $product[ 'product' ]->tax_group_id )) {
+            if ($product[ 'product' ] instanceof Product && $product[ 'product' ]->tax_type !== 'disabled' && ! empty($product[ 'product' ]->tax_group_id)) {
                 $orderProduct->tax_group_id = $product[ 'product' ]->tax_group_id;
-                $orderProduct->tax_type = $product[ 'product' ]->tax_type;
+                $orderProduct->tax_type = $product[ 'product' ]->tax_type ?? 'inclusive';
                 $orderProduct->tax_value = $product[ 'tax_value' ];
-            } elseif ( isset( $product[ 'tax_type' ] ) && isset( $product[ 'tax_group_id' ] ) ) {
+            } elseif (isset($product[ 'tax_type' ]) && isset($product[ 'tax_group_id' ])) {
                 $orderProduct->tax_group_id = $product[ 'tax_group_id' ];
                 $orderProduct->tax_type = $product[ 'tax_type' ];
                 $orderProduct->tax_value = $product[ 'tax_value' ];
+            } else {
+                $orderProduct->tax_group_id = 0;
+                $orderProduct->tax_type = 'disabled';
+                $orderProduct->tax_value = 0;
             }
 
             /**
              * @todo we need to solve the issue with the
              * gross price and determine where we should pull it.
              */
-            $orderProduct->unit_price = $this->currencyService->define( $product[ 'unit_price' ] )->getRaw();
+            $orderProduct->unit_price = $this->currencyService->define($product[ 'unit_price' ])->getRaw();
             $orderProduct->discount_type = $product[ 'discount_type' ] ?? 'none';
             $orderProduct->discount = $product[ 'discount' ] ?? 0;
             $orderProduct->discount_percentage = $product[ 'discount_percentage' ] ?? 0;
             $orderProduct->total_purchase_price = $this->currencyService->define(
-                $product[ 'total_purchase_price' ] ?? Currency::fresh( $this->productService->getLastPurchasePrice(
+                $product[ 'total_purchase_price' ] ?? Currency::fresh($this->productService->getLastPurchasePrice(
                     product: $product[ 'product' ],
                     unit: $unit
-                ) )
-                ->multipliedBy( $product[ 'quantity' ] )
-                ->getRaw()
+                ))
+                    ->multipliedBy($product[ 'quantity' ])
+                    ->getRaw()
             )
                 ->getRaw();
 
-            $this->computeOrderProduct( $orderProduct );
+            $this->computeOrderProduct($orderProduct);
 
             $orderProduct->save();
 
             $subTotal = $this->currencyService->define($subTotal)
-                ->additionateBy( $orderProduct->total_price )
+                ->additionateBy($orderProduct->total_price)
                 ->get();
 
             if (
-                in_array( $order[ 'payment_status' ], [ 'paid', 'partially_paid', 'unpaid' ] ) &&
+                in_array($order[ 'payment_status' ], [ Order::PAYMENT_PAID, Order::PAYMENT_PARTIALLY, Order::PAYMENT_UNPAID ]) &&
                 $product[ 'product' ] instanceof Product
             ) {
                 /**
@@ -1158,28 +1171,28 @@ class OrdersService
                  * already exists and which are edited. We'll here only records
                  * products that doesn't exists yet.
                  */
-                $stockHistoryExists = ProductHistory::where( 'order_product_id', $orderProduct->id )
-                    ->where( 'operation_type', ProductHistory::ACTION_SOLD )
+                $stockHistoryExists = ProductHistory::where('order_product_id', $orderProduct->id)
+                    ->where('operation_type', ProductHistory::ACTION_SOLD)
                     ->count() === 1;
 
-                if ( ! $stockHistoryExists ) {
-                    $this->productService->stockAdjustment( ProductHistory::ACTION_SOLD, $history );
+                if (! $stockHistoryExists) {
+                    $this->productService->stockAdjustment(ProductHistory::ACTION_SOLD, $history);
                 }
             }
 
-            event( new OrderProductAfterSavedEvent( $orderProduct, $order, $product ) );
+            event(new OrderProductAfterSavedEvent($orderProduct, $order, $product));
 
             return $orderProduct;
         });
 
         $order->subtotal = $subTotal;
 
-        return compact( 'subTotal', 'order', 'orderProducts' );
+        return compact('subTotal', 'order', 'orderProducts');
     }
 
-    private function __buildOrderProducts( $products )
+    private function __buildOrderProducts($products)
     {
-        return collect( $products )->map( function( $orderProduct ) {
+        return collect($products)->map(function ($orderProduct) {
             /**
              * by default, we'll assume a quick
              * product is being created.
@@ -1187,16 +1200,16 @@ class OrdersService
             $product = null;
             $productUnitQuantity = null;
 
-            if ( ! empty( $orderProduct[ 'sku' ] ?? null ) || ! empty( $orderProduct[ 'product_id' ] ?? null ) ) {
-                $product = Cache::remember( 'store-' . ( $orderProduct['product_id'] ?? $orderProduct['sku'] ), 60, function() use ($orderProduct) {
-                    if ( ! empty( $orderProduct['product_id'] ?? null ) ) {
+            if (! empty($orderProduct[ 'sku' ] ?? null) || ! empty($orderProduct[ 'product_id' ] ?? null)) {
+                $product = Cache::remember('store-' . ($orderProduct['product_id'] ?? $orderProduct['sku']), 60, function () use ($orderProduct) {
+                    if (! empty($orderProduct['product_id'] ?? null)) {
                         return $this->productService->get($orderProduct['product_id']);
-                    } elseif ( ! empty( $orderProduct['sku'] ?? null ) ) {
+                    } elseif (! empty($orderProduct['sku'] ?? null)) {
                         return $this->productService->getProductUsingSKUOrFail($orderProduct['sku']);
                     }
                 });
 
-                $productUnitQuantity = ProductUnitQuantity::findOrFail( $orderProduct[ 'unit_quantity_id' ] );
+                $productUnitQuantity = ProductUnitQuantity::findOrFail($orderProduct[ 'unit_quantity_id' ]);
             }
 
             $orderProduct = $this->__buildOrderProduct(
@@ -1212,9 +1225,9 @@ class OrdersService
     /**
      * @return SupportCollection $items
      */
-    private function __checkProductStock( SupportCollection $items, Order $order = null )
+    private function __checkProductStock(SupportCollection $items, Order $order = null)
     {
-        $session_identifier = Str::random( '10' );
+        $session_identifier = Str::random('10');
 
         /**
          * here comes a loop.
@@ -1223,28 +1236,28 @@ class OrdersService
          * we'll also populate the unit for the item
          * so that it can be reused
          */
-        $items = $items->map( function ( array $orderProduct ) use ( $session_identifier ) {
-            if ( $orderProduct[ 'product' ] instanceof Product ) {
+        $items = $items->map(function (array $orderProduct) use ($session_identifier) {
+            if ($orderProduct[ 'product' ] instanceof Product) {
                 /**
                  * Checking inventory for the grouped products,
                  * by loading all the subitems and multiplying the quantity
                  * with the order quantity.
                  */
-                if ( $orderProduct[ 'product' ]->type === Product::TYPE_GROUPED ) {
-                    $orderProduct[ 'product' ]->load( 'sub_items.product' );
+                if ($orderProduct[ 'product' ]->type === Product::TYPE_GROUPED) {
+                    $orderProduct[ 'product' ]->load('sub_items.product');
                     $orderProduct[ 'product' ]
                         ->sub_items
-                        ->each( function( ProductSubItem $subitem ) use ( $session_identifier, $orderProduct ) {
+                        ->each(function (ProductSubItem $subitem) use ($session_identifier, $orderProduct) {
                             /**
                              * Stock management should be enabled
                              * for the sub item.
                              */
-                            if ( $subitem->product->stock_management === Product::STOCK_MANAGEMENT_ENABLED ) {
+                            if ($subitem->product->stock_management === Product::STOCK_MANAGEMENT_ENABLED) {
                                 /**
                                  * We need a fake orderProduct
                                  * that will have necessary attributes for verification.
                                  */
-                                $parentUnit = $this->unitService->get( $orderProduct[ 'unit_id' ] );
+                                $parentUnit = $this->unitService->get($orderProduct[ 'unit_id' ]);
 
                                 /**
                                  * computing the exact quantity that will be pulled
@@ -1281,7 +1294,7 @@ class OrdersService
             return $orderProduct;
         });
 
-        OrderAfterProductStockCheckedEvent::dispatch( $items, $session_identifier );
+        OrderAfterProductStockCheckedEvent::dispatch($items, $session_identifier);
 
         return $items;
     }
@@ -1290,17 +1303,15 @@ class OrdersService
      * Prebuild a product that will be processed
      *
      * @param array Order Product
-     * @param ProductUnitQuantity $productUnitQuantity
-     * @param Product $product
      * @return array Order Product (updated)
      */
-    public function __buildOrderProduct( array $orderProduct, ProductUnitQuantity $productUnitQuantity = null, Product $product = null )
+    public function __buildOrderProduct(array $orderProduct, ProductUnitQuantity $productUnitQuantity = null, Product $product = null)
     {
         /**
          * This will calculate the product default field
          * when they aren't provided.
          */
-        $orderProduct = $this->computeProduct( $orderProduct, $product, $productUnitQuantity );
+        $orderProduct = $this->computeProduct($orderProduct, $product, $productUnitQuantity);
         $orderProduct[ 'unit_id' ] = $productUnitQuantity->unit->id ?? $orderProduct[ 'unit_id' ] ?? 0;
         $orderProduct[ 'unit_quantity_id' ] = $productUnitQuantity->id ?? 0;
         $orderProduct[ 'product' ] = $product;
@@ -1313,9 +1324,9 @@ class OrdersService
         return $orderProduct;
     }
 
-    public function checkQuantityAvailability( $product, $productUnitQuantity, $orderProduct, $session_identifier )
+    public function checkQuantityAvailability($product, $productUnitQuantity, $orderProduct, $session_identifier)
     {
-        if ( $product->stock_management === Product::STOCK_MANAGEMENT_ENABLED ) {
+        if ($product->stock_management === Product::STOCK_MANAGEMENT_ENABLED) {
             /**
              * What we're doing here
              * 1 - Get the unit assigned to the product being sold
@@ -1323,10 +1334,10 @@ class OrdersService
              * 3 - If the a group is assigned to a product, the we check if that unit belongs to the unit group
              */
             try {
-                $storageQuantity = OrderStorage::withIdentifier( $session_identifier )
-                    ->withProduct( $product->id )
-                    ->withUnitQuantity( $orderProduct[ 'unit_quantity_id' ] )
-                    ->sum( 'quantity' );
+                $storageQuantity = OrderStorage::withIdentifier($session_identifier)
+                    ->withProduct($product->id)
+                    ->withUnitQuantity($orderProduct[ 'unit_quantity_id' ])
+                    ->sum('quantity');
 
                 $orderProductQuantity = $orderProduct[ 'quantity' ];
 
@@ -1337,28 +1348,28 @@ class OrdersService
                  */
                 $quantityToIgnore = 0;
 
-                if ( isset( $orderProduct[ 'id' ] ) ) {
-                    $stockWasDeducted = ProductHistory::where( 'order_product_id', $orderProduct[ 'id' ] )
-                        ->where( 'operation_type', ProductHistory::ACTION_SOLD )
+                if (isset($orderProduct[ 'id' ])) {
+                    $stockWasDeducted = ProductHistory::where('order_product_id', $orderProduct[ 'id' ])
+                        ->where('operation_type', ProductHistory::ACTION_SOLD)
                         ->count() === 1;
 
                     /**
                      * Only when the stock was deducted, we'll ignore the quantity
                      * that is currently in use by the order product.
                      */
-                    if ( $stockWasDeducted ) {
-                        $orderProductRerefence = OrderProduct::find( $orderProduct[ 'id' ] );
+                    if ($stockWasDeducted) {
+                        $orderProductRerefence = OrderProduct::find($orderProduct[ 'id' ]);
                         $quantityToIgnore = $orderProductRerefence->quantity;
                     }
                 }
 
-                if ( ( $productUnitQuantity->quantity + $quantityToIgnore ) - $storageQuantity < abs( $orderProductQuantity ) ) {
+                if (($productUnitQuantity->quantity + $quantityToIgnore) - $storageQuantity < abs($orderProductQuantity)) {
                     throw new \Exception(
                         sprintf(
-                            __( 'Unable to proceed, there is not enough stock for %s using the unit %s. Requested : %s, available %s' ),
+                            __('Unable to proceed, there is not enough stock for %s using the unit %s. Requested : %s, available %s'),
                             $product->name,
                             $productUnitQuantity->unit->name,
-                            abs( $orderProductQuantity ),
+                            abs($orderProductQuantity),
                             $productUnitQuantity->quantity - $storageQuantity
                         )
                     );
@@ -1386,9 +1397,9 @@ class OrdersService
         }
     }
 
-    public function computeProduct( $fields, Product $product = null, ProductUnitQuantity $productUnitQuantity = null )
+    public function computeProduct($fields, Product $product = null, ProductUnitQuantity $productUnitQuantity = null)
     {
-        $sale_price = ( $fields[ 'unit_price' ] ?? $productUnitQuantity->sale_price );
+        $sale_price = ($fields[ 'unit_price' ] ?? $productUnitQuantity->sale_price);
 
         /**
          * if the discount value wasn't provided, it would have
@@ -1396,10 +1407,10 @@ class OrdersService
          * informations.
          */
         if (
-            isset( $fields[ 'discount_percentage' ] ) &&
-            isset( $fields[ 'discount_type' ] ) &&
-            $fields[ 'discount_type' ] === 'percentage' ) {
-            $fields[ 'discount' ] = ( $fields[ 'discount' ] ?? ( ( $sale_price * $fields[ 'discount_percentage' ] ) / 100 ) * $fields[ 'quantity' ] );
+            isset($fields[ 'discount_percentage' ]) &&
+            isset($fields[ 'discount_type' ]) &&
+            $fields[ 'discount_type' ] === 'percentage') {
+            $fields[ 'discount' ] = ($fields[ 'discount' ] ?? (($sale_price * $fields[ 'discount_percentage' ]) / 100) * $fields[ 'quantity' ]);
         } else {
             $fields[ 'discount' ] = $fields[ 'discount' ] ?? 0;
         }
@@ -1409,7 +1420,7 @@ class OrdersService
          * it should compute the tax otherwise
          * the value is "0".
          */
-        if ( empty( $fields[ 'tax_value' ] ) ) {
+        if (empty($fields[ 'tax_value' ])) {
             $fields[ 'tax_value' ] = $this->currencyService->define(
                 $this->taxService->getComputedTaxGroupValue(
                     tax_type: $fields[ 'tax_type' ] ?? $product->tax_type ?? null,
@@ -1417,17 +1428,17 @@ class OrdersService
                     price: $sale_price
                 )
             )
-            ->multiplyBy( floatval( $fields[ 'quantity' ] ) )
-            ->getRaw();
+                ->multiplyBy(floatval($fields[ 'quantity' ]))
+                ->toFloat();
         }
 
         /**
          * If the total_price is not defined
          * let's compute that
          */
-        if ( empty( $fields[ 'total_price' ] ) ) {
+        if (empty($fields[ 'total_price' ])) {
             $fields[ 'total_price' ] = (
-                $sale_price * floatval( $fields[ 'quantity' ] )
+                $sale_price * floatval($fields[ 'quantity' ])
             ) - $fields[ 'discount' ];
         }
 
@@ -1438,9 +1449,9 @@ class OrdersService
      * @todo we need to be able to
      * change the code format
      */
-    public function generateOrderCode( $order )
+    public function generateOrderCode($order)
     {
-        $now = Carbon::parse( $order->created_at );
+        $now = Carbon::parse($order->created_at);
         $today = $now->toDateString();
         $count = DB::table('nexopos_orders_count')
             ->where('date', $today)
@@ -1459,16 +1470,16 @@ class OrdersService
             ->where('date', $today)
             ->increment('count');
 
-        return $now->format( 'y' ) . $now->format( 'm' ) . $now->format( 'd' ) . '-' . str_pad( $count, 3, 0, STR_PAD_LEFT );
+        return $now->format('y') . $now->format('m') . $now->format('d') . '-' . str_pad($count, 3, 0, STR_PAD_LEFT);
     }
 
-    private function __initOrder( $fields, $paymentStatus, $order )
+    protected function __initOrder($fields, $paymentStatus, $order)
     {
         /**
          * if the order is not provided as a parameter
          * a new instance is initialized.
          */
-        if ( ! $order instanceof Order ) {
+        if (! $order instanceof Order) {
             $order = new Order;
 
             /**
@@ -1483,11 +1494,11 @@ class OrdersService
          * saved while creating the order, it should be
          * explicitly allowed on this filter
          */
-        foreach ( Hook::filter( 'ns-order-attributes', [] ) as $attribute ) {
-            if ( ! in_array( $attribute, [
+        foreach (Hook::filter('ns-order-attributes', []) as $attribute) {
+            if (! in_array($attribute, [
                 'id',
             ])) {
-                $order->$attribute = $fields[ $attribute ];
+                $order->$attribute = $fields[ $attribute ] ?? null;
             }
         }
 
@@ -1496,21 +1507,21 @@ class OrdersService
          * his initial state
          */
         $order->customer_id = $fields['customer_id'];
-        $order->shipping = $this->currencyService->getRaw( $fields[ 'shipping' ] ?? 0 ); // if shipping is not provided, we assume it's free
-        $order->subtotal = $this->currencyService->getRaw( $fields[ 'subtotal' ] ?? 0 ) ?: $this->computeSubTotal( $fields, $order );
+        $order->shipping = $this->currencyService->getRaw($fields[ 'shipping' ] ?? 0); // if shipping is not provided, we assume it's free
+        $order->subtotal = $this->currencyService->getRaw($fields[ 'subtotal' ] ?? 0) ?: $this->computeSubTotal($fields, $order);
         $order->discount_type = $fields['discount_type'] ?? null;
-        $order->discount_percentage = $this->currencyService->getRaw( $fields['discount_percentage'] ?? 0 );
+        $order->discount_percentage = $this->currencyService->getRaw($fields['discount_percentage'] ?? 0);
         $order->discount = (
-            $this->currencyService->getRaw( $order->discount_type === 'flat' && isset( $fields['discount'] ) ? $fields['discount'] : 0 )
-        ) ?: ( $order->discount_type === 'percentage' ? $this->computeOrderDiscount( $order, $fields ) : 0 );
-        $order->total = $this->currencyService->getRaw( $fields[ 'total' ] ?? 0 ) ?: $this->computeTotal( $fields, $order );
+            $this->currencyService->getRaw($order->discount_type === 'flat' && isset($fields['discount']) ? $fields['discount'] : 0)
+        ) ?: ($order->discount_type === 'percentage' ? $this->computeOrderDiscount($order, $fields) : 0);
+        $order->total = $this->currencyService->getRaw($fields[ 'total' ] ?? 0) ?: $this->computeTotal($fields, $order);
         $order->type = $fields['type']['identifier'];
-        $order->final_payment_date = isset( $fields['final_payment_date' ] ) ? Carbon::parse( $fields['final_payment_date' ] )->format( 'Y-m-d h:m:s' ) : null; // when the order is not saved as laid away
+        $order->final_payment_date = isset($fields['final_payment_date' ]) ? Carbon::parse($fields['final_payment_date' ])->format('Y-m-d h:m:s') : null; // when the order is not saved as laid away
         $order->total_instalments = $fields[ 'total_instalments' ] ?? 0;
         $order->register_id = $fields[ 'register_id' ] ?? null;
         $order->note = $fields[ 'note'] ?? null;
         $order->note_visibility = $fields[ 'note_visibility' ] ?? null;
-        $order->updated_at = isset( $fields[ 'updated_at' ] ) ? Carbon::parse( $fields[ 'updated_at' ] )->format( 'Y-m-d h:m:s' ) : ns()->date->getNow()->toDateTimeString();
+        $order->updated_at = isset($fields[ 'updated_at' ]) ? Carbon::parse($fields[ 'updated_at' ])->format('Y-m-d h:m:s') : ns()->date->getNow()->toDateTimeString();
         $order->tax_group_id = $fields['tax_group_id' ] ?? null;
         $order->tax_type = $fields['tax_type' ] ?? null;
         $order->total_coupons = $fields['total_coupons'] ?? 0;
@@ -1520,14 +1531,14 @@ class OrdersService
         $order->support_instalments = $fields[ 'support_instalments' ] ?? true; // by default instalments are supported
         $order->author = $fields[ 'author' ] ?? Auth::id(); // the author can now be changed
         $order->title = $fields[ 'title' ] ?? null;
-        $order->tax_value = $this->currencyService->define( $fields[ 'tax_value' ] ?? 0 )->toFloat();
-        $order->products_tax_value = $this->currencyService->define( $fields[ 'products_tax_value' ] ?? 0 )->toFloat();
-        $order->total_tax_value = $this->currencyService->define( $fields[ 'total_tax_value' ] ?? 0 )->toFloat();
+        $order->tax_value = $this->currencyService->define($fields[ 'tax_value' ] ?? 0)->toFloat();
+        $order->products_tax_value = $this->currencyService->define($fields[ 'products_tax_value' ] ?? 0)->toFloat();
+        $order->total_tax_value = $this->currencyService->define($fields[ 'total_tax_value' ] ?? 0)->toFloat();
         $order->code = $order->code ?: ''; // to avoid generating a new code
         $order->save();
 
-        if ( $order->code === '' ) {
-            $order->code = $this->generateOrderCode( $order ); // to avoid generating a new code
+        if ($order->code === '') {
+            $order->code = $this->generateOrderCode($order); // to avoid generating a new code
         }
 
         /**
@@ -1535,8 +1546,8 @@ class OrdersService
          * delivery and process status updated
          * according to the order type
          */
-        $this->updateDeliveryStatus( $order );
-        $this->updateProcessStatus( $order );
+        $this->updateDeliveryStatus($order);
+        $this->updateProcessStatus($order);
 
         $order->save();
 
@@ -1548,17 +1559,17 @@ class OrdersService
      *
      * @return void
      */
-    public function updateProcessStatus( Order $order )
+    public function updateProcessStatus(Order $order)
     {
-        if ( in_array( $order->type, [ 'delivery', 'takeaway' ] ) ) {
-            if ( $order->type === 'delivery' ) {
+        if (in_array($order->type, [ 'delivery', 'takeaway' ])) {
+            if ($order->type === 'delivery') {
                 $order->process_status = 'pending';
             } else {
                 $order->process_status = 'not-available';
             }
         }
 
-        OrderAfterUpdatedProcessStatus::dispatch( $order );
+        OrderAfterUpdatedProcessStatus::dispatch($order);
     }
 
     /**
@@ -1566,17 +1577,17 @@ class OrdersService
      *
      * @return void
      */
-    public function updateDeliveryStatus( Order $order )
+    public function updateDeliveryStatus(Order $order)
     {
-        if ( in_array( $order->type, [ 'delivery', 'takeaway' ] ) ) {
-            if ( $order->type === 'delivery' ) {
+        if (in_array($order->type, [ 'delivery', 'takeaway' ])) {
+            if ($order->type === 'delivery') {
                 $order->delivery_status = 'pending';
             } else {
                 $order->delivery_status = 'not-available';
             }
         }
 
-        OrderAfterUpdatedDeliveryStatus::dispatch( $order );
+        OrderAfterUpdatedDeliveryStatus::dispatch($order);
     }
 
     /**
@@ -1585,7 +1596,7 @@ class OrdersService
      * @param array $fields
      * @return int $discount
      */
-    public function computeOrderDiscount( $order, $fields = [] )
+    public function computeOrderDiscount($order, $fields = [])
     {
         $fields[ 'discount_type' ] = $fields[ 'discount_type' ] ?? $order->discount_type;
         $fields[ 'discount_percentage' ] = $fields[ 'discount_percentage' ] ?? $order->discount_percentage;
@@ -1593,11 +1604,11 @@ class OrdersService
         $fields[ 'subtotal' ] = $fields[ 'subtotal' ] ?? $order->subtotal;
         $fields[ 'discount' ] = $fields[ 'discount' ] ?? $order->discount ?? 0;
 
-        if ( ! empty( $fields[ 'discount_type' ] ) && ! empty( $fields[ 'discount_percentage' ] ) && $fields[ 'discount_type' ] === 'percentage' ) {
-            return $this->currencyService->define( ( $fields[ 'subtotal' ] * $fields[ 'discount_percentage' ] ) / 100 )
+        if (! empty($fields[ 'discount_type' ]) && ! empty($fields[ 'discount_percentage' ]) && $fields[ 'discount_type' ] === 'percentage') {
+            return $this->currencyService->define(($fields[ 'subtotal' ] * $fields[ 'discount_percentage' ]) / 100)
                 ->getRaw();
         } else {
-            return $this->currencyService->getRaw( $fields[ 'discount' ] );
+            return $this->currencyService->getRaw($fields[ 'discount' ]);
         }
     }
 
@@ -1609,9 +1620,9 @@ class OrdersService
      * @param string $type
      * @return float value
      */
-    public function computeTaxFromOrderTaxes( Order $order, $value, $type = 'inclusive' )
+    public function computeTaxFromOrderTaxes(Order $order, $value, $type = 'inclusive')
     {
-        return $order->taxes->map( function( $tax ) use ( $value, $type ) {
+        return $order->taxes->map(function ($tax) use ($value, $type) {
             $result = $this->taxService->getVatValue(
                 $type, $tax->rate, $value
             );
@@ -1624,16 +1635,16 @@ class OrdersService
      * will compute the taxes based
      * on the configuration and the products
      */
-    public function computeOrderTaxes( Order $order )
+    public function computeOrderTaxes(Order $order)
     {
-        $posVat = ns()->option->get( 'ns_pos_vat' );
+        $posVat = ns()->option->get('ns_pos_vat');
         $taxValue = 0;
 
-        if ( in_array( $posVat, [
+        if (in_array($posVat, [
             'products_vat',
             'products_flat_vat',
             'products_variable_vat',
-        ] ) ) {
+        ])) {
             $taxValue = $order
                 ->products()
                 ->validProducts()
@@ -1641,21 +1652,21 @@ class OrdersService
                 ->map(function ($product) {
                     return floatval($product->tax_value);
                 })->sum();
-        } elseif ( in_array( $posVat, [
+        } elseif (in_array($posVat, [
             'flat_vat',
             'variable_vat',
-        ]) && $order->taxes->count() > 0 ) {
+        ]) && $order->taxes->count() > 0) {
             $subTotal = $order->products()
                 ->validProducts()
-                ->sum( 'total_price' );
+                ->sum('total_price');
 
             $response = $this->taxService->getTaxesComputed(
                 tax_type: $order->tax_type,
-                rates: $order->taxes->map( fn( $tax ) => $tax->rate )->toArray(),
+                rates: $order->taxes->map(fn($tax) => $tax->rate)->toArray(),
                 value: $subTotal
             );
 
-            $taxValue = $order->taxes->map( function( $tax, $index ) use (   $response ) {
+            $taxValue = $order->taxes->map(function ($tax, $index) use ($response) {
                 $tax->tax_value = $response[ 'percentages' ][ $index ][ 'tax' ];
                 $tax->save();
 
@@ -1673,28 +1684,28 @@ class OrdersService
      * @param Order $order
      * @return float
      */
-    public function getOrderProductsTaxes( $order )
+    public function getOrderProductsTaxes($order)
     {
-        return $this->currencyService->define( $order
+        return $this->currencyService->define($order
             ->products()
             ->get()
-            ->map( fn( $product ) => $product->tax_value )->sum()
+            ->map(fn($product) => $product->tax_value)->sum()
         )->toFloat();
     }
 
-    public function computeTotal( $fields, $order )
+    public function computeTotal($fields, $order)
     {
-        return $this->currencyService->define( $order->subtotal )
-            ->subtractBy( $order->discount )
-            ->additionateBy( $order->shipping )
+        return $this->currencyService->define($order->subtotal)
+            ->subtractBy($order->discount)
+            ->additionateBy($order->shipping)
             ->toFloat();
     }
 
-    public function computeSubTotal( $fields, $order )
+    public function computeSubTotal($fields, $order)
     {
         return $this->currencyService->define(
-            collect( $fields[ 'products' ] )
-                ->map( fn( $product ) => floatval( $product[ 'total_price' ] ) )
+            collect($fields[ 'products' ])
+                ->map(fn($product) => floatval($product[ 'total_price' ]))
                 ->sum()
         )
             ->toFloat();
@@ -1705,19 +1716,19 @@ class OrdersService
         try {
             return $this->customerService->get($fields['customer_id']);
         } catch (NotFoundException $exception) {
-            throw new NotFoundException( __('Unable to find the customer using the provided ID. The order creation has failed.') );
+            throw new NotFoundException(__('Unable to find the customer using the provided ID. The order creation has failed.'));
         }
     }
 
-    public function refundOrder( Order $order, $fields )
+    public function refundOrder(Order $order, $fields)
     {
-        if ( ! in_array( $order->payment_status, [
+        if (! in_array($order->payment_status, [
             Order::PAYMENT_PARTIALLY,
             Order::PAYMENT_UNPAID,
             Order::PAYMENT_PAID,
             Order::PAYMENT_PARTIALLY_REFUNDED,
-        ] ) ) {
-            throw new NotAllowedException( __('Unable to proceed a refund on an unpaid order.') );
+        ])) {
+            throw new NotAllowedException(__('Unable to proceed a refund on an unpaid order.'));
         }
 
         DB::beginTransaction();
@@ -1755,17 +1766,17 @@ class OrdersService
                 return $refundProduct->tax_value;
             })->sum() ?: 0;
 
-            $orderRefund->tax_value = Currency::raw($taxValue);
+            $orderRefund->tax_value = ns()->currency->define($taxValue)->toFloat();
 
-        /**
-         * let's update the order refund total
-         */
-        $orderRefund->load( 'refunded_products' );
-        $orderRefund->total = Currency::define(
-            $orderRefund->refunded_products->sum( 'total_price' )
-        )->additionateBy( $shipping )->toFloat();
+            /**
+             * let's update the order refund total
+             */
+            $orderRefund->load('refunded_products');
+            $orderRefund->total = Currency::define(
+                $orderRefund->refunded_products->sum('total_price')
+            )->additionateBy($shipping)->toFloat();
 
-        $orderRefund->save();
+            $orderRefund->save();
 
             /**
              * check if the payment used is the customer account
@@ -1793,30 +1804,30 @@ class OrdersService
 
         return [
             'status' => 'success',
-            'message' => __( 'The order has been successfully refunded.' ),
-            'data' => compact( 'results', 'order', 'orderRefund' ),
+            'message' => __('The order has been successfully refunded.'),
+            'data' => compact('results', 'order', 'orderRefund'),
         ];
     }
 
     /**
      * Refund a single product from an order.
      */
-    public function refundSingleProduct( Order $order, OrderRefund $orderRefund, OrderProduct $orderProduct, array $details ): array
+    public function refundSingleProduct(Order $order, OrderRefund $orderRefund, OrderProduct $orderProduct, array $details): array
     {
-        if ( ! in_array( $details[ 'condition' ], [
+        if (! in_array($details[ 'condition' ], [
             OrderProductRefund::CONDITION_DAMAGED,
             OrderProductRefund::CONDITION_UNSPOILED,
-        ] ) ) {
-            throw new NotAllowedException( __( 'unable to proceed to a refund as the provided status is not supported.' ) );
+        ])) {
+            throw new NotAllowedException(__('unable to proceed to a refund as the provided status is not supported.'));
         }
 
-        if ( ! in_array( $order->payment_status, [
+        if (! in_array($order->payment_status, [
             Order::PAYMENT_PARTIALLY,
             Order::PAYMENT_PARTIALLY_REFUNDED,
             Order::PAYMENT_UNPAID,
             Order::PAYMENT_PAID,
-        ] ) ) {
-            throw new NotAllowedException( __( 'Unable to proceed a refund on an unpaid order.' ) );
+        ])) {
+            throw new NotAllowedException(__('Unable to proceed a refund on an unpaid order.'));
         }
 
         /**
@@ -1824,9 +1835,9 @@ class OrdersService
          * available on the order for a specific product.
          */
         $orderProduct->status = 'returned';
-        $orderProduct->quantity -= floatval( $details[ 'quantity' ] );
+        $orderProduct->quantity -= floatval($details[ 'quantity' ]);
 
-        $this->computeOrderProduct( $orderProduct );
+        $this->computeOrderProduct($orderProduct);
 
         $orderProduct->save();
 
@@ -1841,7 +1852,7 @@ class OrdersService
 
         $productRefund->unit_id = $orderProduct->unit_id;
         $productRefund->total_price = $this->currencyService
-            ->getRaw( $productRefund->unit_price * floatval( $details[ 'quantity' ] ) );
+            ->getRaw($productRefund->unit_price * floatval($details[ 'quantity' ]));
         $productRefund->quantity = $details[ 'quantity' ];
         $productRefund->author = Auth::id();
         $productRefund->order_id = $order->id;
@@ -1851,23 +1862,23 @@ class OrdersService
 
         $productRefund->tax_value = $this->computeTaxFromOrderTaxes(
             $order,
-            Currency::raw( $details[ 'unit_price' ] * $details[ 'quantity' ] ),
-            ns()->option->get( 'ns_pos_tax_type' )
+            Currency::raw($details[ 'unit_price' ] * $details[ 'quantity' ]),
+            ns()->option->get('ns_pos_tax_type')
         );
 
         $productRefund->save();
 
-        event( new OrderAfterProductRefundedEvent( $order, $orderProduct, $productRefund ) );
+        event(new OrderAfterProductRefundedEvent($order, $orderProduct, $productRefund));
 
         /**
          * We should adjust the stock only if a valid product
          * is being refunded.
          */
-        if ( ! empty( $orderProduct->product_id ) ) {
+        if (! empty($orderProduct->product_id)) {
             /**
              * we do proceed by doing an initial return
              */
-            $this->productService->stockAdjustment( ProductHistory::ACTION_RETURNED, [
+            $this->productService->stockAdjustment(ProductHistory::ACTION_RETURNED, [
                 'total_price' => $productRefund->total_price,
                 'quantity' => $productRefund->quantity,
                 'unit_price' => $productRefund->unit_price,
@@ -1881,8 +1892,8 @@ class OrdersService
              * If the returned stock is damaged
              * then we can pull this out from the stock
              */
-            if ( $details[ 'condition' ] === OrderProductRefund::CONDITION_DAMAGED ) {
-                $this->productService->stockAdjustment( ProductHistory::ACTION_DEFECTIVE, [
+            if ($details[ 'condition' ] === OrderProductRefund::CONDITION_DAMAGED) {
+                $this->productService->stockAdjustment(ProductHistory::ACTION_DEFECTIVE, [
                     'total_price' => $productRefund->total_price,
                     'quantity' => $productRefund->quantity,
                     'unit_price' => $productRefund->unit_price,
@@ -1900,7 +1911,7 @@ class OrdersService
                 __('The product %s has been successfully refunded.'),
                 $orderProduct->name
             ),
-            'data' => compact( 'productRefund', 'orderProduct' ),
+            'data' => compact('productRefund', 'orderProduct'),
         ];
     }
 
@@ -1910,9 +1921,9 @@ class OrdersService
      *
      * @return void
      */
-    public function computeOrderProduct( OrderProduct $orderProduct )
+    public function computeOrderProduct(OrderProduct $orderProduct)
     {
-        $orderProduct = $this->taxService->computeOrderProductTaxes( $orderProduct );
+        $orderProduct = $this->taxService->computeOrderProductTaxes($orderProduct);
 
         OrderProductAfterComputedEvent::dispatch(
             $orderProduct,
@@ -1927,10 +1938,10 @@ class OrdersService
      * @param float $value
      * @return float
      */
-    public function computeDiscountValues( $rate, $value )
+    public function computeDiscountValues($rate, $value)
     {
-        if ( $rate > 0 ) {
-            return Currency::fresh( ( $value * $rate ) / 100 )->getRaw();
+        if ($rate > 0) {
+            return Currency::fresh(($value * $rate) / 100)->getRaw();
         }
 
         return 0;
@@ -1947,7 +1958,7 @@ class OrdersService
         $product = OrderProduct::find($product_id);
 
         if (! $product instanceof OrderProduct) {
-            throw new NotFoundException( __('Unable to find the order product using the provided id.') );
+            throw new NotFoundException(__('Unable to find the order product using the provided id.'));
         }
 
         return $product;
@@ -1965,7 +1976,7 @@ class OrdersService
         return $this->getOrder($identifier, $pivot)
             ->products()
             ->validProducts()
-            ->with( 'unit' )
+            ->with('unit')
             ->get();
     }
 
@@ -1981,33 +1992,36 @@ class OrdersService
     {
         if (in_array($as, ['id', 'code'])) {
             $order = Order::where($as, $identifier)
-                ->with( 'payments' )
-                ->with( 'shipping_address' )
-                ->with( 'billing_address' )
-                ->with( 'taxes' )
-                ->with( 'instalments' )
-                ->with( 'coupons' )
-                ->with( 'products.unit' )
-                ->with( 'products.product.unit_quantities' )
-                ->with( 'customer.billing', 'customer.shipping' )
+                ->with('payments')
+                ->with('shipping_address')
+                ->with('billing_address')
+                ->with('taxes')
+                ->with('instalments')
+                ->with('coupons')
+                ->with('products.unit')
+                ->with('products.product.unit_quantities')
+                ->with('customer.billing', 'customer.shipping')
                 ->first();
 
-            if ( ! $order instanceof Order ) {
-                throw new NotFoundException( sprintf(
+            if (! $order instanceof Order) {
+                throw new NotFoundException(sprintf(
                     __('Unable to find the requested order using "%s" as pivot and "%s" as identifier'),
                     $as,
                     $identifier
-                ) );
+                ));
             }
 
             $order->products;
 
-            Hook::action( 'ns-load-order', $order );
+            /**
+             * @deprecated
+             */
+            Hook::action('ns-load-order', $order);
 
             return $order;
         }
 
-        throw new NotAllowedException( __('Unable to fetch the order as the provided pivot argument is not supported.') );
+        throw new NotAllowedException(__('Unable to fetch the order as the provided pivot argument is not supported.'));
     }
 
     /**
@@ -2036,7 +2050,7 @@ class OrdersService
      */
     public function addProducts(Order $order, $products)
     {
-        $products = $this->__checkProductStock( collect( $products ), $order );
+        $products = $this->__checkProductStock(collect($products), $order);
 
         /**
          * let's save the products
@@ -2048,7 +2062,7 @@ class OrdersService
          * @param float $taxes
          * @param float $subTotal
          */
-        extract( $this->__saveOrderProducts( $order, $products ) );
+        extract($this->__saveOrderProducts($order, $products));
 
         /**
          * Now we should refresh the order
@@ -2058,7 +2072,7 @@ class OrdersService
 
         return [
             'status' => 'success',
-            'data' => compact( 'orderProducts', 'order' ),
+            'data' => compact('orderProducts', 'order'),
             'message' => sprintf(
                 __('The product has been added to the order "%s"'),
                 $order->code
@@ -2087,8 +2101,8 @@ class OrdersService
                 return floatval($product->total_price);
             })->sum();
 
-        $productsQuantity = $products->map( function( $product) {
-            return floatval( $product->quantity );
+        $productsQuantity = $products->map(function ($product) {
+            return floatval($product->quantity);
         })->sum();
 
         $productPriceWithoutTax = $products
@@ -2101,61 +2115,57 @@ class OrdersService
                 return floatval($product->total_price_with_tax);
             })->sum();
 
-        $this->computeOrderTaxes( $order );
+        $this->computeOrderTaxes($order);
 
         $orderShipping = $order->shipping;
-        $totalPayments = $order->payments->map( fn( $payment ) => $payment->value )->sum();
+        $totalPayments = $order->payments->map(fn($payment) => $payment->value)->sum();
         $order->tendered = $totalPayments;
 
         /**
          * let's refresh all the order values
          */
-        $order->subtotal = Currency::raw( $productTotal );
+        $order->subtotal = Currency::raw($productTotal);
         $order->total_without_tax = $productPriceWithoutTax;
         $order->total_with_tax = $productPriceWithTax;
-        $order->discount = $this->computeOrderDiscount( $order );
-        $order->total = Currency::fresh( $order->subtotal )
-            ->additionateBy( $orderShipping )
+        $order->discount = $this->computeOrderDiscount($order);
+        $order->total = Currency::fresh($order->subtotal)
+            ->additionateBy($orderShipping)
             ->additionateBy(
-                ( $order->tax_type === 'exclusive' ? $order->tax_value : 0 )
+                ($order->tax_type === 'exclusive' ? $order->tax_value : 0)
             )
             ->subtractBy(
-                ns()->currency->fresh( $order->discount )
-                    ->additionateBy( $order->total_coupons )
+                ns()->currency->fresh($order->discount)
+                    ->additionateBy($order->total_coupons)
                     ->getRaw()
             )
             ->getRaw();
 
-        $order->change = Currency::fresh( $order->tendered )->subtractBy( $order->total )->getRaw();
+        $order->change = Currency::fresh($order->tendered)->subtractBy($order->total)->getRaw();
 
         $refunds = $order->refunds;
 
-        $totalRefunds = $refunds->map( fn( $refund ) => $refund->total )->sum();
+        $totalRefunds = $refunds->map(fn($refund) => $refund->total)->sum();
 
         /**
          * We believe if the product total is greater
          * than "0", then probably the order hasn't been paid yet.
          */
-        if ( $productTotal ) {
-            if ( (float) $order->total == 0 && $totalRefunds > 0 ) {
-                $order->payment_status = Order::PAYMENT_REFUNDED;
-            } elseif ( $order->total > 0 && $totalRefunds > 0 ) {
-                $order->payment_status = Order::PAYMENT_PARTIALLY_REFUNDED;
-            } elseif ( $order->tendered >= $order->total && $order->total > 0 ) {
-                $order->payment_status = Order::PAYMENT_PAID;
-            } elseif ( (float) $order->tendered < (float) $order->total && (float) $order->tendered > 0 ) {
-                $order->payment_status = Order::PAYMENT_PARTIALLY;
-            } elseif ( $order->total == 0 && $totalRefunds == 0 ) {
-                $order->payment_status = Order::PAYMENT_UNPAID;
-            }
-        } elseif ( $productTotal == 0 && $productsQuantity == 0 ) {
+        if ((float) $order->total == 0 && $totalRefunds > 0) {
             $order->payment_status = Order::PAYMENT_REFUNDED;
+        } elseif ($order->total > 0 && $totalRefunds > 0) {
+            $order->payment_status = Order::PAYMENT_PARTIALLY_REFUNDED;
+        } elseif ($order->tendered >= $order->total && $order->payments->count() > 0 && $totalRefunds == 0) {
+            $order->payment_status = Order::PAYMENT_PAID;
+        } elseif ((float) $order->tendered < (float) $order->total && (float) $order->tendered > 0) {
+            $order->payment_status = Order::PAYMENT_PARTIALLY;
+        } elseif ($order->total == 0 && $order->tendered == 0) {
+            $order->payment_status = Order::PAYMENT_UNPAID;
         }
 
         $order->save();
 
-        if ( $previousPaymentStatus !== $order->payment_status ) {
-            OrderAfterPaymentStatusChangedEvent::dispatch( $order, $previousPaymentStatus, $order->payment_status );
+        if ($previousPaymentStatus !== $order->payment_status) {
+            OrderAfterPaymentStatusChangedEvent::dispatch($order, $previousPaymentStatus, $order->payment_status);
         }
 
         return [
@@ -2184,55 +2194,67 @@ class OrdersService
             'instalments',
         ])->toArray();
 
-        event( new OrderBeforeDeleteEvent( $cachedOrder ) );
+        event(new OrderBeforeDeleteEvent($cachedOrder));
 
         /**
          * Because when an order is void,
          * the stock is already returned to the inventory.
          */
-        if ( ! in_array( $order->payment_status, [ Order::PAYMENT_VOID ] ) ) {
+        if (! in_array($order->payment_status, [ Order::PAYMENT_VOID ])) {
             $order
-            ->products()
-            ->get()
-            ->each( function( OrderProduct $orderProduct) {
-                $orderProduct->load( 'product' );
-                $product = $orderProduct->product;
-                /**
-                 * we do proceed by doing an initial return
-                 * only if the product is not a quick product/service
-                 * we'll also check if the linked product still exists.
-                 */
-                if ( $orderProduct->product_id > 0 && $product instanceof Product ) {
-                    $this->productService->stockAdjustment( ProductHistory::ACTION_RETURNED, [
-                        'total_price' => $orderProduct->total_price,
-                        'product_id' => $orderProduct->product_id,
-                        'unit_id' => $orderProduct->unit_id,
-                        'orderProduct' => $orderProduct,
-                        'quantity' => $orderProduct->quantity,
-                        'unit_price' => $orderProduct->unit_price,
-                    ]);
-                }
+                ->products()
+                ->get()
+                ->each(function (OrderProduct $orderProduct) use ($order) {
+                    $orderProduct->load('product');
+                    $product = $orderProduct->product;
+                    /**
+                     * we do proceed by doing an initial return
+                     * only if the product is not a quick product/service
+                     * we'll also check if the linked product still exists.
+                     */
+                    if (
+                        ($orderProduct->product_id > 0 && $product instanceof Product) &&
+                        (
+                            in_array(
+                                $order->payment_status, [
+                                    Order::PAYMENT_PAID,
+                                    Order::PAYMENT_PARTIALLY,
+                                    Order::PAYMENT_UNPAID,
+                                    Order::PAYMENT_PARTIALLY_DUE,
+                                    Order::PAYMENT_PARTIALLY_REFUNDED,
+                                ])
+                        )
+                    ) {
+                        $this->productService->stockAdjustment(ProductHistory::ACTION_RETURNED, [
+                            'total_price' => $orderProduct->total_price,
+                            'product_id' => $orderProduct->product_id,
+                            'unit_id' => $orderProduct->unit_id,
+                            'orderProduct' => $orderProduct,
+                            'quantity' => $orderProduct->quantity,
+                            'unit_price' => $orderProduct->unit_price,
+                        ]);
+                    }
 
-                $orderProduct->delete();
-            });
+                    $orderProduct->delete();
+                });
         }
 
-        OrderPayment::where( 'order_id', $order->id )->delete();
+        OrderPayment::where('order_id', $order->id)->delete();
 
         /**
          * delete cash flow entries
          */
-        $this->reportService->deleteOrderCashFlow( $order );
+        $this->reportService->deleteOrderCashFlow($order);
 
         $orderArray = $order->toArray();
 
         $order->delete();
 
-        event( new OrderAfterDeletedEvent( (object) $orderArray ) );
+        event(new OrderAfterDeletedEvent((object) $orderArray));
 
         return [
             'status' => 'success',
-            'message' => __('The order has been deleted.' ),
+            'message' => __('The order has been deleted.'),
         ];
     }
 
@@ -2248,9 +2270,9 @@ class OrdersService
     {
         $hasDeleted = false;
 
-        $order->products->map(function ($product) use ( $product_id, &$hasDeleted, $order ) {
+        $order->products->map(function ($product) use ($product_id, &$hasDeleted, $order) {
             if ($product->id === intval($product_id)) {
-                event( new OrderBeforeDeleteProductEvent( $order, $product ) );
+                event(new OrderBeforeDeleteProductEvent($order, $product));
 
                 $product->delete();
                 $hasDeleted = true;
@@ -2266,7 +2288,7 @@ class OrdersService
             ];
         }
 
-        throw new NotFoundException( __('Unable to find the requested product on the provider order.') );
+        throw new NotFoundException(__('Unable to find the requested product on the provider order.'));
     }
 
     /**
@@ -2289,13 +2311,13 @@ class OrdersService
      */
     public function getPaymentTypes()
     {
-        $payments = PaymentType::active()->get()->map( function( $payment, $index ) {
+        $payments = PaymentType::active()->get()->map(function ($payment, $index) {
             $payment->selected = $index === 0;
 
             return $payment;
         });
 
-        return collect( $payments )->mapWithKeys( function( $payment ) {
+        return collect($payments)->mapWithKeys(function ($payment) {
             return [ $payment[ 'identifier' ] => $payment[ 'label' ] ];
         })->toArray();
     }
@@ -2307,11 +2329,11 @@ class OrdersService
      * @param string
      * @return string
      */
-    public function getTypeLabel( $type )
+    public function getTypeLabel($type)
     {
         $types = $this->getTypeLabels();
 
-        return $types[ $type ] ?? sprintf( __( 'Unknown Type (%s)' ), $type );
+        return $types[ $type ] ?? sprintf(__('Unknown Type (%s)'), $type);
     }
 
     /**
@@ -2321,11 +2343,11 @@ class OrdersService
      * @param string
      * @return string
      */
-    public function getPaymentLabel( $type )
+    public function getPaymentLabel($type)
     {
-        $payments = config( 'nexopos.orders.statuses' );
+        $payments = config('nexopos.orders.statuses');
 
-        return $payments[ $type ] ?? sprintf( __( 'Unknown Status (%s)' ), $type );
+        return $payments[ $type ] ?? sprintf(__('Unknown Status (%s)'), $type);
     }
 
     /**
@@ -2335,12 +2357,12 @@ class OrdersService
      */
     public function getPaymentLabels()
     {
-        return config( 'nexopos.orders.statuses' );
+        return config('nexopos.orders.statuses');
     }
 
-    public function getRefundedOrderProductLabel( $label )
+    public function getRefundedOrderProductLabel($label)
     {
-        return config( 'nexopos.orders.products.refunds' )[ $label ] ?? __( 'Unknown Product Status' );
+        return config('nexopos.orders.products.refunds')[ $label ] ?? __('Unknown Product Status');
     }
 
     /**
@@ -2350,11 +2372,11 @@ class OrdersService
      * @param string
      * @return string
      */
-    public function getShippingLabel( $type )
+    public function getShippingLabel($type)
     {
         $shipping = $this->getDeliveryStatuses();
 
-        return $shipping[ $type ] ?? sprintf( _( 'Unknown Status (%s)' ), $type );
+        return $shipping[ $type ] ?? sprintf(_('Unknown Status (%s)'), $type);
     }
 
     /**
@@ -2363,11 +2385,11 @@ class OrdersService
      * @param string
      * @return string
      */
-    public function getProcessStatus( $type )
+    public function getProcessStatus($type)
     {
         $process = $this->getProcessStatuses();
 
-        return $process[ $type ] ?? sprintf( _( 'Unknown Status (%s)' ), $type );
+        return $process[ $type ] ?? sprintf(_('Unknown Status (%s)'), $type);
     }
 
     /**
@@ -2378,27 +2400,27 @@ class OrdersService
      */
     public function getTypeLabels()
     {
-        $types = Hook::filter( 'ns-order-types-labels', collect( $this->getTypeOptions() )->mapWithKeys( function( $option ) {
+        $types = Hook::filter('ns-order-types-labels', collect($this->getTypeOptions())->mapWithKeys(function ($option) {
             return [
                 $option[ 'identifier' ] => $option[ 'label' ],
             ];
-        })->toArray() );
+        })->toArray());
 
         return $types;
     }
 
     public function getTypeOptions()
     {
-        return Hook::filter( 'ns-orders-types', [
+        return Hook::filter('ns-orders-types', [
             'takeaway' => [
                 'identifier' => 'takeaway',
-                'label' => __( 'Take Away' ),
+                'label' => __('Take Away'),
                 'icon' => '/images/groceries.png',
                 'selected' => false,
             ],
             'delivery' => [
                 'identifier' => 'delivery',
-                'label' => __( 'Delivery' ),
+                'label' => __('Delivery'),
                 'icon' => '/images/delivery.png',
                 'selected' => false,
             ],
@@ -2413,10 +2435,10 @@ class OrdersService
     public function getProcessStatuses()
     {
         return [
-            'pending' => __( 'Pending' ),
-            'ongoing' => __( 'Ongoing' ),
-            'ready' => __( 'Ready' ),
-            'not-available' => __( 'Not Available' ),
+            'pending' => __('Pending'),
+            'ongoing' => __('Ongoing'),
+            'ready' => __('Ready'),
+            'not-available' => __('Not Available'),
         ];
     }
 
@@ -2427,11 +2449,11 @@ class OrdersService
      * @param string $status
      * @return string $response
      */
-    public function getDeliveryStatus( $status )
+    public function getDeliveryStatus($status)
     {
         $process = $this->getDeliveryStatuses();
 
-        return $process[ $status ] ?? sprintf( _( 'Unknown Delivery (%s)' ), $status );
+        return $process[ $status ] ?? sprintf(_('Unknown Delivery (%s)'), $status);
     }
 
     /**
@@ -2442,11 +2464,11 @@ class OrdersService
     public function getDeliveryStatuses()
     {
         return [
-            'pending' => __( 'Pending' ),
-            'ongoing' => __( 'Ongoing' ),
-            'delivered' => __( 'Delivered' ),
-            'failed' => __( 'Failed' ),
-            'not-available' => __( 'Not Available' ),
+            'pending' => __('Pending'),
+            'ongoing' => __('Ongoing'),
+            'delivered' => __('Delivered'),
+            'failed' => __('Failed'),
+            'not-available' => __('Not Available'),
         ];
     }
 
@@ -2457,19 +2479,20 @@ class OrdersService
      * @param array options
      * @return string
      */
-    public function orderTemplateMapping( $option, Order $order )
+    public function orderTemplateMapping($option, Order $order)
     {
-        $template = ns()->option->get( $option, '' );
+        $template = ns()->option->get($option, '');
         $availableTags = [
-            'store_name' => ns()->option->get( 'ns_store_name' ),
-            'store_email' => ns()->option->get( 'ns_store_email' ),
-            'store_phone' => ns()->option->get( 'ns_store_phone' ),
+            'store_name' => ns()->option->get('ns_store_name'),
+            'store_email' => ns()->option->get('ns_store_email'),
+            'store_phone' => ns()->option->get('ns_store_phone'),
             'cashier_name' => $order->user->username,
             'cashier_id' => $order->author,
             'order_code' => $order->code,
-            'order_type' => $this->getTypeLabel( $order->type ),
-            'order_date' => ns()->date->getFormatted( $order->created_at ),
-            'customer_name' => $order->customer->name,
+            'order_type' => $this->getTypeLabel($order->type),
+            'order_date' => ns()->date->getFormatted($order->created_at),
+            'customer_first_name' => $order->customer->first_name,
+            'customer_last_name' => $order->customer->last_name,
             'customer_email' => $order->customer->email,
             'shipping_' . 'first_name' => $order->shipping_address->first_name,
             'shipping_' . 'last_name' => $order->shipping_address->last_name,
@@ -2493,10 +2516,10 @@ class OrdersService
             'billing_' . 'email' => $order->billing_address->email,
         ];
 
-        $availableTags = Hook::filter( 'ns-orders-template-mapping', $availableTags, $order );
+        $availableTags = Hook::filter('ns-orders-template-mapping', $availableTags, $order);
 
-        foreach ( $availableTags as $tag => $value ) {
-            $template = ( str_replace( '{' . $tag . '}', $value ?: '', $template ) );
+        foreach ($availableTags as $tag => $value) {
+            $template = (str_replace('{' . $tag . '}', $value ?: '', $template));
         }
 
         return $template;
@@ -2512,13 +2535,13 @@ class OrdersService
     {
         $orders = Order::paymentExpired()->get();
 
-        if ( ! $orders->isEmpty() ) {
+        if (! $orders->isEmpty()) {
             /**
              * The status changes according to the fact
              * if some orders has received a payment.
              */
-            $orders->each( function( $order ) {
-                if ( $order->paid > 0 ) {
+            $orders->each(function ($order) {
+                if ($order->paid > 0) {
                     $order->payment_status = Order::PAYMENT_PARTIALLY_DUE;
                 } else {
                     $order->payment_status = Order::PAYMENT_DUE;
@@ -2533,34 +2556,34 @@ class OrdersService
              * let's clear previously emitted notification
              * with the specified identifier
              */
-            Notification::identifiedBy( $notificationID )->delete();
+            Notification::identifiedBy($notificationID)->delete();
 
             /**
              * @var NotificationService
              */
-            $notificationService = app()->make( NotificationService::class );
+            $notificationService = app()->make(NotificationService::class);
 
             $notificationService->create([
-                'title' => __( 'Unpaid Orders Turned Due' ),
+                'title' => __('Unpaid Orders Turned Due'),
                 'identifier' => $notificationID,
-                'url' => ns()->route( 'ns.dashboard.orders' ),
-                'description' => sprintf( __( '%s order(s) either unpaid or partially paid has turned due. This occurs if none has been completed before the expected payment date.' ), $orders->count() ),
+                'url' => ns()->route('ns.dashboard.orders'),
+                'description' => sprintf(__('%s order(s) either unpaid or partially paid has turned due. This occurs if none has been completed before the expected payment date.'), $orders->count()),
             ])->dispatchForGroup([
-                Role::namespace( 'admin' ),
-                Role::namespace( 'nexopos.store.administrator' ),
+                Role::namespace('admin'),
+                Role::namespace('nexopos.store.administrator'),
             ]);
 
-            DueOrdersEvent::dispatch( $orders );
+            DueOrdersEvent::dispatch($orders);
 
             return [
                 'status' => 'success',
-                'message' => __( 'The operation was successful.' ),
+                'message' => __('The operation was successful.'),
             ];
         }
 
         return [
             'status' => 'failed',
-            'message' => __( 'No orders to handle for the moment.' ),
+            'message' => __('No orders to handle for the moment.'),
         ];
     }
 
@@ -2572,18 +2595,18 @@ class OrdersService
      * @param string $reason
      * @return array
      */
-    public function void( Order $order, $reason )
+    public function void(Order $order, $reason)
     {
         $order->products()
             ->get()
-            ->each( function( OrderProduct $orderProduct ) {
-                $orderProduct->load( 'product' );
+            ->each(function (OrderProduct $orderProduct) {
+                $orderProduct->load('product');
 
-                if ( $orderProduct->product instanceof Product ) {
+                if ($orderProduct->product instanceof Product) {
                     /**
                      * we do proceed by doing an initial return
                      */
-                    $this->productService->stockAdjustment( ProductHistory::ACTION_VOID_RETURN, [
+                    $this->productService->stockAdjustment(ProductHistory::ACTION_VOID_RETURN, [
                         'total_price' => $orderProduct->total_price,
                         'product_id' => $orderProduct->product_id,
                         'unit_id' => $orderProduct->unit_id,
@@ -2598,11 +2621,11 @@ class OrdersService
         $order->voidance_reason = $reason;
         $order->save();
 
-        event( new OrderVoidedEvent( $order ) );
+        event(new OrderVoidedEvent($order));
 
         return [
             'status' => 'success',
-            'message' => __( 'The order has been correctly voided.' ),
+            'message' => __('The order has been correctly voided.'),
         ];
     }
 
@@ -2613,11 +2636,11 @@ class OrdersService
      * @param string $endDate range ends
      * @return Collection
      */
-    public function getPaidSales( $startDate, $endDate )
+    public function getPaidSales($startDate, $endDate)
     {
         return Order::paid()
-            ->where( 'created_at', '>=', Carbon::parse( $startDate )->toDateTimeString() )
-            ->where( 'created_at', '<=', Carbon::parse( $endDate )->toDateTimeString() )
+            ->where('created_at', '>=', Carbon::parse($startDate)->toDateTimeString())
+            ->where('created_at', '<=', Carbon::parse($endDate)->toDateTimeString())
             ->get();
     }
 
@@ -2628,41 +2651,41 @@ class OrdersService
      * @param string $endDate range ends
      * @return Collection
      */
-    public function getSoldStock( $startDate, $endDate, $categories = [], $units = [] )
+    public function getSoldStock($startDate, $endDate, $categories = [], $units = [])
     {
-        $rangeStarts = Carbon::parse( $startDate )->toDateTimeString();
-        $rangeEnds = Carbon::parse( $endDate )->toDateTimeString();
+        $rangeStarts = Carbon::parse($startDate)->toDateTimeString();
+        $rangeEnds = Carbon::parse($endDate)->toDateTimeString();
 
-        $products = OrderProduct::whereHas( 'order', function( Builder $query ) {
-            $query->where( 'payment_status', Order::PAYMENT_PAID );
+        $products = OrderProduct::whereHas('order', function (Builder $query) {
+            $query->where('payment_status', Order::PAYMENT_PAID);
         })
-            ->where( 'created_at', '>=', $rangeStarts )
-            ->where( 'created_at', '<=', $rangeEnds );
+            ->where('created_at', '>=', $rangeStarts)
+            ->where('created_at', '<=', $rangeEnds);
 
-        if ( ! empty( $categories ) ) {
-            $products->whereIn( 'product_category_id', $categories );
+        if (! empty($categories)) {
+            $products->whereIn('product_category_id', $categories);
         }
 
-        if ( ! empty( $units ) ) {
-            $products->whereIn( 'unit_id', $units );
+        if (! empty($units)) {
+            $products->whereIn('unit_id', $units);
         }
 
         return $products->get();
     }
 
-    public function trackOrderCoupons( Order $order )
+    public function trackOrderCoupons(Order $order)
     {
-        $order->coupons()->where( 'counted', false )->each( function( OrderCoupon $orderCoupon ) {
-            $customerCoupon = CustomerCoupon::find( $orderCoupon->customer_coupon_id );
+        $order->coupons()->where('counted', false)->each(function (OrderCoupon $orderCoupon) {
+            $customerCoupon = CustomerCoupon::find($orderCoupon->customer_coupon_id);
 
-            if ( ! $customerCoupon instanceof CustomerCoupon ) {
-                throw new NotFoundException( sprintf(
-                    __( 'Unable to find a reference of the provided coupon : %s' ),
+            if (! $customerCoupon instanceof CustomerCoupon) {
+                throw new NotFoundException(sprintf(
+                    __('Unable to find a reference of the provided coupon : %s'),
                     $orderCoupon->name
-                ) );
+                ));
             }
 
-            $this->customerService->increaseCouponUsage( $customerCoupon );
+            $this->customerService->increaseCouponUsage($customerCoupon);
 
             $orderCoupon->counted = true;
             $orderCoupon->save();
@@ -2674,27 +2697,27 @@ class OrdersService
      *
      * @return void
      */
-    public function resolveInstalments( Order $order )
+    public function resolveInstalments(Order $order)
     {
-        if ( in_array( $order->payment_status, [ Order::PAYMENT_PAID, Order::PAYMENT_PARTIALLY ] ) ) {
+        if (in_array($order->payment_status, [ Order::PAYMENT_PAID, Order::PAYMENT_PARTIALLY ])) {
             $orderInstalments = $order->instalments()
-                ->where( 'date', '>=', ns()->date->copy()->startOfDay()->toDateTimeString() )
-                ->where( 'date', '<=', ns()->date->copy()->endOfDay()->toDateTimeString() )
-                ->where( 'paid', false )
+                ->where('date', '>=', ns()->date->copy()->startOfDay()->toDateTimeString())
+                ->where('date', '<=', ns()->date->copy()->endOfDay()->toDateTimeString())
+                ->where('paid', false)
                 ->get();
 
-            $paidInstalments = $order->instalments()->where( 'paid', true )->sum( 'amount' );
+            $paidInstalments = $order->instalments()->where('paid', true)->sum('amount');
             // $otherInstalments = $order->instalments()->whereNotIn( 'id', $orderInstalments->only( 'id' )->toArray() )->sum( 'amount' );
             // $dueInstalments = Currency::raw( $orderInstalments->sum( 'amount' ) );
 
-            if ( $orderInstalments->count() > 0 ) {
-                $payableDifference = Currency::define( $order->tendered )
-                    ->subtractBy( $paidInstalments )
+            if ($orderInstalments->count() > 0) {
+                $payableDifference = Currency::define($order->tendered)
+                    ->subtractBy($paidInstalments)
                     ->getRaw();
 
                 $orderInstalments
-                    ->each( function( $instalment ) use ( &$payableDifference ) {
-                        if ( $payableDifference - $instalment->amount >= 0 ) {
+                    ->each(function ($instalment) use (&$payableDifference) {
+                        if ($payableDifference - $instalment->amount >= 0) {
                             $instalment->paid = true;
                             $instalment->save();
                             $payableDifference -= $instalment->amount;
@@ -2711,14 +2734,14 @@ class OrdersService
      * @param array $fields
      * @return array
      */
-    public function updateInstalment( Order $order, OrderInstalment $instalment, $fields )
+    public function updateInstalment(Order $order, OrderInstalment $instalment, $fields)
     {
-        if ( $instalment->paid ) {
-            throw new NotAllowedException( __( 'Unable to edit an already paid instalment.' ) );
+        if ($instalment->paid) {
+            throw new NotAllowedException(__('Unable to edit an already paid instalment.'));
         }
 
-        foreach ( $fields as $field => $value ) {
-            if ( in_array( $field, [ 'date', 'amount' ] ) ) {
+        foreach ($fields as $field => $value) {
+            if (in_array($field, [ 'date', 'amount' ])) {
                 $instalment->$field = $value;
             }
         }
@@ -2727,8 +2750,8 @@ class OrdersService
 
         return [
             'status' => 'success',
-            'message' => __( 'The instalment has been saved.' ),
-            'data' => compact( 'instalment' ),
+            'message' => __('The instalment has been saved.'),
+            'data' => compact('instalment'),
         ];
     }
 
@@ -2737,10 +2760,10 @@ class OrdersService
      *
      * @return array
      */
-    public function markInstalmentAsPaid( Order $order, OrderInstalment $instalment, $paymentType = OrderPayment::PAYMENT_CASH )
+    public function markInstalmentAsPaid(Order $order, OrderInstalment $instalment, $paymentType = OrderPayment::PAYMENT_CASH)
     {
-        if ( $instalment->paid ) {
-            throw new NotAllowedException( __( 'Unable to edit an already paid instalment.' ) );
+        if ($instalment->paid) {
+            throw new NotAllowedException(__('Unable to edit an already paid instalment.'));
         }
 
         $payment = [
@@ -2750,19 +2773,19 @@ class OrdersService
             'value' => $instalment->amount,
         ];
 
-        $result = $this->makeOrderSinglePayment( $payment, $order );
+        $result = $this->makeOrderSinglePayment($payment, $order);
         $payment = $result[ 'data' ][ 'payment' ];
 
         $instalment->paid = true;
         $instalment->payment_id = $payment->id;
         $instalment->save();
 
-        OrderAfterInstalmentPaidEvent::dispatch( $instalment, $order );
+        OrderAfterInstalmentPaidEvent::dispatch($instalment, $order);
 
         return [
             'status' => 'success',
-            'message' => __( 'The instalment has been saved.' ),
-            'data' => compact( 'instalment', 'payment' ),
+            'message' => __('The instalment has been saved.'),
+            'data' => compact('instalment', 'payment'),
         ];
     }
 
@@ -2772,19 +2795,19 @@ class OrdersService
      * @param OrderInstlament $instalment
      * @return array
      */
-    public function deleteInstalment( Order $order, OrderInstalment $instalment )
+    public function deleteInstalment(Order $order, OrderInstalment $instalment)
     {
         $instalment->delete();
 
-        $this->refreshInstalmentCount( $order );
+        $this->refreshInstalmentCount($order);
 
         return [
             'status' => 'success',
-            'message' => __( 'The instalment has been deleted.' ),
+            'message' => __('The instalment has been deleted.'),
         ];
     }
 
-    public function refreshInstalmentCount( Order $order )
+    public function refreshInstalmentCount(Order $order)
     {
         $order->total_instalments = $order->instalments()->count();
         $order->save();
@@ -2796,31 +2819,31 @@ class OrdersService
      * @param array $fields
      * @return array
      */
-    public function createInstalment( Order $order, $fields )
+    public function createInstalment(Order $order, $fields)
     {
-        $totalInstalment = $order->instalments->map( fn( $instalment ) => $instalment->amount )->sum();
+        $totalInstalment = $order->instalments->map(fn($instalment) => $instalment->amount)->sum();
 
-        if ( Currency::raw( $fields[ 'amount' ] ) <= 0 ) {
-            throw new NotAllowedException( __( 'The defined amount is not valid.' ) );
+        if (Currency::raw($fields[ 'amount' ]) <= 0) {
+            throw new NotAllowedException(__('The defined amount is not valid.'));
         }
 
-        if ( Currency::raw( $totalInstalment ) >= $order->total ) {
-            throw new NotAllowedException( __( 'No further instalments is allowed for this order. The total instalment already covers the order total.' ) );
+        if (Currency::raw($totalInstalment) >= $order->total) {
+            throw new NotAllowedException(__('No further instalments is allowed for this order. The total instalment already covers the order total.'));
         }
 
-        if ( $fields[ 'amount' ] ) {
+        if ($fields[ 'amount' ]) {
             $orderInstalment = new OrderInstalment;
             $orderInstalment->order_id = $order->id;
             $orderInstalment->amount = $fields[ 'amount' ];
             $orderInstalment->date = $fields[ 'date' ];
             $orderInstalment->save();
 
-            $this->refreshInstalmentCount( $order );
+            $this->refreshInstalmentCount($order);
         }
 
         return [
             'status' => 'success',
-            'message' => __( 'The instalment has been created.' ),
+            'message' => __('The instalment has been created.'),
             'data' => [
                 'instalment' => $orderInstalment,
             ],
@@ -2833,25 +2856,25 @@ class OrdersService
      * @param string $status
      * @return array
      */
-    public function changeProcessingStatus( Order $order, $status )
+    public function changeProcessingStatus(Order $order, $status)
     {
-        if ( ! in_array( $status, [
+        if (! in_array($status, [
             Order::PROCESSING_PENDING,
             Order::PROCESSING_ONGOING,
             Order::PROCESSING_READY,
             Order::PROCESSING_FAILED,
-        ] ) ) {
-            throw new NotAllowedException( __( 'The provided status is not supported.' ) );
+        ])) {
+            throw new NotAllowedException(__('The provided status is not supported.'));
         }
 
         $order->process_status = $status;
         $order->save();
 
-        OrderAfterUpdatedProcessStatus::dispatch( $order );
+        OrderAfterUpdatedProcessStatus::dispatch($order);
 
         return [
             'status' => 'success',
-            'message' => __( 'The order has been successfully updated.' ),
+            'message' => __('The order has been successfully updated.'),
         ];
     }
 
@@ -2861,54 +2884,55 @@ class OrdersService
      * @param string $status
      * @return array
      */
-    public function changeDeliveryStatus( Order $order, $status )
+    public function changeDeliveryStatus(Order $order, $status)
     {
-        if ( ! in_array( $status, [
+        if (! in_array($status, [
             Order::DELIVERY_COMPLETED,
             Order::DELIVERY_DELIVERED,
             Order::DELIVERY_FAILED,
             Order::DELIVERY_ONGOING,
             Order::DELIVERY_PENDING,
-        ] ) ) {
-            throw new NotAllowedException( __( 'The provided status is not supported.' ) );
+        ])) {
+            throw new NotAllowedException(__('The provided status is not supported.'));
         }
 
         $order->delivery_status = $status;
         $order->save();
 
-        OrderAfterUpdatedDeliveryStatus::dispatch( $order );
+        OrderAfterUpdatedDeliveryStatus::dispatch($order);
 
         return [
             'status' => 'success',
-            'message' => __( 'The order has been successfully updated.' ),
+            'message' => __('The order has been successfully updated.'),
         ];
     }
 
-    public function getPaymentTypesReport( $startRange, $endRange )
+    public function getPaymentTypesReport($startRange, $endRange)
     {
         $paymentTypes = PaymentType::active()->get();
-        $paymentsIdentifier = $paymentTypes->map( fn( $paymentType ) => $paymentType->identifier )->toArray();
+        $paymentsIdentifier = $paymentTypes->map(fn($paymentType) => $paymentType->identifier)->toArray();
 
-        $payments = OrderPayment::where( 'created_at', '>=', $startRange )
-            ->where( 'created_at', '<=', $endRange )
-            ->whereIn( 'identifier', $paymentsIdentifier )
+        $payments = OrderPayment::where('created_at', '>=', $startRange)
+            ->where('created_at', '<=', $endRange)
+            ->whereIn('identifier', $paymentsIdentifier)
+            ->whereRelation('order', 'payment_status', Order::PAYMENT_PAID)
             ->get();
 
-        $total = $payments->map( fn( $payment ) => $payment->value )->sum();
+        $total = $payments->map(fn($payment) => $payment->value)->sum();
 
         return [
-            'summary' => $paymentTypes->map( function( $paymentType ) use ( $payments ) {
+            'summary' => $paymentTypes->map(function ($paymentType) use ($payments) {
                 $total = $payments
-                    ->filter( fn( $payment ) => $payment->identifier === $paymentType->identifier )
-                    ->map( fn( $payment ) => $payment->value )
+                    ->filter(fn($payment) => $payment->identifier === $paymentType->identifier)
+                    ->map(fn($payment) => $payment->value)
                     ->sum();
 
                 return [
                     'label' => $paymentType->label,
-                    'total' => ns()->currency->getRaw( $total ),
+                    'total' => ns()->currency->getRaw($total),
                 ];
             }),
-            'total' => ns()->currency->getRaw( $total ),
+            'total' => ns()->currency->getRaw($total),
             'entries' => $payments,
         ];
     }
@@ -2919,7 +2943,7 @@ class OrdersService
      *
      * @return array
      */
-    public function getOrderRefundedProducts( Order $order )
+    public function getOrderRefundedProducts(Order $order)
     {
         return $order->refundedProducts;
     }
@@ -2930,9 +2954,9 @@ class OrdersService
      *
      * @return OrderRefund
      */
-    public function getOrderRefunds( Order $order )
+    public function getOrderRefunds(Order $order)
     {
-        $order->load( 'refunds.refunded_products.product', 'refunds.refunded_products.unit', 'refunds.author' );
+        $order->load('refunds.refunded_products.product', 'refunds.refunded_products.unit', 'refunds.author');
 
         return $order;
     }

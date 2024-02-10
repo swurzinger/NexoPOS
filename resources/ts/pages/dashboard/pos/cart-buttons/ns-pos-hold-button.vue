@@ -5,12 +5,22 @@
     </div>
 </template>
 
-<script>
+<script lang="ts">
 import nsPosHoldOrdersPopupVue from '~/popups/ns-pos-hold-orders-popup.vue';
 import nsPosLoadingPopupVue from "~/popups/ns-pos-loading-popup.vue";
-import {ProductsQueue} from "~/pages/dashboard/pos/queues/order/products-queue";
-import {CustomerQueue} from "~/pages/dashboard/pos/queues/order/customer-queue";
-import {TypeQueue} from "~/pages/dashboard/pos/queues/order/type-queue";
+
+declare const nsSnackBar;
+declare const ProductsQueue;
+declare const CustomerQueue;
+declare const TypeQueue;
+declare const Popup;
+declare const nsHooks;
+declare const nsHotPress;
+declare const nsShortcuts;
+declare const __;
+declare const POS;
+
+
 export default {
     props: [ 'order' ],
     methods: {

@@ -24,13 +24,16 @@
         </div>
     </div>
 </template>
-<script>
+<script lang="ts">
 import { __ } from '~/libraries/lang';
 import FormValidation from '~/libraries/form-validation';
 import popupResolver from '~/libraries/popup-resolver';
 import popupCloser from '~/libraries/popup-closer';
 import { forkJoin } from 'rxjs';
 import { nsSnackBar } from '~/bootstrap';
+
+declare const POS;
+
 export default {
     name: 'ns-pos-quick-product-popup',
     props: [ 'popup' ],
@@ -148,7 +151,7 @@ export default {
             this.loaded     =   true;
 
             setTimeout(() => {
-                this.$popup.container.querySelector( '#name' ).select();
+                this.$el.querySelector( '#name' ).select();
             }, 100);
         }
     },

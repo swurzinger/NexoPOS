@@ -66,7 +66,7 @@ if ( Auth::check() ) {
         window.ns.date  =   {
             current : '{{ app()->make( DateService::class )->toDateTimeString() }}',
             serverDate : '{{ app()->make( DateService::class )->toDateTimeString() }}',
-            timeZone: '{{ ns()->option->get( "ns_datetime_timezone" ) }}',
+            timeZone: '{{ ns()->option->get( "ns_datetime_timezone", "Europe/London" ) }}',
             format: `{{ $dateService->convertFormatToMomment( ns()->option->get( 'ns_datetime_format', 'Y-m-d H:i:s' ) ) }}`
         }
 
@@ -168,7 +168,7 @@ if ( Auth::check() ) {
     </div>
     @section( 'layout.dashboard.footer' )
         @include( 'common.popups' )
-        @include( 'common.footer' )
+        @include( 'common.dashboard-footer' )
         @vite([ 'resources/ts/app.ts' ])
     @show
 </body>

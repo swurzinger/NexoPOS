@@ -3,8 +3,8 @@
         <div id="card-header" class="flex flex-wrap ml-4">
             <div 
                 :class="tab.active ? 'active' : 'inactive'" 
-                @click="setActive( tab )" v-bind:key="key" 
                 v-for="( tab, key ) of form.tabs" 
+                @click="setActive( tab, key )" v-bind:key="key" 
                 class="tab cursor-pointer flex items-center px-4 py-2 rounded-tl-lg rounded-tr-lg">
                 <span>{{ tab.label }}</span>
                 <span v-if="tab.errors && tab.errors.length > 0" class="ml-2 rounded-full ns-inset-button error active text-sm h-6 w-6 flex items-center justify-center">{{ tab.errors.length }}</span>
@@ -16,7 +16,7 @@
                     <template v-if="activeTab.fields">
                         <div class="w-full px-4 md:w-1/2 lg:w-1/3" v-bind:key="index" v-for="( field, index ) of activeTab.fields">
                             <div class="flex flex-col my-2">
-                                <ns-field :field="field"></ns-field>
+                                <ns-field @saved="handleSaved( $event, field )" :field="field"></ns-field>
                             </div>
                         </div>
                     </template>
@@ -60,7 +60,13 @@ export default {
                     return this.form.tabs[ tab ];
                 }
             }
-        }
+        },
+        activeTabIdentifier() {
+            const values        =   Object.values( this.form.tabs );
+            const tabIdentifier =   Object.keys( this.form.tabs )[ values.indexOf( this.activeTab ) ];
+
+            return tabIdentifier;
+        },
     },
     mounted() {
         const address   =   window.location.href;
@@ -70,6 +76,15 @@ export default {
     },
     methods: {
         __,
+        async handleSaved( event, field ) {
+            const form = await this.loadSettingsForm( this.activeTab );
+
+            form.tabs[ this.activeTabIdentifier ].fields.filter( __field => {
+                    if ( __field.name === field.name && event.data.entry ) {
+                        __field.value = event.data.entry.id;
+                    }
+                })
+        },
         loadComponent( componentName ) {
             return shallowRef( nsExtraComponents[ componentName ] );
         },
@@ -128,71 +143,86 @@ export default {
                 
                 nsHooks.doAction( 'ns-settings-failed', { error, instance: this });
 
-                nsSnackBar.error( error.message || __( 'Unable to proceed the form is not valid.' ) )
-                    .subscribe();
+                if ( error.message ) {
+                    nsSnackBar.error( error.message || __( 'Unable to proceed the form is not valid.' ) )
+                        .subscribe();
+                }
             }                
         },
-        setActive( tab ) {
-            for( let tab in this.form.tabs ) {
-                this.form.tabs[ tab ].active     =   false;
+        setActive( tab, identifier ) {
+            for( let _tab in this.form.tabs ) {
+                this.form.tabs[ _tab ].active     =   false;
             }
 
             tab.active  =   true;
 
-            nsHooks.doAction( 'ns-settings-change-tab', { tab, instance: this });
+            nsHooks.doAction( 'ns-settings-change-tab', { tab, instance: this, identifier });
         },
         loadSettingsForm( activeTab = null ) {
+            return new Promise( ( resolve, reject ) => {
+                nsHttpClient.get( this.url ).subscribe({
+                    next: form => {
 
-            nsHttpClient.get( this.url ).subscribe( form => {
-                let i   =   0;
+                        resolve( form );
 
-                /**
-                 * This will force the settings page
-                 * to refresh all the fields.
-                 */
-                this.form   =   {};
+                        let i   =   0;
+                        let activeTabIdentifier    =   null;
 
-                /**
-                 * if we provide a tab that doesn't exists
-                 * then we'll make suer to set it as undefined.
-                 * So the first tab will be used by default.
-                 */
-                activeTab   =   form.tabs[ activeTab ] !== undefined ? activeTab : null;
+                        /**
+                         * This will force the settings page
+                         * to refresh all the fields.
+                         */
+                        this.form   =   {};
 
-                /**
-                 * only if it doesn't have selected
-                 * tab so that we can reload it without resetting the focused tab.
-                 */
-                for( let tab in form.tabs ) {
-                    if ( ! this.formDefined ) {
-                        form.tabs[ tab ].active  =   false;
+                        /**
+                         * if we provide a tab that doesn't exists
+                         * then we'll make suer to set it as undefined.
+                         * So the first tab will be used by default.
+                         */
+                        activeTab   =   form.tabs[ activeTab ] !== undefined ? activeTab : null;
 
-                        if ( activeTab === null && i === 0 ) {
-                            form.tabs[ tab ].active  =   true;
-                        } else if ( activeTab !== null && tab === activeTab ) {
-                            form.tabs[ tab ].active  =   true;
+                        /**
+                         * only if it doesn't have selected
+                         * tab so that we can reload it without resetting the focused tab.
+                         */
+                        for( let tab in form.tabs ) {
+                            if ( ! this.formDefined ) {
+                                form.tabs[ tab ].active  =   false;
+
+                                if ( activeTab === null && i === 0 ) {
+                                    form.tabs[ tab ].active  =   true;
+                                    activeTabIdentifier      =   tab;
+                                } else if ( activeTab !== null && tab === activeTab ) {
+                                    form.tabs[ tab ].active  =   true;
+                                    activeTabIdentifier      =   tab;
+                                }
+                            } else {
+                                form.tabs[ tab ].active  =   this.form.tabs[ tab ].active;
+                            }
+
+                            i++;
+
+                            /**
+                             * to avoid unnecessary errors
+                             * let's create empty fields if those
+                             * aren't provided.
+                             */
+                            if ( form.tabs[ tab ].fields === undefined ) {
+                                form.tabs[ tab ].fields     =   [];
+                            }
                         }
-                    } else {
-                        form.tabs[ tab ].active  =   this.form.tabs[ tab ].active;
+
+                        this.form  =    this.validation.createForm( form );
+
+                        nsHooks.doAction( 'ns-settings-loaded', this );
+                        nsHooks.doAction( 'ns-settings-change-tab', { tab : this.activeTab, instance: this, identifier: activeTabIdentifier });
+                    },
+                    error : error => {
+                        nsSnackBar.error( error.message ).subscribe();
+                        reject( error );
                     }
-
-                    i++;
-
-                    /**
-                     * to avoid unnecessary errors
-                     * let's create empty fields if those
-                     * aren't provided.
-                     */
-                    if ( form.tabs[ tab ].fields === undefined ) {
-                        form.tabs[ tab ].fields     =   [];
-                    }
-                }
-
-                this.form  =    this.validation.createForm( form );
-                
-                nsHooks.doAction( 'ns-settings-loaded', this );
-                nsHooks.doAction( 'ns-settings-change-tab', { tab : this.activeTab, instance: this });
-            });
+                });
+            })
         }
     }
 }

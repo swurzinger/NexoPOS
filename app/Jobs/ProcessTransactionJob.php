@@ -2,7 +2,6 @@
 
 namespace App\Jobs;
 
-use App\Models\Expense;
 use App\Models\Transaction;
 use App\Services\DateService;
 use App\Services\TransactionService;
@@ -15,14 +14,14 @@ use Illuminate\Queue\InteractsWithQueue;
 
 class ProcessTransactionJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, NsSerialize;
+    use Dispatchable, InteractsWithQueue, NsSerialize, Queueable;
 
     /**
      * Create a new job instance.
      *
      * @return void
      */
-    public function __construct( public Transaction $transaction )
+    public function __construct(public Transaction $transaction)
     {
         $this->prepareSerialization();
     }
@@ -32,19 +31,27 @@ class ProcessTransactionJob implements ShouldQueue
      *
      * @return void
      */
-    public function handle( TransactionService $transactionService, DateService $dateService )
+    public function handle(TransactionService $transactionService, DateService $dateService)
     {
-        /**
-         * @var DateService $date
-         */
-        $date = app()->make( DateService::class );
-
-        if ( (bool) $this->transaction->active && ! $this->transaction->recurring && Carbon::parse( $this->transaction->scheduled_date )->lessThan( $date->toDateTimeString() ) ) {
-            /**
-             * if the expense is not recurring and not scheduled
-             * we'll immediately trigger it.
-             */
-            $transactionService->triggerTransaction( $this->transaction );
+        switch ($this->transaction->type) {
+            case Transaction::TYPE_SCHEDULED:
+                $this->handleScheduledTransaction($transactionService, $dateService);
+                break;
+            case Transaction::TYPE_DIRECT:
+                $this->handleDirectTransaction($transactionService, $dateService);
+                break;
         }
+    }
+
+    public function handleScheduledTransaction(TransactionService $transactionService, DateService $dateService)
+    {
+        if (Carbon::parse($this->transaction->scheduled_date)->lessThan($dateService->toDateTimeString())) {
+            $transactionService->triggerTransaction($this->transaction);
+        }
+    }
+
+    public function handleDirectTransaction(TransactionService $transactionService, DateService $dateService)
+    {
+        $transactionService->triggerTransaction($this->transaction);
     }
 }

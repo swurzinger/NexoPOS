@@ -7,18 +7,23 @@ use Exception;
 
 class NotEnoughPermissionException extends Exception
 {
-    public function __construct( $message = null )
+    public function getStatusCode()
     {
-        $this->message = $message ?: __('You\'re not allowed to see that page.' );
+        return 403;
     }
 
-    public function render( $request )
+    public function __construct($message = null)
     {
-        if ( ! $request->expectsJson() ) {
-            return response()->view( 'pages.errors.not-enough-permissions', [
-                'title' => __( 'Not Enough Permissions' ),
+        $this->message = $message ?: __('You\'re not allowed to see that page.');
+    }
+
+    public function render($request)
+    {
+        if (! $request->expectsJson()) {
+            return response()->view('pages.errors.not-enough-permissions', [
+                'title' => __('Not Enough Permissions'),
                 'message' => $this->getMessage(),
-                'back' => Helper::getValidPreviousUrl( $request ),
+                'back' => Helper::getValidPreviousUrl($request),
             ]);
         }
 

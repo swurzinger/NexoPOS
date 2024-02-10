@@ -1,7 +1,6 @@
 <script lang="ts">
 import FormValidation from '~/libraries/form-validation';
-import { Subject, BehaviorSubject, forkJoin } from "rxjs";
-import { map } from "rxjs/operators";
+import { BehaviorSubject, forkJoin } from "rxjs";
 import { nsSnackBar, nsHttpClient, nsNotice } from '~/bootstrap';
 import nsManageProducts from '~/pages/dashboard/procurements/manage-products.vue';
 import Tax from "~/libraries/tax";
@@ -13,6 +12,7 @@ import NsNumpadPopup from '~/popups/ns-numpad-popup.vue';
 import NsSelectPopup from '~/popups/ns-select-popup.vue';
 import { selectApiEntities } from '~/libraries/select-api-entities';
 import { Unit } from '~/interfaces/unit';
+import { nsPOSLoadingPopup } from '~/components/components';
 
 
 export default {
@@ -20,9 +20,15 @@ export default {
     mounted() {
         this.reloadEntities();
 
-        window.onbeforeunload   =   () => {
-            return ! this.formValidation.isFormUntouched( this.form ) || this.form.products.length > 0 ? __( 'You have unsaved modifications. Would you like to proceed?' ) : null;
-        }
+        this.shouldPreventAccidentlRefreshSubscriber    =   this.shouldPreventAccidentalRefresh.subscribe({ 
+            next: value => {
+                if ( value ){
+                    window.addEventListener( 'beforeunload', this.addAccidentalCloseListener );
+                } else {
+                    window.removeEventListener( 'beforeunload', this.addAccidentalCloseListener );
+                }
+            }
+        })
     },
     computed: {
         activeTab() {
@@ -117,9 +123,31 @@ export default {
              * spinner
              */
             reloading: false,
+
+            /**
+             * determine if we should bypass the accidental
+             * load of the page when products are added
+             */
+            shouldPreventAccidentalRefresh: new BehaviorSubject( false ),
+            shouldPreventAccidentlRefreshSubscriber: null,
+
+            /**
+             * Determine if we should show the info box
+             */
+            showInfo: false,
         }
     },
     watch: {
+        form: {
+            handler() {
+                if( this.formValidation.isFormUntouched( this.form ) ) {
+                    this.shouldPreventAccidentalRefresh.next(false);
+                } else {
+                    this.shouldPreventAccidentalRefresh.next(true);
+                }
+            },
+            deep: true
+        },
         searchValue( value ) {
             if ( value ) {
                 clearTimeout( this.debounceSearch );
@@ -136,6 +164,11 @@ export default {
     methods: {
         __,
         nsCurrency,
+
+        addAccidentalCloseListener( event ) {
+            event.preventDefault();
+            return true;
+        },
 
         async defineConversionOption( index ) {
             try {
@@ -182,7 +215,6 @@ export default {
             }
         },
         
-
         computeTotal() {
 
             this.totalTaxValues = 0;
@@ -456,21 +488,31 @@ export default {
                 }
             }
 
-            nsHttpClient[ this.submitMethod ? this.submitMethod.toLowerCase() : 'post' ]( this.submitUrl, data )
-                .subscribe( data => {
-                    if ( data.status === 'success' ) {
-                        return document.location   =   this.returnUrl;
-                    }
-                    this.formValidation.enableForm( this.form );
-                }, ( error ) => {
-                    nsSnackBar.error( error.message, undefined, {
-                        duration: 5000
-                    }).subscribe();
+            const popup = Popup.show( nsPOSLoadingPopup );
 
-                    this.formValidation.enableForm( this.form );
-                    
-                    if ( error.errors ) {
-                        this.formValidation.triggerError( this.form, error.errors );
+            nsHttpClient[ this.submitMethod ? this.submitMethod.toLowerCase() : 'post' ]( this.submitUrl, data )
+                .subscribe({
+                    next: data => {
+                        popup.close();
+                        
+                        if ( data.status === 'success' ) {
+                            this.shouldPreventAccidentalRefresh.next(false);
+                            return document.location   =   this.returnUrl;
+                        }
+                        this.formValidation.enableForm( this.form );
+                    }, 
+                    error: ( error ) => {
+                        popup.close();
+
+                        nsSnackBar.error( error.message, undefined, {
+                            duration: 5000
+                        }).subscribe();
+
+                        this.formValidation.enableForm( this.form );
+                        
+                        if ( error.errors ) {
+                            this.formValidation.triggerError( this.form, error.errors );
+                        }
                     }
                 })
         },
@@ -628,6 +670,17 @@ export default {
             }
 
             return __( 'N/A' );
+        },
+
+        handleSavedEvent( event, field ) {
+            if ( event.data ) {
+                field.options.push({
+                    label: event.data.entry.first_name,
+                    value: event.data.entry.id
+                });
+
+                field.value     =   event.data.entry.id;
+            }
         }
     }
 }
@@ -638,12 +691,19 @@ export default {
             <div class="flex flex-col">
                 <div class="flex justify-between items-center">
                     <label for="title" class="font-bold my-2 text-primary">{{ form.main.label || __( 'No title is provided' ) }}</label>
-                    <div for="title" class="text-sm my-2 text-primary">
-                        <a v-if="returnUrl" :href="returnUrl" class="rounded-full ns-inset-button border px-2 py-1">{{ __( 'Go Back' ) }}</a>
+                    <div for="title" class="text-sm my-2 -mx-1 flex text-primary">
+                        <div class="px-1" @click="showInfo = !showInfo">
+                            <span v-if="!showInfo" class="cursor-pointer rounded-full ns-inset-button border px-2 py-1">{{ __( 'Show Details' ) }}</span>
+                            <span v-if="showInfo" class="cursor-pointer rounded-full ns-inset-button border px-2 py-1">{{ __( 'Hide Details' ) }}</span>
+                        </div>
+                        <div class="px-1">
+                            <a v-if="returnUrl" :href="returnUrl" class="rounded-full ns-inset-button border px-2 py-1">{{ __( 'Go Back' ) }}</a>
+                        </div>
                     </div>
                 </div>
                 <div :class="form.main.disabled ? 'disabled' : ( form.main.errors.length > 0 ? 'error' : '' )" class="flex border-2 rounded input-group info overflow-hidden">
                     <input v-model="form.main.value" 
+                        @keypress="formValidation.checkField( form.main )"
                         @blur="formValidation.checkField( form.main )" 
                         @change="formValidation.checkField( form.main )" 
                         :disabled="form.main.disabled"
@@ -658,6 +718,24 @@ export default {
                     <span><slot name="error-required">{{ error.identifier }}</slot></span>
                 </p>
             </div>
+            <div v-if="showInfo" class="rounded border-2 bg-info-primary border-info-tertiary flex">
+                <div class="icon w-16 flex py-4 justify-center">
+                    <i class="las la-info-circle text-4xl"></i>
+                </div>
+                <div class="text flex-auto py-4">
+                    <h3 class="font-bold text-lg">{{ __( 'Important Notes' ) }}</h3>
+                    <ul>
+                        <li>
+                            <i class="las la-hand-point-right">&nbsp;</i>
+                            <span>{{ __( 'Stock Management Products.' ) }}</span>
+                        </li>
+                        <li>
+                            <i class="las la-hand-point-right">&nbsp;</i>
+                            <span>{{ __( 'Doesn\'t work with Grouped Product.' ) }}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
             <div id="form-container" class="-mx-4 flex flex-wrap mt-4">
                 <div class="px-4 w-full">
                     <div id="tabbed-card" class="ns-tab">
@@ -670,7 +748,7 @@ export default {
                             <div class="card-body rounded-br-lg rounded-bl-lg shadow p-2">
                                 <div class="-mx-4 flex flex-wrap" v-if="form.tabs">
                                     <div class="flex px-4 w-full md:w-1/2 lg:w-1/3" :key="index" v-for="(field, index) of form.tabs.general.fields">
-                                        <ns-field :field="field"></ns-field>
+                                        <ns-field @saved="handleSavedEvent( $event, field )" :field="field"></ns-field>
                                     </div>
                                 </div>
                             </div>

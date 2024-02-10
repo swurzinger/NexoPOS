@@ -50,21 +50,22 @@
                         </div>
                     </div>
 
-                    <div v-if="! hasCategories && ! hasProducts" class="h-full w-full flex flex-col items-center justify-center">
+                    <div v-if="! hasCategories && ! hasProducts && ! isLoading" class="h-full w-full flex flex-col items-center justify-center">
                       <i class="las la-frown-open text-8xl text-primary"></i>
-                      <p class="w-1/2 md:w-2/3 text-center text-primary">
-                        {{ __( 'Looks like there is either no products and no categories. How about creating those first to get started ?' ) }}
-                      </p>
-                      <br>
-                      <ns-link target="blank" type="info" :href="createCategoryUrl">{{ __( 'Create Categories' ) }}</ns-link>
+                       <p class="w-1/2 md:w-2/3 text-center text-primary">
+                          {{ __( 'Looks like there is either no products and no categories. How about creating those first to get started ?' ) }}
+                       </p>
+                       <br>
+                       <ns-link target="blank" type="info" :href="createCategoryUrl">{{ __( 'Create Categories' ) }}</ns-link>
                     </div>
 
                     <div @click="addToTheCart( product )" v-for="(product, index) of products" :key="product.id"
                         class="cell-item w-full h-36 cursor-pointer border flex flex-col items-center justify-center overflow-hidden relative"
                          :style="index === 0 ? 'grid-column-start: 1' : ''">
                         <div class="h-full w-full flex items-center justify-center overflow-hidden">
-                            <img v-if="product.galleries && product.galleries.filter( i => i.featured ).length > 0" :src="product.galleries.filter( i => i.featured )[0].url" class="object-cover h-full" :alt="product.name">
-                            <i v-if="! product.galleries || product.galleries.filter( i => i.featured ).length === 0" class="las la-image text-6xl"></i>
+                            <img v-if="product.galleries && product.galleries.filter( i => i.featured ).length > 0" :src="product.galleries.filter( i => i.featured )[0].url" class="object-cover h-full" :alt="product.name"/>
+                            <img v-else-if="hasNoFeatured( product )" :src="product.galleries[0].url" class="object-cover h-full" :alt="product.name"/>
+                            <i v-else-if="! product.galleries || product.galleries.filter( i => i.featured ).length === 0" class="las la-image text-6xl"></i>
                         </div>
                         <div class="w-full absolute z-10 -bottom-10">
                             <div class="cell-item-label relative w-full flex flex-col items-center justify-center -top-10 h-20 p-2">
@@ -173,7 +174,6 @@ export default {
             this.breadcrumbs            =   breadcrumbs;
             this.$forceUpdate();
         });
-
         this.visibleSectionSubscriber   =   POS.visibleSection.subscribe( section => {
             this.visibleSection         =   section;
             this.$forceUpdate();
@@ -247,6 +247,10 @@ export default {
 
         openSearchPopup() {
             Popup.show( nsPosSearchProductVue );
+        },
+
+        hasNoFeatured( product ) {
+            return product.galleries && product.galleries.length > 0 && product.galleries.filter( i => i.featured ).length === 0;
         },
 
         submitSearch( value ) {

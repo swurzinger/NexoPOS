@@ -45,14 +45,14 @@ export default {
             }
         },
         registerInitialQueue() {
-            POS.initialQueue.push( async () => {
+            POS.initialQueue.push( () => new Promise( async ( resolve, reject ) => {
                 try {
-                    if (this.settings.register !== undefined) {
-                        return;
-                    }
-
                     const response  =   await new Promise( ( resolve, reject ) => {
-                        Popup.show( nsPosCashRegistersPopupVue, { resolve, reject });
+                        if ( this.settings.register === undefined ) {
+                            return Popup.show( nsPosCashRegistersPopupVue, { resolve, reject });
+                        }
+
+                        resolve({ data: { register: this.settings.register } });
                     });
 
                     /**
@@ -62,12 +62,11 @@ export default {
                     POS.set( 'register', response.data.register );
                     this.setRegister( response.data.register );
 
-                    return response;
+                    resolve( response );
                 } catch( exception ) {
-                    console.log({ exception });
-                    throw exception;
+                    reject( exception );
                 }
-            });
+            }));
         },
         setButtonName() {
             if ( this.settings.register === undefined ) {

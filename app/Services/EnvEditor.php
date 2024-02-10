@@ -13,12 +13,17 @@ class EnvEditor
     public function __construct($env_file_path)
     {
         $this->env_file_path = $env_file_path;
-        $this->env_file_data = $this->read( $this->env_file_path );
+        $this->env_file_data = $this->read($this->env_file_path);
     }
 
-    public function read( $filePath )
+    public function read($filePath)
     {
         $result = [];
+
+        if (is_file($filePath) === false) {
+            return $result;
+        }
+
         $file = fopen($filePath, 'r');
         if ($file) {
             while (($line = fgets($file)) !== false) {
@@ -58,7 +63,7 @@ class EnvEditor
                 $value = '';
             }
 
-            $this->env_file_data[$key] = htmlspecialchars( $value );
+            $this->env_file_data[$key] = htmlspecialchars($value);
         } else {
             throw new Exception('Invalid key format');
         }
@@ -76,7 +81,7 @@ class EnvEditor
             $this->env_file_path,
             implode("\n", array_map(
                 function ($v, $k) {
-                return "$k=$v";
+                    return "$k=$v";
                 },
                 $this->env_file_data,
                 array_keys($this->env_file_data)
