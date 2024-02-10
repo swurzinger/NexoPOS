@@ -73,7 +73,7 @@ class UnitService
 
     /**
      * Get sibling units
-     * Used to retreive other units that belongs to 
+     * Used to retreive other units that belongs to
      * the same unit group and the defined unit.
      */
     public function getSiblingUnits( Unit $unit )
@@ -84,7 +84,7 @@ class UnitService
 
         return $unit->group->units;
     }
-    
+
     /**
      * Create a unit using the provided informations
      *
@@ -225,7 +225,6 @@ class UnitService
      * get the single base unit defined
      * for a specific group
      *
-     * @param UnitGroup $group
      * @return Unit
      */
     public function getBaseUnit( UnitGroup $group )
@@ -252,9 +251,7 @@ class UnitService
      * return what is the exact total base unit
      * value of 2 Unit instance provided
      *
-     * @param Unit $unit
      * @param Unit base unit
-     * @param
      */
     public function computeBaseUnit( Unit $unit, Unit $base, $quantity )
     {
@@ -265,6 +262,40 @@ class UnitService
         return $this->currency->value( $value )
             ->multiplyBy( $quantity )
             ->get();
+    }
+
+    /**
+     * Checks wether two units belongs to the same unit group.
+     */
+    public function isFromSameGroup( Unit $from, Unit $to ): bool
+    {
+        return $from->group_id === $to->group_id;
+    }
+
+    /**
+     * Will returns the final quantity of a converted unit.
+     */
+    public function getConvertedQuantity( Unit $from, Unit $to, float $quantity ): float|int
+    {
+        return ns()->currency->define(
+            ns()->currency
+                ->define( $from->value )
+                ->multipliedBy( $quantity )
+                ->getRaw()
+        )
+            ->dividedBy( $to->value )
+            ->getRaw();
+    }
+
+    /**
+     * Using the source unit, will return the purchase price
+     * for a converted unit.
+     */
+    public function getPurchasePriceFromUnit( $purchasePrice, Unit $from, Unit $to )
+    {
+        return ns()->currency->define(
+            ns()->currency->define( $purchasePrice )->dividedBy( $from->value )->toFloat()
+        )->multipliedBy( $to->value )->getRaw();
     }
 
     public function deleteUnit( $id )

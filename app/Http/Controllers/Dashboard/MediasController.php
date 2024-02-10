@@ -5,25 +5,24 @@ namespace App\Http\Controllers\Dashboard;
 use App\Exceptions\NotAllowedException;
 use App\Http\Controllers\DashboardController;
 use App\Models\Media;
+use App\Services\DateService;
 use App\Services\MediaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\View;
 
 class MediasController extends DashboardController
 {
-    protected $mediaService;
-
     public function __construct(
-        MediaService $mediaService
+        protected MediaService $mediaService,
+        protected DateService $dateService
     ) {
-        parent::__construct();
-
-        $this->mediaService = $mediaService;
+        // ...
     }
 
     public function showMedia()
     {
-        return $this->view( 'pages.dashboard.medias.list', [
+        return View::make( 'pages.dashboard.medias.list', [
             'title' => __( 'Manage Medias' ),
             'description' => __( 'Upload and manage medias (photos).' ),
         ]);
@@ -32,7 +31,6 @@ class MediasController extends DashboardController
     /**
      * perform
      *
-     * @param
      * @return json
      */
     public function getMedias()
@@ -41,20 +39,8 @@ class MediasController extends DashboardController
     }
 
     /**
-     * perform
-     *
-     * @param
-     * @return json
-     */
-    public function deleteMedia()
-    {
-    }
-
-    /**
      * Update a media name
      *
-     * @param Media $media
-     * @param Request $request
      * @return json
      */
     public function updateMedia( Media $media, Request $request )

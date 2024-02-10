@@ -1,8 +1,8 @@
 <template>
     <div class="h-full w-full flex items-center justify-center" id="ns-units-selector">
-        <div class="ns-box w-2/3-screen lg:w-1/3-screen overflow-hidden flex flex-col" v-if="unitsQuantities.length > 0">
+        <div class="ns-box w-4/5-screen lg:w-1/3-screen overflow-hidden flex flex-col" v-if="unitsQuantities.length > 0">
             <div id="header" class="h-16 flex justify-center items-center flex-shrink-0">
-                <h3 class="font-bold text-primary">{{ __( 'Choose Selling Unit' ) }}</h3>
+                <h3 class="font-bold text-primary">{{ __( '{product} : Units' ).replace( '{product}', productName ) }}</h3>
             </div>
             <div v-if="unitsQuantities.length > 0" class="grid grid-flow-row grid-cols-2 overflow-y-auto">
                 <div @click="selectUnit( unitQuantity )" :key="unitQuantity.id" v-for="unitQuantity of unitsQuantities" class="ns-numpad-key info cursor-pointer border flex-shrink-0 flex flex-col items-center justify-center">
@@ -68,6 +68,11 @@ export default {
             this.loadUnits();
         }
     },
+    computed: {
+        productName() {
+            return this.popup.params.product.$original().name;
+        }
+    },
     methods: {
         __,
         nsCurrency,
@@ -82,7 +87,7 @@ export default {
 
                     if ( result.length === 0 ) {
                         this.popup.close( null, true );
-                        return nsSnackBar.error( __( 'This product doesn\'t have any unit defined for selling.' ) ).subscribe();
+                        return nsSnackBar.error( __( 'This product doesn\'t have any unit defined for selling. Make sure to mark at least one unit as visible.' ) ).subscribe();
                     }
 
                     this.unitsQuantities  =   result;

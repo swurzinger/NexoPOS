@@ -4,8 +4,19 @@ use App\Classes\Hook;
 use App\Classes\Output;
 use App\Services\DateService;
 use App\Services\Helper;
+use App\Services\MenuService;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Auth;
+
+/**
+ * @var MenuService $menus
+ */
+$menus  =   app()->make( MenuService::class );
+
+/**
+ * @var MenuService $menus
+ */
+$dateService  =   app()->make( DateService::class );
 
 if ( Auth::check() ) {
     $theme  =   Auth::user()->attribute->theme ?: ns()->option->get( 'ns_default_theme', 'light' );
@@ -56,7 +67,7 @@ if ( Auth::check() ) {
             current : '{{ app()->make( DateService::class )->toDateTimeString() }}',
             serverDate : '{{ app()->make( DateService::class )->toDateTimeString() }}',
             timeZone: '{{ ns()->option->get( "ns_datetime_timezone" ) }}',
-            format: `{{ ns()->option->get( 'ns_datetime_format' ) }}`
+            format: `{{ $dateService->convertFormatToMomment( ns()->option->get( 'ns_datetime_format', 'Y-m-d H:i:s' ) ) }}`
         }
 
         /**
@@ -80,6 +91,15 @@ if ( Auth::check() ) {
         window.ns.user              =   <?php echo json_encode( ns()->getUserDetails() );?>;
         window.ns.user.attributes   =   <?php echo json_encode( Auth::user()->attribute->first() );?>;
         window.ns.cssFiles          =   <?php echo json_encode( ns()->simplifyManifest() );?>;
+
+        /**
+         * We'll store here the file mime types
+         * that are supported by the media manager.
+         */
+        window.ns.medias            =   {
+            mimes:  <?php echo json_encode( ns()->mediaService->getMimes() )?>,
+            imageMimes: <?php echo json_encode( ns()->mediaService->getImageMimes() );?>
+        }
     </script>
     @vite([ 'resources/ts/lang-loader.ts' ])
 @include( 'common.header-socket' )

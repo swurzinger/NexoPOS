@@ -26,4 +26,22 @@ class MakeProcurementTest extends TestCase
         $this->attemptAuthenticate();
         $this->attemptCreateAnUnpaidProcurement();
     }
+
+    public function testCreateProcurementWithConversion()
+    {
+        $this->attemptAuthenticate();
+        $this->attemptCreateProcurementWithConversion();
+    }
+
+    public function testDeleteProcurement()
+    {
+        $this->attemptAuthenticate();
+        $this->attemptDeleteProcurement();
+    }
+
+    public function testDeleteProcurementWithConvertedProducts()
+    {
+        $this->attemptAuthenticate();
+        $this->attemptDeleteProcurementWithConvertedProducts();
+    }
 }

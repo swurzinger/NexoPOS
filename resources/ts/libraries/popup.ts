@@ -87,6 +87,8 @@ export class Popup {
 
         popups.push( popup );
 
+        console.log( popup );
+
         nsState.setState({ popups });
 
         return popup;

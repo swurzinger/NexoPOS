@@ -12,12 +12,17 @@ import { Popup } from '~/libraries/popup';
 import NsNumpadPopup from '~/popups/ns-numpad-popup.vue';
 import NsSelectPopup from '~/popups/ns-select-popup.vue';
 import { selectApiEntities } from '~/libraries/select-api-entities';
+import { Unit } from '~/interfaces/unit';
 
 
 export default {
     name: 'ns-procurement',
     mounted() {
         this.reloadEntities();
+
+        window.onbeforeunload   =   () => {
+            return ! this.formValidation.isFormUntouched( this.form ) || this.form.products.length > 0 ? __( 'You have unsaved modifications. Would you like to proceed?' ) : null;
+        }
     },
     computed: {
         activeTab() {
@@ -169,9 +174,11 @@ export default {
                 product.procurement.convert_unit_id     =   result.values[0];
                 product.procurement.convert_unit_label  =   result.labels[0];
             } catch( exception ) {
-                return nsSnackBar
-                    .error( exception.message || __( 'An unexpected error has occured' ) )
-                    .subscribe();
+                if ( exception !== false ) {
+                    return nsSnackBar
+                        .error( exception.message || __( 'An unexpected error has occured' ) )
+                        .subscribe();
+                }
             }
         },
         
@@ -392,6 +399,7 @@ export default {
             product.procurement.tax_type                    =   product.tax_type || 'inclusive';
             product.procurement.unit_id                     =   product.unit_quantities[0].unit_id;
             product.procurement.product_id                  =   product.id;
+            product.procurement.convert_unit_id             =   product.unit_quantities[0].convert_unit_id;
             product.procurement.procurement_id              =   null;
             product.procurement.$invalid                    =   false;
 
@@ -496,9 +504,9 @@ export default {
         async selectUnitForProduct( index ) {
             try {
                 const product   =   this.form.products[ index ];
-                const result    =   await new Promise( ( resolve, reject ) => {
+                const unitID    =   await new Promise( ( resolve, reject ) => {
                     Popup.show( NsSelectPopup, {
-                        label: __( 'Choose the Unit' ),
+                        label: __( '{product}: Purchase Unit' ).replace( '{product}', product.name ),
                         description: __( 'The product will be procured on that unit.' ),
                         value: product.unit_id,
                         resolve,
@@ -512,7 +520,31 @@ export default {
                     })
                 })
 
-                product.procurement.unit_id     =   result;
+                product.procurement.unit_id     =   unitID;
+
+                /**
+                 * every modification here must reset the conversion
+                 * unit. This will avoid having the conversion unit be the same
+                 * as the procured unit.
+                 */
+                const selectedUnitQuantity  =   product.unit_quantities.filter( unitQuantity => parseInt( unitQuantity.unit_id ) === +unitID );
+                
+                product.procurement.convert_unit_id         =   selectedUnitQuantity[0].convert_unit_id || undefined;
+                product.procurement.convert_unit_label      =   await new Promise( ( resolve, reject ) => {
+                    if ( product.procurement.convert_unit_id !== undefined ) {
+                        nsHttpClient.get( `/api/units/${product.procurement.convert_unit_id}` )
+                            .subscribe({
+                                next: ( result: Unit ) => {
+                                    resolve( result.name );
+                                },
+                                error: result => {
+                                    resolve( __( 'Unkown Unit' ) );
+                                }
+                            })
+                    } else {
+                        resolve( __( 'N/A' ) );
+                    }
+                });
 
                 this.fetchLastPurchasePrice( index );
             } catch( exception ) {
@@ -558,6 +590,8 @@ export default {
                 });
 
                 entry[ key ]    =   result;
+
+                this.updateLine( index );
             } catch ( exception ) {
                 console.log({ exception })
             }
@@ -677,19 +711,19 @@ export default {
                                                         <div class="flex">
                                                             <div class="flex md:flex-row flex-col md:-mx-1">
                                                                 <div class="md:px-1">
-                                                                    <span class="text-xs text-error-primary cursor-pointer underline" @click="deleteProduct( index )">{{ __( 'Delete' ) }}</span>
+                                                                    <span class="text-xs text-info-tertiary cursor-pointer underline" @click="deleteProduct( index )">{{ __( 'Delete' ) }}</span>
                                                                 </div>
                                                                 <div class="md:px-1">
-                                                                    <span class="text-xs text-error-primary cursor-pointer underline" @click="setProductOptions( index )">{{ __( 'Options' ) }}</span>
+                                                                    <span class="text-xs text-info-tertiary cursor-pointer underline" @click="setProductOptions( index )">{{ __( 'Options' ) }}</span>
                                                                 </div>
                                                                 <div class="md:px-1">
-                                                                    <span class="text-xs text-error-primary cursor-pointer underline" @click="selectUnitForProduct( index )">{{ __( 'Unit' ) }}: {{ getSelectedUnit( index ) }}</span>
+                                                                    <span class="text-xs text-info-tertiary cursor-pointer underline" @click="selectUnitForProduct( index )">{{ __( 'Unit' ) }}: {{ getSelectedUnit( index ) }}</span>
                                                                 </div>
                                                                 <div class="md:px-1">
-                                                                    <span class="text-xs text-error-primary cursor-pointer underline" @click="selectTax( index )">{{ __( 'Tax' ) }}: {{ getSelectedTax( index ) }}</span>
+                                                                    <span class="text-xs text-info-tertiary cursor-pointer underline" @click="selectTax( index )">{{ __( 'Tax' ) }}: {{ getSelectedTax( index ) }}</span>
                                                                 </div>
                                                                 <div class="md:px-1">
-                                                                    <span class="text-xs text-error-primary cursor-pointer underline" @click="defineConversionOption( index )">{{ __( 'Convert' ) }}: {{ product.procurement.convert_unit_id ? product.procurement.convert_unit_label : __( 'N/A' ) }}</span>
+                                                                    <span class="text-xs text-info-tertiary cursor-pointer underline" @click="defineConversionOption( index )">{{ __( 'Convert' ) }}: {{ product.procurement.convert_unit_id ? product.procurement.convert_unit_label : __( 'N/A' ) }}</span>
                                                                 </div>
                                                             </div>
                                                         </div>

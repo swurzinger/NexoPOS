@@ -14,6 +14,7 @@ use App\Events\ProcurementBeforeDeleteProductEvent;
 use App\Events\ProcurementBeforeHandledEvent;
 use App\Events\ProcurementBeforeUpdateEvent;
 use App\Events\ProcurementCancelationEvent;
+use App\Exceptions\NotAllowedException;
 use App\Models\Procurement;
 use App\Models\ProcurementProduct;
 use App\Models\Product;
@@ -275,19 +276,48 @@ class ProcurementService
      * Attempt a product stock removal
      * if the procurement has been stocked
      *
-     * @param Procurement $procurement
+     * @throws NotAllowedException
      */
-    public function attemptProductsStockRemoval( Procurement $procurement )
+    public function attemptProductsStockRemoval( Procurement $procurement ): void
     {
         if ( $procurement->delivery_status === 'stocked' ) {
             $procurement->products->each( function( ProcurementProduct $procurementProduct ) {
-                $unitQuantity = ProductUnitQuantity::withProduct( $procurementProduct->product_id )
-                    ->withUnit( $procurementProduct->unit_id )
-                    ->first();
+                /**
+                 * We'll handle products that was converted a bit
+                 * differently to ensure converted product inventory is taken in account.
+                 */
+                if ( empty( $procurementProduct->convert_unit_id ) ) {
+                    $unitQuantity = ProductUnitQuantity::withProduct( $procurementProduct->product_id )
+                        ->withUnit( $procurementProduct->unit_id )
+                        ->first();
+
+                    $quantity = $procurementProduct->quantity;
+                    $unitName = $procurementProduct->unit->name;
+                } else {
+                    $fromUnit = $procurementProduct->unit;
+                    $toUnit = Unit::find( $procurementProduct->convert_unit_id );
+
+                    $quantity = $this->unitService->getConvertedQuantity(
+                        from: $fromUnit,
+                        to: $toUnit,
+                        quantity: $procurementProduct->quantity
+                    );
+
+                    $unitName = $toUnit->name;
+                    $unitQuantity = ProductUnitQuantity::withProduct( $procurementProduct->product_id )
+                        ->withUnit( $toUnit->id )
+                        ->first();
+                }
 
                 if ( $unitQuantity instanceof ProductUnitQuantity ) {
-                    if ( floatval( $unitQuantity->quantity ) - floatval( $procurementProduct->quantity ) < 0 ) {
-                        throw new Exception( __( 'Unable to delete the procurement as there is not enough stock remaining for "%s". This likely means the stock count has changed either with a sale, adjustment after the procurement has been stocked.' ) );
+                    if ( floatval( $unitQuantity->quantity ) - floatval( $quantity ) < 0 ) {
+                        throw new NotAllowedException(
+                            sprintf(
+                                __( 'Unable to delete the procurement as there is not enough stock remaining for "%s" on unit "%s". This likely means the stock count has changed either with a sale, adjustment after the procurement has been stocked.' ),
+                                $procurementProduct->product->name,
+                                $unitName
+                            )
+                        );
                     }
                 }
             });
@@ -297,10 +327,8 @@ class ProcurementService
     /**
      * This will delete product available on a procurement
      * and dispatch some events before and after that occurs.
-     *
-     * @param Procurement
      */
-    public function deleteProcurementProducts( Procurement $procurement )
+    public function deleteProcurementProducts( Procurement $procurement ): void
     {
         $procurement->products->each( function( ProcurementProduct $product ) use ( $procurement ) {
             $this->deleteProduct( $product, $procurement );
@@ -308,26 +336,19 @@ class ProcurementService
     }
 
     /**
-     * @todo needs review
-     */
-    public function computeValue( $id )
-    {
-        $procurement = Procurement::findOrFail( $id );
-        $value = $procurement->products->map( function( $product ) {
-            return $product->price * $product->quantity;
-        });
-    }
-
-    /**
      * This helps to compute the unit value and the total cost
      * of a procurement product. It return various value as an array of
-     * the product updated along with an array of errors
-     *
-     * @param array [ procurementProduct, storedUnitReference, procurement, itemsToSave, item ]
-     * @return array<$itemsToSave,$errors>
+     * the product updated along with an array of errors.
      */
-    private function __computeProcurementProductValues( $data )
+    private function __computeProcurementProductValues( array $data )
     {
+        /**
+         * @var ProcurementProduct $procurementProduct
+         * @var $storeUnitReference
+         * @var Procurement $procurement
+         * @var $itemsToSave
+         * @var $item
+         */
         extract( $data, EXTR_REFS );
 
         if ( $item->purchase_unit_type === 'unit' ) {
@@ -373,11 +394,7 @@ class ProcurementService
 
     /**
      * This only save the product
-     * but doesn't affect the stock
-     *
-     * @param Procurement $procurement
-     * @param Collection $products
-     * @return Collection $products
+     * but doesn't affect the stock.
      */
     public function saveProducts( Procurement $procurement, Collection $products )
     {
@@ -416,6 +433,7 @@ class ProcurementService
             $procurementProduct->tax_value = $procuredProduct[ 'tax_value' ];
             $procurementProduct->expiration_date = $procuredProduct[ 'expiration_date' ] ?? null;
             $procurementProduct->total_purchase_price = $procuredProduct[ 'total_purchase_price' ];
+            $procurementProduct->convert_unit_id = $procuredProduct[ 'convert_unit_id' ] ?? null;
             $procurementProduct->unit_id = $procuredProduct[ 'unit_id' ];
             $procurementProduct->author = Auth::id();
             $procurementProduct->save();
@@ -431,13 +449,16 @@ class ProcurementService
     }
 
     /**
-     * prepare the procurement entry
-     *
-     * @param array entry to record
-     * @return array
+     * prepare the procurement entry.
      */
-    private function __procureForUnitGroup( $data )
+    private function __procureForUnitGroup( array $data )
     {
+        /**
+         * @var $storeUnitReference
+         * @var ProcurementProduct $procurementProduct
+         * @var $storedBase
+         * @var $item
+         */
         extract( $data );
 
         if ( empty( $stored = @$storedUnitReference[ $procurementProduct->unit_id ] ) ) {
@@ -739,17 +760,46 @@ class ProcurementService
          */
         if ( $procurement->delivery_status === 'stocked' ) {
             /**
-             * Record the deletion on the product
-             * history
+             * if the product was'nt convered into a different unit
+             * then we'll directly perform a stock adjustment on that product.
              */
-            $this->productService->stockAdjustment( 'deleted', [
-                'total_price' => $procurementProduct->total_purchase_price,
-                'unit_price' => $procurementProduct->purchase_price,
-                'unit_id' => $procurementProduct->unit_id,
-                'product_id' => $procurementProduct->product_id,
-                'quantity' => $procurementProduct->quantity,
-                'procurementProduct' => $procurementProduct,
-            ]);
+            if ( ! empty( $procurementProduct->convert_unit_id ) ) {
+                $from = Unit::find( $procurementProduct->unit_id );
+                $to = Unit::find( $procurementProduct->convert_unit_id );
+                $convertedQuantityToRemove = $this->unitService->getConvertedQuantity(
+                    from: $from,
+                    to: $to,
+                    quantity: $procurementProduct->quantity
+                );
+
+                $purchasePrice = $this->unitService->getPurchasePriceFromUnit(
+                    purchasePrice: $procurementProduct->purchase_price,
+                    from: $from,
+                    to: $to
+                );
+
+                $this->productService->stockAdjustment( ProductHistory::ACTION_DELETED, [
+                    'total_price' => ns()->currency->define( $purchasePrice )->multipliedBy( $convertedQuantityToRemove )->toFloat(),
+                    'unit_price' => $purchasePrice,
+                    'unit_id' => $procurementProduct->convert_unit_id,
+                    'product_id' => $procurementProduct->product_id,
+                    'quantity' => $convertedQuantityToRemove,
+                    'procurementProduct' => $procurementProduct,
+                ]);
+            } else {
+                /**
+                 * Record the deletion on the product
+                 * history
+                 */
+                $this->productService->stockAdjustment( 'deleted', [
+                    'total_price' => $procurementProduct->total_purchase_price,
+                    'unit_price' => $procurementProduct->purchase_price,
+                    'unit_id' => $procurementProduct->unit_id,
+                    'product_id' => $procurementProduct->product_id,
+                    'quantity' => $procurementProduct->quantity,
+                    'procurementProduct' => $procurementProduct,
+                ]);
+            }
         }
 
         $procurementProduct->delete();
@@ -835,7 +885,6 @@ class ProcurementService
      * this will actually save the history and update
      * the product stock
      *
-     * @param Procurement $procurement
      * @return void
      */
     public function handleProcurement( Procurement $procurement )
@@ -870,12 +919,26 @@ class ProcurementService
                     ->additionateBy( $product->quantity )
                     ->get();
 
+                $this->productService->setQuantity( $product->product_id, $product->unit_id, $newQuantity, $product->id );
+
                 /**
                  * will generate a unique barcode for the procured product
                  */
                 $this->generateBarcode( $product );
 
-                $this->productService->setQuantity( $product->product_id, $product->unit_id, $newQuantity, $product->id );
+                /**
+                 * We'll now check if the product is about to be
+                 * converted in another unit
+                 */
+                if ( ! empty( $product->convert_unit_id ) ) {
+                    $this->productService->convertUnitQuantities(
+                        product: $product->product,
+                        quantity: $product->quantity,
+                        from: $product->unit,
+                        procurementProduct: $product,
+                        to: Unit::find( $product->convert_unit_id )
+                    );
+                }
             });
 
             $this->setDeliveryStatus( $procurement, Procurement::STOCKED );
@@ -957,7 +1020,7 @@ class ProcurementService
         return Product::query()
             ->whereIn( 'type', [
                 Product::TYPE_DEMATERIALIZED,
-                Product::TYPE_MATERIALIZED
+                Product::TYPE_MATERIALIZED,
             ])
             ->where( function( $query ) use ( $argument ) {
                 $query->orWhere( 'name', 'LIKE', "%{$argument}%" )

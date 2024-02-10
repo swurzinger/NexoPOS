@@ -14,7 +14,7 @@ export default {
     mounted() {
         this.loadForm();
     },
-    props: [ 'src', 'createUrl', 'fieldClass', 'returnUrl', 'submitUrl', 'submitMethod', 'disableTabs' ],
+    props: [ 'src', 'createUrl', 'fieldClass', 'returnUrl', 'submitUrl', 'submitMethod', 'disableTabs', 'queryParams' ],
     computed: {
         activeTabFields() {
             for( let identifier in this.form.tabs ) {
@@ -62,12 +62,11 @@ export default {
             this.formValidation.disableForm( this.form );
 
             if ( this.submitUrl === undefined ) {
-                console.log( this );
                 return nsSnackBar.error( __( 'No submit URL was provided' ), __( 'Okay' ) )
                     .subscribe();
             }
 
-            nsHttpClient[ this.submitMethod ? this.submitMethod.toLowerCase() : 'post' ]( this.submitUrl, this.formValidation.extractForm( this.form ) )
+            nsHttpClient[ this.submitMethod ? this.submitMethod.toLowerCase() : 'post' ]( this.appendQueryParamas( this.submitUrl ), this.formValidation.extractForm( this.form ) )
                 .subscribe( result => {
                     if ( result.status === 'success' ) {
                         if ( this.submitMethod && this.submitMethod.toLowerCase() === 'post' && this.returnUrl !== false ) {
@@ -96,7 +95,7 @@ export default {
             this.rows.forEach( r => r.$checked = event );
         },
         loadForm() {
-            const request   =   nsHttpClient.get( `${this.src}` );
+            const request   =   nsHttpClient.get( `${this.appendQueryParamas( this.src ) }` );
             request.subscribe({
                 next: (f) => {
                     this.form    =   this.parseForm( f.form );
@@ -104,9 +103,20 @@ export default {
                     this.$emit( 'updated', this.form );
                 },
                 error: ( error ) => {
-                    nsSnackBar.error( error.message, 'OKAY', { duration: 0 }).subscribe();
+                    nsSnackBar.error( error.message, __( 'Okay' ), { duration: 0 }).subscribe();
                 }
             });
+        },
+        appendQueryParamas( url ) {
+            const params    =   Object.keys(this.queryParams)
+                .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(this.queryParams[key])}`)
+                .join('&');
+
+            if ( url.includes( '?' ) ) {
+                return `${url}&${params}`;
+            }
+
+            return `${url}?${params}`;
         },
         parseForm( form ) {
             form.main.value     =   form.main.value === undefined ? '' : form.main.value;

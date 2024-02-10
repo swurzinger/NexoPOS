@@ -13,6 +13,7 @@ use App\Crud\ProviderProcurementsCrud;
 use App\Crud\ProviderProductsCrud;
 use App\Http\Controllers\DashboardController;
 use App\Models\Provider;
+use App\Services\DateService;
 use App\Services\Options;
 use App\Services\ProviderService;
 use App\Services\Validation;
@@ -20,15 +21,12 @@ use App\Services\Validation;
 class ProvidersController extends DashboardController
 {
     public function __construct(
-        ProviderService $providerService,
-        Options $options,
-        Validation $validation
+        protected ProviderService $providerService,
+        protected Options $options,
+        protected Validation $validation,
+        protected DateService $dateService
     ) {
-        parent::__construct();
-
-        $this->options = $options;
-        $this->providerService = $providerService;
-        $this->validation = $validation;
+        // ...
     }
 
     /**
@@ -70,7 +68,6 @@ class ProvidersController extends DashboardController
      * Will return the list of procurements
      * made by the provider
      *
-     * @param Provider $provider
      * @return string
      */
     public function listProvidersProcurements( Provider $provider )
@@ -90,7 +87,6 @@ class ProvidersController extends DashboardController
      * Will list all products
      * provided by that provider
      *
-     * @param Provider $provider
      * @return array
      */
     public function listProvidersProducts( Provider $provider )

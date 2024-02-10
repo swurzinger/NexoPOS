@@ -7,7 +7,6 @@ use App\Classes\Schema;
 use App\Events\AfterHardResetEvent;
 use App\Events\BeforeHardResetEvent;
 use App\Models\Customer;
-use App\Models\Migration;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 
@@ -57,6 +56,7 @@ class ResetService
             'nexopos_products',
             'nexopos_products_categories',
             'nexopos_products_histories',
+            'nexopos_products_histories_combined',
             'nexopos_products_galleries',
             'nexopos_products_metas',
             'nexopos_products_taxes',
@@ -98,7 +98,6 @@ class ResetService
     /**
      * Will completely wipe the database
      * forcing a new installation to be made
-     *
      */
     public function hardReset(): array
     {
@@ -110,9 +109,9 @@ class ResetService
          */
         if ( env( 'DB_CONNECTION' ) !== 'sqlite' ) {
             $tables = DB::select('SHOW TABLES');
-    
-            foreach( $tables as $table ) {
-                $table_name = array_values( ( array ) $table )[0];
+
+            foreach ( $tables as $table ) {
+                $table_name = array_values( (array) $table )[0];
                 DB::statement('SET FOREIGN_KEY_CHECKS = 0');
                 DB::statement("DROP TABLE `$table_name`");
                 DB::statement('SET FOREIGN_KEY_CHECKS = 1');

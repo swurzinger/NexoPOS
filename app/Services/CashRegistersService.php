@@ -21,7 +21,7 @@ class CashRegistersService
                 )
             );
         }
-        
+
         $register->status = Register::STATUS_OPENED;
         $register->used_by = Auth::id();
         $register->save();
@@ -89,7 +89,7 @@ class CashRegistersService
         ];
     }
 
-    public function cashIn( Register $register, float $amount, string | null $description ): array
+    public function cashIn( Register $register, float $amount, string|null $description ): array
     {
         if ( $register->status !== Register::STATUS_OPENED ) {
             throw new NotAllowedException(
@@ -156,7 +156,7 @@ class CashRegistersService
         ];
     }
 
-    public function cashOut( Register $register, float $amount, string | null $description ): array
+    public function cashOut( Register $register, float $amount, string|null $description ): array
     {
         if ( $register->status !== Register::STATUS_OPENED ) {
             throw new NotAllowedException(
@@ -223,7 +223,6 @@ class CashRegistersService
      * Will increase the register balance if it's assigned
      * to the right store
      *
-     * @param Order $order
      * @return void
      */
     public function recordCashRegisterHistorySale( Order $order )
@@ -273,37 +272,6 @@ class CashRegistersService
             });
 
             $register->refresh();
-
-            /**
-             * We'll check if there is a transaction that
-             * tracks the change on that order. If not we'll define it.
-             */
-            $changeHistory = RegisterHistory::where( 'order_id', $order->id )
-                ->where( 'register_id', $register->id )
-                ->where( 'action', RegisterHistory::ACTION_CHANGE )
-                ->first();
-
-            if ( ! $changeHistory instanceof RegisterHistory ) {
-                $changeHistory = new RegisterHistory;
-                $changeHistory->register_id = $register->id;
-                $changeHistory->order_id = $order->id;
-                $changeHistory->author = $order->author;
-                $changeHistory->balance_before = $register->balance;
-                $changeHistory->value = $order->change;
-                $changeHistory->balance_after = ns()->currency->define( $register->balance )->subtractBy( $order->change )->getRaw();
-                $changeHistory->action = RegisterHistory::ACTION_CHANGE;
-            }
-
-            /**
-             * If the transaction doesn't have any change, there is no need
-             * to keep an history for that. We'll check if the change history wasn't recently created
-             * and check if the change equal to 0 in order to delete the record.
-             */
-            if ( ! $changeHistory->wasRecentlyCreated && $order->change === 0 ) {
-                $changeHistory->delete();
-            } else {
-                $changeHistory->save();
-            }
         }
     }
 
@@ -312,7 +280,7 @@ class CashRegistersService
      * that only occurs if the order is updated
      * and will update the register history accordingly.
      */
-    public function createRegisterHistoryUsingPaymentStatus( Order $order, string $previous, string $new  ): null | RegisterHistory
+    public function createRegisterHistoryUsingPaymentStatus( Order $order, string $previous, string $new  ): null|RegisterHistory
     {
         /**
          * If the payment status changed from

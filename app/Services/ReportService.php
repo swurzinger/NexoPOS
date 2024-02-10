@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Classes\Currency;
 use App\Classes\Hook;
-use App\Models\TransactionHistory;
+use App\Jobs\ProcessProductHistoryByChunkJob;
 use App\Models\Customer;
 use App\Models\CustomerAccountHistory;
 use App\Models\DashboardDay;
@@ -15,9 +15,11 @@ use App\Models\Procurement;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\ProductHistory;
+use App\Models\ProductHistoryCombined;
 use App\Models\ProductUnitQuantity;
 use App\Models\RegisterHistory;
 use App\Models\Role;
+use App\Models\TransactionHistory;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -32,12 +34,11 @@ class ReportService
 
     private $dayEnds;
 
-    private $dateService;
-
     public function __construct(
-        DateService $dateService
+        protected DateService $dateService,
+        protected ProductService $productService,
     ) {
-        $this->dateService = $dateService;
+        // ...
     }
 
     public function refreshFromDashboardDay( DashboardDay $todayReport )
@@ -168,7 +169,6 @@ class ReportService
     /**
      * will update wasted goods report
      *
-     * @param ProductHistory $history
      * @return void
      */
     public function handleStockAdjustment( ProductHistory $history )
@@ -296,7 +296,6 @@ class ReportService
      * Will delete all cash flow
      * related to the specific order
      *
-     * @param Order $order
      * @return void
      */
     public function deleteOrderCashFlow( Order $order )
@@ -308,7 +307,6 @@ class ReportService
      * Will delete all procurement
      * related to a specific cash flow
      *
-     * @param Procurement $procurement
      * @return void
      */
     public function deleteProcurementCashFlow( Procurement $procurement )
@@ -809,20 +807,20 @@ class ReportService
     {
         switch ( $type ) {
             case 'products_report':
-                return $this->getProductsReports( 
-                    start: $start, 
-                    end: $end, 
-                    user_id: $user_id, 
-                    categories_id: $categories_id 
+                return $this->getProductsReports(
+                    start: $start,
+                    end: $end,
+                    user_id: $user_id,
+                    categories_id: $categories_id
                 );
                 break;
             case 'categories_report':
             case 'categories_summary':
                 return $this->getCategoryReports(
-                    start: $start, 
-                    end: $end, 
-                    user_id: $user_id, 
-                    categories_id: $categories_id 
+                    start: $start,
+                    end: $end,
+                    user_id: $user_id,
+                    categories_id: $categories_id
                 );
                 break;
         }
@@ -831,10 +829,11 @@ class ReportService
     private function getSalesSummary( $orders )
     {
         $allSales = $orders->map( function( $order ) {
-            $productTaxes   =   $order->products()->sum( 'tax_value' );
+            $productTaxes = $order->products()->sum( 'tax_value' );
+
             return [
                 'subtotal' => $order->subtotal,
-                'product_taxes'   =>  $productTaxes,
+                'product_taxes' => $productTaxes,
                 'sales_discounts' => $order->discount,
                 'sales_taxes' => $order->tax_value,
                 'shipping' => $order->shipping,
@@ -867,27 +866,27 @@ class ReportService
 
         if ( ! empty( $categories_id ) ) {
             /**
-             * Will only pull orders that has products which 
+             * Will only pull orders that has products which
              * belongs to the categories id provided
              */
-            $request    =   $request->whereHas( 'products', function( $query ) use ( $categories_id ) {
+            $request = $request->whereHas( 'products', function( $query ) use ( $categories_id ) {
                 $query->whereIn( 'product_category_id', $categories_id );
             });
 
             /**
              * Will only pull products that belongs to the categories id provided.
              */
-            $request    =   $request->with([
-                'products'  =>  function( $query ) use ( $categories_id ) {
+            $request = $request->with([
+                'products' => function( $query ) use ( $categories_id ) {
                     $query->whereIn( 'product_category_id', $categories_id );
-                }
+                },
             ]);
         }
 
-        $orders         = $request->get();
-        $summary        = $this->getSalesSummary( $orders );
-        $products       = $orders->map( fn( $order ) => $order->products )->flatten();
-        $productsIds    = $products->map( fn( $product ) => $product->product_id )->unique();
+        $orders = $request->get();
+        $summary = $this->getSalesSummary( $orders );
+        $products = $orders->map( fn( $order ) => $order->products )->flatten();
+        $productsIds = $products->map( fn( $product ) => $product->product_id )->unique();
 
         return [
             'result' => $productsIds->map( function( $id ) use ( $products ) {
@@ -917,20 +916,20 @@ class ReportService
 
         if ( ! empty( $categories_id ) ) {
             /**
-             * Will only pull orders that has products which 
+             * Will only pull orders that has products which
              * belongs to the categories id provided
              */
-            $request    =   $request->whereHas( 'products', function( $query ) use ( $categories_id ) {
+            $request = $request->whereHas( 'products', function( $query ) use ( $categories_id ) {
                 $query->whereIn( 'product_category_id', $categories_id );
             });
 
             /**
              * Will only pull products that belongs to the categories id provided.
              */
-            $request    =   $request->with([
-                'products'  =>  function( $query ) use ( $categories_id ) {
+            $request = $request->with([
+                'products' => function( $query ) use ( $categories_id ) {
                     $query->whereIn( 'product_category_id', $categories_id );
-                }
+                },
             ]);
         }
 
@@ -1071,46 +1070,46 @@ class ReportService
 
             return array_merge([
                 [
-                    'key' =>  'created_at',
-                    'value' =>  ns()->date->getFormatted( Auth::user()->created_at ),
-                    'label' =>  __( 'Member Since' ),
+                    'key' => 'created_at',
+                    'value' => ns()->date->getFormatted( Auth::user()->created_at ),
+                    'label' => __( 'Member Since' ),
                 ], [
-                    'key' =>  'total_sales_count',
-                    'value' =>  $totalSales,
-                    'label' =>  __( 'Total Orders' ),
-                    'today' =>  [
-                        'key' =>  'today_sales_count',
-                        'value' =>  $todaySales,
-                        'label' =>  __( 'Today\'s Orders' ),
-                    ], 
+                    'key' => 'total_sales_count',
+                    'value' => $totalSales,
+                    'label' => __( 'Total Orders' ),
+                    'today' => [
+                        'key' => 'today_sales_count',
+                        'value' => $todaySales,
+                        'label' => __( 'Today\'s Orders' ),
+                    ],
                 ], [
-                    'key' =>  'total_sales_amount',
-                    'value' =>  ns()->currency->define( $totalSalesAmount )->format(),
-                    'label' =>  __( 'Total Sales' ),
-                    'today' =>  [
-                        'key' =>  'today_sales_amount',
-                        'value' =>  ns()->currency->define( $todaySalesAmount )->format(),
-                        'label' =>  __( 'Today\'s Sales' ),
-                    ], 
+                    'key' => 'total_sales_amount',
+                    'value' => ns()->currency->define( $totalSalesAmount )->format(),
+                    'label' => __( 'Total Sales' ),
+                    'today' => [
+                        'key' => 'today_sales_amount',
+                        'value' => ns()->currency->define( $todaySalesAmount )->format(),
+                        'label' => __( 'Today\'s Sales' ),
+                    ],
                 ], [
-                    'key' =>  'total_refunds_amount',
-                    'value' =>  ns()->currency->define( $totalRefundsAmount )->format(),
-                    'label' =>  __( 'Total Refunds' ),
-                    'today' =>  [
-                        'key' =>  'today_refunds_amount',
-                        'value' =>  ns()->currency->define( $todayRefunds )->format(),
-                        'label' =>  __( 'Today\'s Refunds' ),
-                    ], 
+                    'key' => 'total_refunds_amount',
+                    'value' => ns()->currency->define( $totalRefundsAmount )->format(),
+                    'label' => __( 'Total Refunds' ),
+                    'today' => [
+                        'key' => 'today_refunds_amount',
+                        'value' => ns()->currency->define( $todayRefunds )->format(),
+                        'label' => __( 'Today\'s Refunds' ),
+                    ],
                 ], [
-                    'key' =>  'total_customers',
-                    'value' =>  $totalCustomers,
-                    'label' =>  __( 'Total Customers' ),
-                    'today' =>  [
-                        'key' =>  'today_customers',
-                        'value' =>  $todayCustomers,
-                        'label' =>  __( 'Today\'s Customers' ),
-                    ], 
-                ], 
+                    'key' => 'total_customers',
+                    'value' => $totalCustomers,
+                    'label' => __( 'Total Customers' ),
+                    'today' => [
+                        'key' => 'today_customers',
+                        'value' => $todayCustomers,
+                        'label' => __( 'Today\'s Customers' ),
+                    ],
+                ],
             ], $config );
         });
     }
@@ -1139,7 +1138,7 @@ class ReportService
 
     public function getStockReport( $categories, $units )
     {
-        $query  =   Product::with([ 'unit_quantities' => function( $query ) use ( $units ) {
+        $query = Product::with([ 'unit_quantities' => function( $query ) use ( $units ) {
             if ( ! empty( $units ) ) {
                 $query->whereIn( 'unit_id', $units );
             } else {
@@ -1164,13 +1163,13 @@ class ReportService
         return ProductUnitQuantity::query()
             ->where( 'stock_alert_enabled', 1 )
             ->whereRaw( 'low_quantity > quantity' )
-            ->with([ 
-                'product', 
+            ->with([
+                'product',
                 'unit' => function( $query ) use ( $units ) {
                     if ( ! empty( $units ) ) {
                         $query->whereIn( 'id', $units );
                     }
-                }
+                },
             ])
             ->whereHas( 'unit', function( $query ) use ( $units ) {
                 if ( ! empty( $units ) ) {
@@ -1223,7 +1222,6 @@ class ReportService
     /**
      * Will return the actual customer statement
      *
-     * @param Customer $customer
      * @return array
      */
     public function getCustomerStatement( Customer $customer, $rangeStarts = null, $rangeEnds = null )
@@ -1247,5 +1245,123 @@ class ReportService
                 ->where( 'created_at', '<=', $rangeEnds )
                 ->get(),
         ];
+    }
+
+    public function combineProductHistory( ProductHistory $productHistory )
+    {
+        $currentDetailedHistory     =   $this->prepareProductHistoryCombinedHistory( $productHistory );
+        $this->saveProductHistoryCombined( $currentDetailedHistory, $productHistory );
+        $currentDetailedHistory->save();
+    }
+
+    /**
+     * Will prepare the product history combined
+     */
+    public function prepareProductHistoryCombinedHistory( ProductHistory $productHistory ): ProductHistoryCombined
+    {
+        $formatedDate               =   $this->dateService->now()->format( 'Y-m-d' );
+        $currentDetailedHistory     =   ProductHistoryCombined::where( 'date', $formatedDate )
+            ->where( 'unit_id', $productHistory->unit_id )
+            ->where( 'product_id', $productHistory->product_id )
+            ->first();
+
+        /**
+         * if this is not set, the we're probably doing this for the 
+         * first time of the day, so we need to pull the current quantity of the product
+         */
+        if ( ! $currentDetailedHistory instanceof ProductHistoryCombined ) {
+            $currentDetailedHistory = new ProductHistoryCombined;
+            $currentDetailedHistory->date = $formatedDate;
+            $currentDetailedHistory->name = $productHistory->product->name;
+            $currentDetailedHistory->initial_quantity = $productHistory->before_quantity;
+            $currentDetailedHistory->procured_quantity = 0;
+            $currentDetailedHistory->sold_quantity = 0;
+            $currentDetailedHistory->defective_quantity = 0;
+            $currentDetailedHistory->final_quantity = 0;
+            $currentDetailedHistory->product_id = $productHistory->product_id;
+            $currentDetailedHistory->unit_id = $productHistory->unit_id;
+        }
+
+        return $currentDetailedHistory;
+    }
+
+    /**
+     * Will save the product history combined
+     */
+    public function saveProductHistoryCombined( ProductHistoryCombined &$currentDetailedHistory, ProductHistory $productHistory ): ProductHistoryCombined
+    {
+        if ( $productHistory->operation_type === ProductHistory::ACTION_ADDED ) {
+            $currentDetailedHistory->procured_quantity += $productHistory->quantity;
+        } else if ( $productHistory->operation_type === ProductHistory::ACTION_DELETED ) {
+            $currentDetailedHistory->defective_quantity += $productHistory->quantity;
+        } else if ( $productHistory->operation_type === ProductHistory::ACTION_STOCKED ) {
+            $currentDetailedHistory->procured_quantity += $productHistory->quantity;
+        } else if ( $productHistory->operation_type === ProductHistory::ACTION_LOST ) {
+            $currentDetailedHistory->defective_quantity += $productHistory->quantity;
+        } else if ( $productHistory->operation_type === ProductHistory::ACTION_REMOVED ) {
+            $currentDetailedHistory->defective_quantity += $productHistory->quantity;
+        } else if ( $productHistory->operation_type === ProductHistory::ACTION_SOLD ) {
+            $currentDetailedHistory->sold_quantity += $productHistory->quantity;
+        } else if ( $productHistory->operation_type === ProductHistory::ACTION_ADJUSTMENT_RETURN ) {
+            $currentDetailedHistory->procured_quantity += $productHistory->quantity;
+        } else if ( $productHistory->operation_type === ProductHistory::ACTION_CONVERT_IN ) {
+            $currentDetailedHistory->procured_quantity += $productHistory->quantity;
+        } else if ( $productHistory->operation_type === ProductHistory::ACTION_RETURNED ) {
+            $currentDetailedHistory->procured_quantity += $productHistory->quantity;
+        } else if ( $productHistory->operation_type === ProductHistory::ACTION_TRANSFER_IN ) {
+            $currentDetailedHistory->procured_quantity += $productHistory->quantity;
+        } else if ( $productHistory->operation_type === ProductHistory::ACTION_TRANSFER_CANCELED ) {
+            $currentDetailedHistory->procured_quantity += $productHistory->quantity;
+        } else if ( $productHistory->operation_type === ProductHistory::ACTION_TRANSFER_REJECTED ) {
+            $currentDetailedHistory->procured_quantity += $productHistory->quantity;
+        }
+        
+        $currentDetailedHistory->final_quantity = ns()->currency->define( $currentDetailedHistory->initial_quantity )
+            ->additionateBy( $currentDetailedHistory->procured_quantity )
+            ->subtractBy( $currentDetailedHistory->sold_quantity )
+            ->subtractBy( $currentDetailedHistory->defective_quantity )
+            ->getRaw();
+
+        return $currentDetailedHistory;
+    }
+
+    public function getCombinedProductHistory( $date, $categories, $units )
+    {
+        $request    =   DB::query()->select([
+            'nexopos_products_unit_quantities.*',
+            'nexopos_products.category_id as product_category_id',
+            'nexopos_units.name as unit_name',
+            'nexopos_products_histories_combined.date as history_date',
+            'nexopos_products_histories_combined.initial_quantity as history_initial_quantity',
+            'nexopos_products_histories_combined.procured_quantity as history_procured_quantity',
+            'nexopos_products_histories_combined.defective_quantity as history_defective_quantity',
+            'nexopos_products_histories_combined.sold_quantity as history_sold_quantity',
+            'nexopos_products_histories_combined.final_quantity as history_final_quantity',
+            'nexopos_products_histories_combined.unit_id as history_unit_id',
+            'nexopos_products_histories_combined.product_id as history_product_id',
+            'nexopos_products_histories_combined.name as history_name',
+        ])->from( 'nexopos_products_unit_quantities' )
+            ->rightJoin( 'nexopos_products', 'nexopos_products.id', '=', 'nexopos_products_unit_quantities.product_id' )
+            ->rightJoin( 'nexopos_products_histories_combined', function( $join ) use ( $date ) {
+                $join->on( 'nexopos_products_histories_combined.product_id', '=', 'nexopos_products_unit_quantities.product_id' );
+                $join->on( 'nexopos_products_histories_combined.unit_id', '=', 'nexopos_products_unit_quantities.unit_id' );
+                $join->where( 'nexopos_products_histories_combined.date', $date );
+            })
+            ->rightJoin( 'nexopos_units', 'nexopos_units.id', '=', 'nexopos_products_histories_combined.unit_id' );
+
+        /**
+         * Will only pull products that belongs to the units id provided.
+         */
+        if ( ! empty( $units ) ) {
+            $request->whereIn( 'nexopos_products_histories_combined.unit_id', $units );
+        }
+
+        if ( ! empty( $categories ) ) {
+            $request->whereIn( 'nexopos_products.category_id', $categories );
+        }
+
+        $request->where( 'nexopos_products_histories_combined.date', Carbon::parse( $date )->format( 'Y-m-d' ) );
+
+        return $request->get();
     }
 }

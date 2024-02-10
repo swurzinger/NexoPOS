@@ -14,6 +14,7 @@ use App\Exceptions\NotFoundException;
 use App\Http\Controllers\DashboardController;
 use App\Models\Product;
 use App\Models\ProductCategory;
+use App\Services\DateService;
 use App\Services\ProductCategoryService;
 use Exception;
 use Illuminate\Http\Request;
@@ -21,15 +22,11 @@ use Illuminate\Support\Facades\Auth;
 
 class CategoryController extends DashboardController
 {
-    /**
-     * @param ProductCategoryService
-     */
-    public $categoryService;
-
     public function __construct(
-        ProductCategoryService $categoryService
+        protected ProductCategoryService $categoryService,
+        protected DateService $dateService
     ) {
-        $this->categoryService = $categoryService;
+        // ...
     }
 
     public function get( $id = null )

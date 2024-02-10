@@ -13,7 +13,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
  * @property float $tax_value
  * @property string $product_type
  * @property string $type
- * @property string $accurate_tracking
+ * @property bool $accurate_tracking
+ * @property bool $auto_cogs
  * @property string $status
  * @property string $stock_management Can either be "enabled" or "disabled"
  * @property string $barcode
@@ -30,6 +31,27 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
  * @property int $author
  * @property string $uuid
  * @property TaxGroup $tax_group
+ * 
+ * @method static Builder trackingEnabled()
+ * @method static Builder trackingDisabled()
+ * @method static Builder findUsingBarcode( $barcode )
+ * @method static Builder barcode( $barcode )
+ * @method static Builder sku( $sku )
+ * @method static Builder onSale()
+ * @method static Builder hidden()
+ * @method static Builder findUsingSKU( $sku )
+ * @method static Builder onlyVariations()
+ * @method static Builder excludeVariations()
+ * @method static Builder withStockEnabled()
+ * @method static Builder withStockDisabled()
+ * @method static Builder accurateTracking( $argument = true )
+ * @method static Builder searchable( $attribute = true )
+ * @method static Builder type( $type )
+ * @method static Builder notGrouped()
+ * @method static Builder grouped()
+ * @method static Builder isGroup()
+ * @method static Builder notInGroup()
+ * @method static Builder inGroup()
  */
 class Product extends NsModel
 {
@@ -57,6 +79,7 @@ class Product extends NsModel
 
     protected $cats = [
         'accurate_tracking' => 'boolean',
+        'auto_cogs' =>  'boolean'
     ];
 
     /**
@@ -118,20 +141,22 @@ class Product extends NsModel
 
     /**
      * Filter products if they are grouped products.
+     *
      * @alias scopeGrouped
      */
     public function scopeIsGroup( Builder $query )
     {
         return $query->where( 'type', self::TYPE_GROUPED );
     }
-    
+
     /**
-     * Filter product that doesn't 
+     * Filter product that doesn't
      * belong to a group
      */
     public function scopeNotInGroup( Builder $query )
     {
-        $subItemsIds    =   ProductSubItem::get( 'id' )->map( fn( $entry ) => $entry->id  )->toArray();
+        $subItemsIds = ProductSubItem::get( 'id' )->map( fn( $entry ) => $entry->id  )->toArray();
+
         return $query->whereNotIn( 'id', $subItemsIds );
     }
 
@@ -141,7 +166,8 @@ class Product extends NsModel
      */
     public function scopeInGroup( Builder $query )
     {
-        $subItemsIds    =   ProductSubItem::get( 'id' )->map( fn( $entry ) => $entry->id  )->toArray();
+        $subItemsIds = ProductSubItem::get( 'id' )->map( fn( $entry ) => $entry->id  )->toArray();
+
         return $query->whereIn( 'id', $subItemsIds );
     }
 

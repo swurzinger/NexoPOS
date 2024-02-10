@@ -2,12 +2,11 @@
 
 namespace App\Jobs;
 
-use App\Models\Expense;
 use App\Models\Role;
 use App\Models\Transaction;
 use App\Services\DateService;
-use App\Services\TransactionService;
 use App\Services\NotificationService;
+use App\Services\TransactionService;
 use App\Traits\NsSerialize;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -34,29 +33,14 @@ class ExecuteDelayedTransactionJob implements ShouldQueue
      *
      * @return void
      */
-    public function handle()
+    public function handle( TransactionService $transactionService, NotificationService $notificationService, DateService $dateService)
     {
-        /**
-         * @var DateService $dateService
-         */
-        $dateService = app()->make( DateService::class );
-
-        /**
-         * @var TransactionService $transactionService
-         */
-        $transactionService = app()->make( TransactionService::class );
-
-        /**
-         * @var NotificationService $notificationService
-         */
-        $notificationService = app()->make( NotificationService::class );
-
         $transactionService->triggerTransaction( $this->transaction );
 
         $notificationService->create([
             'title' => __( 'Scheduled Transactions' ),
             'description' => sprintf( __( 'the transaction "%s" was executed as scheduled on %s.' ), $this->transaction->name, $dateService->getNowFormatted() ),
-            'url' => ns()->route( 'ns.dashboard.transaction.history', [ 'transaction' => $this->transaction->id ]),
+            'url' => ns()->route( 'ns.dashboard.transactions.history', [ 'transaction' => $this->transaction->id ]),
         ])->dispatchForGroup([ Role::namespace( Role::ADMIN ), Role::namespace( Role::STOREADMIN ) ]);
     }
 }

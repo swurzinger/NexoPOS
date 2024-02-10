@@ -3,6 +3,7 @@
 namespace App\Crud;
 
 use App\Casts\CurrencyCast;
+use App\Casts\DateCast;
 use App\Casts\NotDefinedCast;
 use App\Casts\OrderDeliveryCast;
 use App\Casts\OrderPaymentCast;
@@ -17,7 +18,6 @@ use App\Services\CrudService;
 use App\Services\Helper;
 use App\Services\OrdersService;
 use App\Services\UsersService;
-use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use TorMorten\Eventy\Facades\Events as Hook;
@@ -93,20 +93,20 @@ class OrderCrud extends CrudService
         'delete' => 'nexopos.delete.orders',
     ];
 
-    protected $casts        =   [
-        'customer_phone'    =>  NotDefinedCast::class,
-        'total'             =>  CurrencyCast::class,
-        'discount'          =>  CurrencyCast::class,
-        'delivery_status'   =>  OrderDeliveryCast::class,
-        'process_status'    =>  OrderProcessCast::class,
-        'type'              =>  OrderTypeCast::class,
-        'payment_status'    =>  OrderPaymentCast::class,
+    protected $casts = [
+        'customer_phone' => NotDefinedCast::class,
+        'total' => CurrencyCast::class,
+        'discount' => CurrencyCast::class,
+        'delivery_status' => OrderDeliveryCast::class,
+        'process_status' => OrderProcessCast::class,
+        'type' => OrderTypeCast::class,
+        'payment_status' => OrderPaymentCast::class,
+        'created_at' => DateCast::class,
+        'updated_at' => DateCast::class,
     ];
 
     /**
      * Define Constructor
-     *
-     * @param
      */
     public function __construct()
     {
@@ -205,7 +205,6 @@ class OrderCrud extends CrudService
     /**
      * Check whether a feature is enabled
      *
-     * @return  bool
      **/
     public function isEnabled( $feature ): bool
     {
@@ -396,7 +395,6 @@ class OrderCrud extends CrudService
      * After saving a record
      *
      * @param  Request $request
-     * @param  Order $entry
      * @return  void
      */
     public function afterPost( $request, Order $entry )

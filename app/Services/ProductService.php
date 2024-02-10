@@ -243,16 +243,11 @@ class ProductService
             $data[ 'barcode' ] = $this->barcodeService->generateRandomBarcode( $data[ 'barcode_type' ] );
         }
 
-        if ( $this->getProductUsingBarcode( $data[ 'barcode' ] ) ) {
+        if ( $this->getProductUsingBarcode( $data[ 'barcode' ] ) instanceof Product ) {
             throw new Exception( sprintf(
                 __( 'The provided barcode "%s" is already in use.' ),
                 $data[ 'barcode' ]
             ) );
-        }
-
-        if ( empty( $data[ 'sku' ] ) ) {
-            $category = ProductCategory::find( $data[ 'category_id' ] );
-            $data[ 'sku' ] = Str::slug( $category->name ) . '--' . Str::slug( $data[ 'name' ] ) . '--' . Str::random(5);
         }
 
         /**
@@ -264,6 +259,15 @@ class ProductService
                 __( 'The provided SKU "%s" is already in use.' ),
                 $data[ 'sku' ]
             ) );
+        }
+
+        /**
+         * We'll generate an SKU automatically
+         * if it's not provided by the form.
+         */
+        if ( empty( $data[ 'sku' ] ) ) {
+            $category = ProductCategory::find( $data[ 'category_id' ] );
+            $data[ 'sku' ] = Str::slug( $category->name ) . '--' . Str::slug( $data[ 'name' ] ) . '--' . Str::random(5);
         }
 
         $product = new Product;
@@ -370,7 +374,6 @@ class ProductService
      * consist of valid items (not gruoped items).
      *
      * @param array $fields
-     * @return void
      */
     public function checkGroupProduct( $fields ): void
     {
@@ -404,7 +407,7 @@ class ProductService
          * and not an instance of Product
          */
         $product = $this->getProductUsingArgument( 'id', $id );
-        
+
         ProductBeforeUpdatedEvent::dispatch( $product );
 
         $mode = 'update';
@@ -445,7 +448,7 @@ class ProductService
 
         /**
          * this will calculate the unit quantities
-         * for the creaed product.
+         * for the created product.
          */
         $this->__computeUnitQuantities( $fields, $product );
 
@@ -476,7 +479,6 @@ class ProductService
     /**
      * Saves the sub items by binding that to a product
      *
-     * @param Product $product
      * @param array $subItems
      * @return array response
      */
@@ -580,7 +582,6 @@ class ProductService
     /**
      * Update a variable product
      *
-     * @param Product $product
      * @param array fields to save
      * @return array response of the process
      */
@@ -679,6 +680,7 @@ class ProductService
         } elseif ( $field === 'units' ) {
             $product->unit_group = $fields[ 'units' ][ 'unit_group' ];
             $product->accurate_tracking = $fields[ 'units' ][ 'accurate_tracking' ] ?? false;
+            $product->auto_cogs = $fields[ 'units' ][ 'auto_cogs' ] ?? false;
         }
     }
 
@@ -709,6 +711,9 @@ class ProductService
                 $unitQuantity->preview_url = $group[ 'preview_url' ] ?? '';
                 $unitQuantity->low_quantity = $group[ 'low_quantity' ] ?? 0;
                 $unitQuantity->stock_alert_enabled = $group[ 'stock_alert_enabled' ] ?? false;
+                $unitQuantity->convert_unit_id = $group[ 'convert_unit_id' ] ?? null;
+                $unitQuantity->cogs = $group[ 'cogs' ] ?? 0; 
+                $unitQuantity->visible = $group[ 'visible' ] ?? true;
 
                 /**
                  * Let's compute the tax only
@@ -730,6 +735,45 @@ class ProductService
     }
 
     /**
+     * We'll get the Cost Of Good Sold from
+     * the whole product history.
+     */
+    public function computeCogsIfNecessary( ProductHistory $productHistory ): void
+    {
+        $productHistory->load( 'product' );
+
+        /**
+         * if the value is explicitely defined
+         * then we'll skip the automatic detection
+         */
+        if ( $productHistory->product instanceof Product && $productHistory->product->auto_cogs ) {
+            $productHistories   =   ProductHistory::where( 'unit_id', $productHistory->unit_id )->where( 'product_id', $productHistory->product_id )
+                ->whereIn( 'operation_type', [
+                    ProductHistory::ACTION_CONVERT_IN,
+                    ProductHistory::ACTION_STOCKED,
+                    // we might need to consider futher conversion option.
+                ])
+                ->get();
+
+            $totalQuantities    =   $productHistories->map( fn( $productHistory ) => $productHistory->quantity )->sum();
+            $sums   =   $productHistories->map( fn( $productHistory ) => $productHistory->total_price )->sum();
+
+            if ( $sums > 0 && $totalQuantities > 0 ) {
+                $cogs   =   ns()->currency->define( $sums )->divideBy( $totalQuantities )->toFloat();
+
+                $productUnitQuantity    =   ProductUnitQuantity::where( 'unit_id', $productHistory->unit_id )
+                    ->where( 'product_id', $productHistory->product_id )
+                    ->first();
+
+                if ( $productUnitQuantity instanceof ProductUnitQuantity ) {
+                    $productUnitQuantity->cogs  =   $cogs;
+                    $productUnitQuantity->save();
+                }
+            }
+        }
+    }
+
+    /**
      * refresh the price for a specific product
      *
      * @param ProductUnitQuantity instance of the product
@@ -745,25 +789,18 @@ class ProductService
     /**
      * get product quantity according
      * to a specific unit id
-     *
-     * @param int product id
-     * @param int unit id
      */
-    public function getQuantity( $product_id, $unit_id )
+    public function getQuantity( int $product_id, int $unit_id )
     {
-        $unitQuantities = $this->get( $product_id )->unit_quantities;
-        $filtredQuantities = $unitQuantities->filter( function( $quantity ) use ( $unit_id ) {
-            return (int) $quantity->unit_id === (int) $unit_id;
-        });
+        $product = Product::with([
+            'unit_quantities' => fn( $query ) => $query->where( 'unit_id', $unit_id ),
+        ])->find( $product_id );
 
-        /**
-         * if there is not an entry, we'll return 0
-         * if there is an entry, we'll get the first quantity
-         * if it's no set, we'll return 0
-         */
-        return $filtredQuantities->count() > 0 ? $this->currency->define(
-            $filtredQuantities->first()->quantity
-        )->get() : 0;
+        if ( $product->unit_quantities->count() > 0 ) {
+            return $this->currency->define( $product->unit_quantities->first()->quantity )->toFloat();
+        }
+
+        return 0;
     }
 
     /**
@@ -1075,7 +1112,6 @@ class ProductService
      *
      * @param string operation : deducted, sold, procured, deleted, adjusted, damaged
      * @param mixed[]<$unit_id,$product_id,$unit_price,?$total_price,?$procurement_id,?$procurement_product_id,?$sale_id,?$quantity> $data to manage
-     * @return ProductHistory|EloquentCollection|bool
      */
     public function stockAdjustment( $action, $data ): ProductHistory|EloquentCollection|bool
     {
@@ -1118,6 +1154,8 @@ class ProductService
             ProductHistory::ACTION_VOID_RETURN,
             ProductHistory::ACTION_ADJUSTMENT_RETURN,
             ProductHistory::ACTION_ADJUSTMENT_SALE,
+            ProductHistory::ACTION_CONVERT_IN,
+            ProductHistory::ACTION_CONVERT_OUT,
         ]) ) {
             throw new NotAllowedException( __( 'The action is not an allowed operation.' ) );
         }
@@ -1166,26 +1204,24 @@ class ProductService
      *
      * @param string $action
      * @param float $quantity
-     * @param Product $product
      * @param Unit $unit
-     * @return EloquentCollection
      */
-    private function handleStockAdjustmentsForGroupedProducts( 
-        $action, 
-        $orderProductQuantity, 
-        Product $product, 
-        Unit $parentUnit, 
+    private function handleStockAdjustmentsForGroupedProducts(
+        $action,
+        $orderProductQuantity,
+        Product $product,
+        Unit $parentUnit,
         OrderProduct $orderProduct = null  ): EloquentCollection
     {
         $product->load( 'sub_items' );
 
-        $products   =   $product->sub_items->map( function( ProductSubItem $subItem ) use ( $action, $orderProductQuantity, $parentUnit, $orderProduct ) {            
+        $products = $product->sub_items->map( function( ProductSubItem $subItem ) use ( $action, $orderProductQuantity, $parentUnit, $orderProduct ) {
             $finalQuantity = $this->computeSubItemQuantity(
                 subItemQuantity: $subItem->quantity,
                 parentUnit: $parentUnit,
                 parentQuantity: $orderProductQuantity
             );
-            
+
             /**
              * Let's retrieve the old item quantity.
              */
@@ -1306,56 +1342,67 @@ class ProductService
          */
         $oldQuantity = $this->getQuantity( $product_id, $unit_id );
 
-        if ( in_array( $action, ProductHistory::STOCK_REDUCE ) ) {
-            $this->preventNegativity(
-                oldQuantity: $oldQuantity,
-                quantity: $quantity
+        if ( in_array( $action, ProductHistory::STOCK_REDUCE ) || in_array( $action, ProductHistory::STOCK_INCREASE ) ) {
+            if ( in_array( $action, ProductHistory::STOCK_REDUCE ) ) {
+                $this->preventNegativity(
+                    oldQuantity: $oldQuantity,
+                    quantity: $quantity
+                );
+
+                /**
+                 * @var string status
+                 * @var string message
+                 * @var array [ 'oldQuantity', 'newQuantity' ]
+                 */
+                $result = $this->reduceUnitQuantities( $product_id, $unit_id, abs( $quantity ), $oldQuantity );
+
+                /**
+                 * We should reduce the quantity if
+                 * we're dealing with a product that has
+                 * accurate stock tracking
+                 */
+                if ( $procurementProduct instanceof ProcurementProduct ) {
+                    $this->updateProcurementProductQuantity( $procurementProduct, $quantity, ProcurementProduct::STOCK_REDUCE );
+                }
+            } elseif ( in_array( $action, ProductHistory::STOCK_INCREASE ) ) {
+                /**
+                 * @var string status
+                 * @var string message
+                 * @var array [ 'oldQuantity', 'newQuantity' ]
+                 */
+                $result = $this->increaseUnitQuantities( $product_id, $unit_id, abs( $quantity ), $oldQuantity );
+
+                /**
+                 * We should reduce the quantity if
+                 * we're dealing with a product that has
+                 * accurate stock tracking
+                 */
+                if ( $procurementProduct instanceof ProcurementProduct ) {
+                    $this->updateProcurementProductQuantity( $procurementProduct, $quantity, ProcurementProduct::STOCK_INCREASE );
+                }
+            }
+
+            return $this->recordStockHistory(
+                product_id: $product_id,
+                action: $action,
+                unit_id: $unit_id,
+                unit_price: $unit_price,
+                quantity: $quantity,
+                total_price: $total_price,
+                procurement_product_id: $procurementProduct?->id ?: null,
+                procurement_id: $procurementProduct->procurement_id ?? null,
+                order_id: isset( $orderProduct ) ? $orderProduct->order_id : null,
+                order_product_id: isset( $orderProduct ) ? $orderProduct->id : null,
+                old_quantity: $result[ 'data' ][ 'oldQuantity' ],
+                new_quantity: $result[ 'data' ][ 'newQuantity' ]
             );
-
-            /**
-             * @var string status
-             * @var string message
-             * @var array [ 'oldQuantity', 'newQuantity' ]
-             */
-            $result = $this->reduceUnitQuantities( $product_id, $unit_id, abs( $quantity ), $oldQuantity );
-
-            /**
-             * We should reduce the quantity if
-             * we're dealing with a product that has
-             * accurate stock tracking
-             */
-            if ( $procurementProduct instanceof ProcurementProduct ) {
-                $this->updateProcurementProductQuantity( $procurementProduct, $quantity, ProcurementProduct::STOCK_REDUCE );
-            }
-        } else {
-            /**
-             * @var string status
-             * @var string message
-             * @var array [ 'oldQuantity', 'newQuantity' ]
-             */
-            $result = $this->increaseUnitQuantities( $product_id, $unit_id, abs( $quantity ), $oldQuantity );
-
-            /**
-             * We should reduce the quantity if
-             * we're dealing with a product that has
-             * accurate stock tracking
-             */
-            if ( $procurementProduct instanceof ProcurementProduct ) {
-                $this->updateProcurementProductQuantity( $procurementProduct, $quantity, ProcurementProduct::STOCK_INCREASE );
-            }
         }
 
-        return $this->recordStockHistory(
-            product_id: $product_id,
-            action: $action,
-            unit_id: $unit_id,
-            unit_price: $unit_price,
-            quantity: $quantity,
-            total_price: $total_price,
-            order_id: isset( $orderProduct ) ? $orderProduct->order_id : null,
-            order_product_id: isset( $orderProduct ) ? $orderProduct->id : null,
-            old_quantity: $result[ 'data' ][ 'oldQuantity' ],
-            new_quantity: $result[ 'data' ][ 'newQuantity' ]
+        throw new NotAllowedException(
+            sprintf(
+                __( 'Unsupported stock action "%s"'),
+                $action
+            )
         );
     }
 
@@ -1371,16 +1418,18 @@ class ProductService
      * @param float $old_quantity
      * @param float $new_quantity
      */
-    public function recordStockHistory( 
-        $product_id, 
-        $action, 
-        $unit_id, 
-        $unit_price, 
-        $quantity, 
-        $total_price, 
-        $order_id = null, 
+    public function recordStockHistory(
+        $product_id,
+        $action,
+        $unit_id,
+        $unit_price,
+        $quantity,
+        $total_price,
+        $order_id = null,
         $order_product_id = null,
-        $old_quantity = 0, 
+        $procurement_product_id = null,
+        $procurement_id = null,
+        $old_quantity = 0,
         $new_quantity = 0 )
     {
         $history = new ProductHistory;
@@ -1415,15 +1464,16 @@ class ProductService
         }
 
         $unit->load( 'group.units' );
+
         return $unit->group->units->filter( fn( $unit ) => $unit->base_unit )->first();
     }
 
-    public function computeSubItemQuantity( 
+    public function computeSubItemQuantity(
         float $subItemQuantity,
         Unit $parentUnit,
         float $parentQuantity )
     {
-        return ( ( $subItemQuantity * $parentUnit->value ) * $parentQuantity );
+        return  ( $subItemQuantity * $parentUnit->value ) * $parentQuantity;
     }
 
     /**
@@ -1526,7 +1576,6 @@ class ProductService
      * add a stock entry to a product
      * history using the provided informations
      *
-     * @param ProcurementProduct $product
      * @param array<$quantity,$unit_id,$purchase_price,$product_id>
      */
     public function procurementStockEntry( ProcurementProduct $product, $fields )
@@ -1618,21 +1667,19 @@ class ProductService
     /**
      * Will return the last purchase price
      * defined for the provided product
-     *
-     * @param Product $product
-     * @return float
      */
-    public function getLastPurchasePrice( $product, $before = null )
+    public function getLastPurchasePrice( Product|null $product, Unit $unit, string|null $before = null ): float|int
     {
         if ( $product instanceof Product ) {
             $request = ProcurementProduct::where( 'product_id', $product->id )
+                ->where( 'unit_id', $unit->id )
                 ->orderBy( 'id', 'desc' );
 
             if ( $before ) {
                 $request->where( 'created_at', '<=', $before );
             }
-            
-            $procurementProduct     =   $request->first();
+
+            $procurementProduct = $request->first();
 
             if ( $procurementProduct instanceof ProcurementProduct ) {
                 return $procurementProduct->purchase_price;
@@ -1752,21 +1799,20 @@ class ProductService
      * Will return the Product Unit Quantities
      * for the provided product
      *
-     * @param Product $product
      * @return array
      */
     public function getProductUnitQuantities( Product $product )
     {
-        $product->unit_quantities->each( fn( $quantity ) => $quantity->load( 'unit' ) );
-
-        return $product->unit_quantities;
+        return $product->unit_quantities()
+            ->with([ 'unit' ])
+            ->visible()
+            ->get();
     }
 
     /**
      * Generate product barcode using product
      * configurations.
      *
-     * @param Product $product
      * @return void
      */
     public function generateProductBarcode( Product $product )
@@ -1784,6 +1830,130 @@ class ProductService
         });
     }
 
+    /**
+     * Convert quantity from a source unit ($from) to a destination unit ($to)
+     * using the provided quantity and product.
+     */
+    public function convertUnitQuantities( Product $product, Unit $from, float $quantity, Unit $to, null|ProcurementProduct $procurementProduct = null ): array
+    {
+        if ( $product->stock_management !== Product::STOCK_MANAGEMENT_ENABLED ) {
+            throw new NotAllowedException( __( 'You cannot convert unit on a product having stock management disabled.' ) );
+        }
+
+        $unitQuantityFrom = ProductUnitQuantity::where( 'product_id', $product->id )
+            ->where( 'unit_id', $from->id )
+            ->first();
+
+        $unitQuantityTo = ProductUnitQuantity::where( 'product_id', $product->id )
+            ->where( 'unit_id', $to->id )
+            ->first();
+
+        if ( $from->id === $to->id ) {
+            throw new NotAllowedException(
+                __( 'The source and the destination unit can\'t be the same. What are you trying to do ?' )
+            );
+        }
+
+        if ( ! $unitQuantityFrom instanceof ProductUnitQuantity ) {
+            throw new NotFoundException(
+                sprintf(
+                    __( 'There is no source unit quantity having the name "%s" for the item %s'),
+                    $from->name,
+                    $product->name
+                )
+            );
+        }
+
+        if ( ! $unitQuantityTo instanceof ProductUnitQuantity ) {
+            throw new NotFoundException(
+                sprintf(
+                    __( 'There is no destination unit quantity having the name %s for the item %s'),
+                    $from->name,
+                    $product->name
+                )
+            );
+        }
+
+        if ( ! $this->unitService->isFromSameGroup( $from, $to ) ) {
+            throw new NotAllowedException( __( 'The source unit and the destination unit doens\'t belong to the same unit group.' ) );
+        }
+
+        /**
+         * We can't proceed with no base unit defined.
+         */
+        $from->load([
+            'group.units' => function( $query ) {
+                $query->where( 'base_unit', true );
+            },
+        ]);
+
+        $baseUnit = $from->group->units->first();
+
+        if ( ! $baseUnit instanceof Unit ) {
+            throw new NotFoundException(
+                sprintf(
+                    __( 'The group %s has no base unit defined'),
+                    $from->group->name
+                )
+            );
+        }
+
+        $lastFromPurchasePrice = $this->getLastPurchasePrice(
+            product: $product,
+            unit: $from
+        );
+
+        /**
+         * This quantity will be initially removed
+         * from the source ProductUnitQuantity
+         */
+        $this->handleStockAdjustmentRegularProducts(
+            action: ProductHistory::ACTION_CONVERT_OUT,
+            product_id: $product->id,
+            unit_id: $from->id,
+            unit_price: $lastFromPurchasePrice,
+            quantity: $quantity,
+            procurementProduct: $procurementProduct,
+            total_price: ns()->currency->define( $lastFromPurchasePrice )->multipliedBy( $quantity )->getRaw(),
+        );
+
+        $lastToPurchasePrice = $this->getLastPurchasePrice(
+            product: $product,
+            unit: $to
+        );
+
+        /**
+         * This quantity will be added removed
+         * from the source ProductUnitQuantity
+         */
+        $finalDestinationQuantity = $this->unitService->getConvertedQuantity(
+            from: $from,
+            to: $to,
+            quantity: $quantity
+        );
+
+        $this->handleStockAdjustmentRegularProducts(
+            action: ProductHistory::ACTION_CONVERT_IN,
+            product_id: $product->id,
+            unit_id: $to->id,
+            unit_price: $lastToPurchasePrice,
+            quantity: $finalDestinationQuantity,
+            procurementProduct: $procurementProduct,
+            total_price: ns()->currency->define( $lastFromPurchasePrice )->multipliedBy( $quantity )->getRaw(),
+        );
+
+        return [
+            'status' => 'success',
+            'message' => sprintf(
+                __( 'The conversion of %s(%s) to %s(%s) was successful' ),
+                $quantity,
+                $from->name,
+                $finalDestinationQuantity,
+                $to->name
+            ),
+        ];
+    }
+
     public function searchProduct( $search, $limit = 5, $arguments = [] )
     {
         /**
@@ -1796,9 +1966,10 @@ class ProductService
                 ->orWhere( 'sku', 'LIKE', "%{$search}%" )
                 ->orWhere( 'barcode', 'LIKE', "%{$search}%" );
             })
-            ->with([ 
+            ->with([
                 'unit_quantities.unit',
-                'tax_group.taxes'
+                'category',
+                'tax_group.taxes',
             ])
             ->limit( $limit );
 
@@ -1825,5 +1996,17 @@ class ProductService
 
                 return $product;
             });
+    }
+
+    /**
+     * Get the product history for the provided.
+     */
+    public function sumProductHistory( int $product_id, int $unit_id, string $startOfDay, string $endOfDay, array $action ): float|int
+    {
+        return ProductHistory::where('product_id', $product_id)
+            ->where('unit_id', $unit_id)
+            ->whereIn('action', $action)
+            ->whereBetween('created_at', [$startOfDay, $endOfDay])
+            ->sum('quantity');
     }
 }

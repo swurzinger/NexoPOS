@@ -49,6 +49,16 @@
                             </div>
                         </div>
                     </div>
+
+                    <div v-if="! hasCategories && ! hasProducts" class="h-full w-full flex flex-col items-center justify-center">
+                      <i class="las la-frown-open text-8xl text-primary"></i>
+                      <p class="w-1/2 md:w-2/3 text-center text-primary">
+                        {{ __( 'Looks like there is either no products and no categories. How about creating those first to get started ?' ) }}
+                      </p>
+                      <br>
+                      <ns-link target="blank" type="info" :href="createCategoryUrl">{{ __( 'Create Categories' ) }}</ns-link>
+                    </div>
+
                     <div @click="addToTheCart( product )" v-for="(product, index) of products" :key="product.id"
                         class="cell-item w-full h-36 cursor-pointer border flex flex-col items-center justify-center overflow-hidden relative"
                          :style="index === 0 ? 'grid-column-start: 1' : ''">
@@ -109,6 +119,18 @@ export default {
             gridItemsWidth: 0,
             gridItemsHeight:0,
             isLoading: false,
+        }
+    },
+    computed: {
+        hasCategories() {
+            return this.categories.length > 0;
+        },
+        hasProducts() {
+            return this.products.length > 0;
+        },
+        createCategoryUrl() {
+            // link to create category defined on OrdersController.
+            return POS.settings.getValue().urls.categories_url;
         }
     },
     watch: {

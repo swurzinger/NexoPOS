@@ -13,8 +13,6 @@ use App\Services\CrudEntry;
 use App\Services\CrudService;
 use App\Services\Helper;
 use App\Services\TaxService;
-use App\Services\UsersService;
-use Exception;
 use Illuminate\Http\Request;
 use TorMorten\Eventy\Facades\Events as Hook;
 
@@ -105,8 +103,6 @@ class ProductCrud extends CrudService
 
     /**
      * Define Constructor
-     *
-     * @param
      */
     public function __construct()
     {
@@ -141,7 +137,6 @@ class ProductCrud extends CrudService
     /**
      * Check whether a feature is enabled
      *
-     * @return  bool
      **/
     public function isEnabled( $feature ): bool
     {
@@ -181,6 +176,15 @@ class ProductCrud extends CrudService
                 'validation' => 'required',
                 'value' => ! $units->isEmpty() ? $units->first()->id : '',
             ], [
+                'type' => 'select',
+                'errors' => [],
+                'name' => 'convert_unit_id',
+                'label' => __( 'Convert Unit' ),
+                'validation' => 'different:unit_id',
+                'options' => Helper::toJsOptions( $units, [ 'id', 'name' ] ),
+                'value' => '',
+                'description' => __( 'The unit that is selected for convertion by default.' ),
+            ], [
                 'type' => 'number',
                 'errors' => [],
                 'name' => 'sale_price_edit',
@@ -195,6 +199,13 @@ class ProductCrud extends CrudService
                 'description' => __( 'Define the wholesale price.' ),
                 'validation' => 'required',
             ], [
+                'type' => 'number',
+                'errors' => [],
+                'name' => 'cogs',
+                'label' => __( 'COGS' ),
+                'value' => '',
+                'description' => __( 'Used to define the Cost of Goods Sold.' ),
+            ], [
                 'type' => 'switch',
                 'errors' => [],
                 'name' => 'stock_alert_enabled',
@@ -207,6 +218,14 @@ class ProductCrud extends CrudService
                 'name' => 'low_quantity',
                 'label' => __( 'Low Quantity' ),
                 'description' => __( 'Which quantity should be assumed low.' ),
+            ], [
+                'type' => 'switch',
+                'errors' => [],
+                'name' => 'visible',
+                'label' => __( 'Visible' ),
+                'value' => 1, // by default
+                'options' => Helper::kvToJsOptions([ __( 'No' ), __( 'Yes' ) ]),
+                'description' => __( 'Define whether the unit is available for sale.' ),
             ], [
                 'type' => 'media',
                 'errors' => [],
@@ -234,7 +253,7 @@ class ProductCrud extends CrudService
             ],
             'variations' => [
                 [
-                    '$primary'  =>  true,
+                    '$primary' => true,
                     'id' => $entry->id ?? '',
                     'tabs' => [
                         'identification' => [
@@ -371,6 +390,16 @@ class ProductCrud extends CrudService
                                     'name' => 'accurate_tracking',
                                     'label' => __( 'Accurate Tracking' ),
                                     'value' => $entry->accurate_tracking ?? 0,
+                                ], [
+                                    'type' => 'switch',
+                                    'description' => __( 'The Cost Of Goods Sold will be automatically be computed based on procurement and conversion.' ),
+                                    'options' => Helper::kvToJsOptions([
+                                        1 => __( 'Yes' ),
+                                        0 => __( 'No' ),
+                                    ]),
+                                    'name' => 'auto_cogs',
+                                    'label' => __( 'Auto COGS' ),
+                                    'value' => $entry->auto_cogs ?? 1,
                                 ], [
                                     'type' => 'select',
                                     'options' => Helper::toJsOptions( $groups, [ 'id', 'name' ] ),
@@ -532,7 +561,6 @@ class ProductCrud extends CrudService
      * After saving a record
      *
      * @param  Request $request
-     * @param  Product $entry
      * @return  void
      */
     public function afterPost( $request, Product $entry )
@@ -683,8 +711,8 @@ class ProductCrud extends CrudService
         $entry->status = $entry->status === 'available' ? __( 'Available' ) : __( 'Hidden' );
         $entry->category_name = $entry->category_name ?: __( 'Unassigned' );
         // you can make changes here
-        $entry->action( 
-            identifier: 'edit', 
+        $entry->action(
+            identifier: 'edit',
             label: '<i class="mr-2 las la-edit"></i> ' . __( 'Edit' ),
             type: 'GOTO',
             url: ns()->url( '/dashboard/' . 'products' . '/edit/' . $entry->id ),
@@ -697,21 +725,21 @@ class ProductCrud extends CrudService
             url: ns()->url( '/dashboard/' . 'products' . '/edit/' . $entry->id ),
         );
 
-        $entry->action( 
+        $entry->action(
             identifier: 'units',
             label: '<i class="mr-2 las la-balance-scale-left"></i> ' . __( 'See Quantities' ),
             type: 'GOTO',
             url: ns()->url( '/dashboard/' . 'products/' . $entry->id . '/units' ),
         );
 
-        $entry->action( 
+        $entry->action(
             identifier: 'history',
             label: '<i class="mr-2 las la-history"></i> ' . __( 'See History' ),
             type: 'GOTO',
             url: ns()->url( '/dashboard/' . 'products/' . $entry->id . '/history' ),
         );
 
-        $entry->action( 
+        $entry->action(
             identifier: 'delete',
             label: '<i class="mr-2 las la-trash"></i> ' . __( 'Delete' ),
             type: 'DELETE',
@@ -814,38 +842,38 @@ class ProductCrud extends CrudService
 
     public function getExtractedProductForm( $product )
     {
-        $rawForm        =   $this->getForm( $product );
+        $rawForm = $this->getForm( $product );
 
         return array_merge(
             $this->extractForm( $rawForm ),
             [
-                'variations'    =>  collect( $rawForm[ 'variations' ] )->map( function( $variation, $index ) {
-                    $data   =   $this->extractForm( $variation );
+                'variations' => collect( $rawForm[ 'variations' ] )->map( function( $variation, $index ) {
+                    $data = $this->extractForm( $variation );
                     if ( $index === 0 ) {
-                        $data[ '$primary' ]     =   true;
+                        $data[ '$primary' ] = true;
                     }
 
-                    $data[ 'images' ]   =   $variation[ 'tabs' ][ 'images' ][ 'groups' ]->map( function( $fields ) {
+                    $data[ 'images' ] = $variation[ 'tabs' ][ 'images' ][ 'groups' ]->map( function( $fields ) {
                         return $this->extractFields( $fields );
                     })->toArray();
 
-                    $groups     =   [];
+                    $groups = [];
 
                     collect( $variation[ 'tabs' ][ 'units' ][ 'fields' ] )->filter( function( $field ) {
                         return $field[ 'type' ] === 'group';
                     })->each( function( $field ) use ( &$groups ) {
-                        $groups[ $field[ 'name' ] ]   =   collect( $field[ 'groups' ] )
+                        $groups[ $field[ 'name' ] ] = collect( $field[ 'groups' ] )
                             ->map( fn( $fields ) => $this->extractFields( $fields ) )
                             ->toArray();
                     });
 
-                    $data[ 'units' ]    =   [
+                    $data[ 'units' ] = [
                         ...$data[ 'units' ],
-                        ...$groups
+                        ...$groups,
                     ];
 
                     return $data;
-                })->toArray()
+                })->toArray(),
             ]
         );
     }
@@ -853,7 +881,7 @@ class ProductCrud extends CrudService
     /**
      * Returns a key-value array format
      * of the crud post submitted.
-        */
+     */
     public function getFlatForm( array $inputs, $model = null ): array
     {
         $primary = collect( $inputs[ 'variations' ] )

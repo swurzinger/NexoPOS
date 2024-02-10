@@ -21,7 +21,7 @@
             <div class="h-0 z-10" v-if="showPanel" :class="showPanel ? 'shadow' : ''">
                 <div class="ns-dropdown shadow">
                     <div class="search border-b border-input-option-hover">
-                        <input v-model="search" class="p-2 w-full bg-transparent text-primary outline-none" placeholder="Search">
+                        <input @keypress.enter="selectAvailableOptionIfPossible()" v-model="search" class="p-2 w-full bg-transparent text-primary outline-none" placeholder="Search">
                     </div>
                     <div class="h-40 overflow-y-auto">
                         <div @click="addOption( option )" :key="index" v-for="(option, index) of _filtredOptions" :class="option.selected ? 'bg-info-secondary text-white' : 'text-primary'" class="option p-2 flex justify-between cursor-pointer hover:bg-info-secondary hover:text-white">
@@ -36,12 +36,7 @@
             </div>
         </div>
         <div class="my-2">
-            <p v-if="! field.errors || field.errors.length === 0" class="text-xs text-secondary"><slot name="description"></slot></p>
-            <p :key="index" v-for="(error,index) of field.errors" class="text-xs text-error-secondary">
-                <slot v-if="error.identifier === 'required'" :name="error.identifier">{{ __( 'This field is required.' ) }}</slot>
-                <slot v-if="error.identifier === 'email'" :name="error.identifier">{{ __( 'This field must contain a valid email address.' ) }}</slot>
-                <slot v-if="error.identifier === 'invalid'" :name="error.identifier">{{ error.message }}</slot>
-            </p>
+            <ns-field-description :field="field"></ns-field-description>
         </div>
     </div>
 </template>
@@ -57,6 +52,7 @@ export default {
             eventListener: null,
         }
     },
+    emits: [ 'change', 'blur' ],
     props: [ 'field' ],
     computed: {
         hasError() {
@@ -90,6 +86,11 @@ export default {
         __,
         togglePanel() {
             this.showPanel = !this.showPanel;
+        },
+        selectAvailableOptionIfPossible() {
+            if ( this._filtredOptions.length > 0 ) {
+                this.addOption( this._filtredOptions[0] );
+            }
         },
         addOption( option ) {
             if ( ! this.field.disabled ) {

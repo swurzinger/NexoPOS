@@ -11,7 +11,6 @@ namespace App\Http\Controllers\Dashboard;
 use App\Classes\Hook;
 use App\Crud\ProcurementCrud;
 use App\Crud\ProcurementProductCrud;
-use App\Events\ProcurementAfterUpdateEvent;
 use App\Exceptions\NotAllowedException;
 use App\Http\Controllers\DashboardController;
 use App\Http\Requests\ProcurementRequest;
@@ -20,6 +19,7 @@ use App\Models\Procurement;
 use App\Models\ProcurementProduct;
 use App\Models\Product;
 use App\Models\Unit;
+use App\Services\DateService;
 use App\Services\Options;
 use App\Services\ProcurementService;
 use App\Services\ProductService;
@@ -31,32 +31,15 @@ class ProcurementController extends DashboardController
 {
     protected $crud;
 
-    /**
-     * @var ProcurementService
-     **/
-    protected $procurementService;
-
-    /**
-     * @var ProductService
-     **/
-    protected $productService;
-
-    /**
-     * @var Options
-     */
-    protected $options;
+    protected $validation;
 
     public function __construct(
-        ProcurementService $procurementService,
-        ProductService $productService,
-        Options $options
+        protected ProcurementService $procurementService,
+        protected ProductService $productService,
+        protected Options $options,
+        protected DateService $dateService
     ) {
-        parent::__construct();
-
         $this->validation = new Validation;
-        $this->procurementService = $procurementService;
-        $this->productService = $productService;
-        $this->options = $options;
     }
 
     /**
@@ -96,7 +79,6 @@ class ProcurementController extends DashboardController
      * to the mentionned procurement
      *
      * @param int procurement id
-     * @param Request $request
      * @return array response
      */
     public function procure( $procurement_id, Request $request )
@@ -152,7 +134,6 @@ class ProcurementController extends DashboardController
      * Will change the payment status to
      * paid for a provided procurement.
      *
-     * @param Procurement $procurement
      * @return array
      */
     public function setAsPaid( Procurement $procurement )

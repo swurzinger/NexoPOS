@@ -60,7 +60,7 @@ class CustomerService
     public function getRecentlyActive( $limit = 30 )
     {
         return Customer::with( 'billing' )
-            ->with( 'shipping' )
+            ->with( 'shipping', 'group' )
             ->where( 'group_id', '<>', null )
             ->limit( $limit )
             ->active()
@@ -80,7 +80,7 @@ class CustomerService
      * delete a specific customer
      * using a provided id
      */
-    public function delete( int | Customer $id ): array
+    public function delete( int|Customer $id ): array
     {
         /**
          * an authorized user
@@ -108,7 +108,7 @@ class CustomerService
     /**
      * Search customers having the defined argument.
      */
-    public function search( int | string $argument ): Collection
+    public function search( int|string $argument ): Collection
     {
         $parts = preg_split('/\s+/', str($argument));
         $customers = Customer::with( 'billing' )
@@ -448,7 +448,6 @@ class CustomerService
      * compute a reward assigned to a customer group
      * and issue a coupon if necessary
      *
-     * @param Order $order
      * @return void
      */
     public function computeReward( Order $order )
@@ -533,7 +532,6 @@ class CustomerService
      * load specific coupon using a code and optionnaly
      * the customer id for verification purpose.
      *
-     * @param string $code
      * @param string $customer_id
      * @return array
      */
@@ -551,7 +549,7 @@ class CustomerService
 
         if ( $coupon instanceof Coupon ) {
             if ( $coupon->customers()->count() > 0 ) {
-                $customers_id    =   $coupon->customers()
+                $customers_id = $coupon->customers()
                     ->get( 'customer_id' )
                     ->map( fn( $coupon ) => $coupon->customer_id )
                     ->flatten()
@@ -563,8 +561,8 @@ class CustomerService
             }
 
             if ( $coupon->groups()->count() > 0 ) {
-                $customer      =   Customer::with( 'group' )->find( $customer_id );
-                $groups_id  =   $coupon->groups()
+                $customer = Customer::with( 'group' )->find( $customer_id );
+                $groups_id = $coupon->groups()
                     ->get( 'group_id' )
                     ->map( fn( $coupon ) => $coupon->group_id )
                     ->flatten()
@@ -726,17 +724,17 @@ class CustomerService
      */
     public function assignCouponUsage( int $customer_id, Coupon $coupon ): CustomerCoupon
     {
-        $customerCoupon     =   CustomerCoupon::where( 'customer_id', $customer_id )->where( 'coupon_id', $coupon->id )->first();
+        $customerCoupon = CustomerCoupon::where( 'customer_id', $customer_id )->where( 'coupon_id', $coupon->id )->first();
 
-        if( ! $customerCoupon instanceof CustomerCoupon ) {
-            $customerCoupon                 =   new CustomerCoupon;
-            $customerCoupon->customer_id    =   $customer_id;
-            $customerCoupon->coupon_id      =   $coupon->id;
-            $customerCoupon->name           =   $coupon->name;
-            $customerCoupon->author         =   $coupon->author;
-            $customerCoupon->active         =   true;
-            $customerCoupon->code           =   $coupon->code;
-            $customerCoupon->limit_usage    =   $coupon->limit_usage;
+        if ( ! $customerCoupon instanceof CustomerCoupon ) {
+            $customerCoupon = new CustomerCoupon;
+            $customerCoupon->customer_id = $customer_id;
+            $customerCoupon->coupon_id = $coupon->id;
+            $customerCoupon->name = $coupon->name;
+            $customerCoupon->author = $coupon->author;
+            $customerCoupon->active = true;
+            $customerCoupon->code = $coupon->code;
+            $customerCoupon->limit_usage = $coupon->limit_usage;
             $customerCoupon->save();
         }
 
@@ -770,15 +768,14 @@ class CustomerService
          * @todo Well we're doing this because we don't yet have a proper time picker. As we're using a date time picker
          * we're extracting the hours from it :(.
          */
-        $hourStarts     =   ! empty( $coupon->valid_hours_start ) ? Carbon::parse( $coupon->valid_hours_start )->format( 'H:i' ) : null;
-        $hoursEnds      =   ! empty( $coupon->valid_hours_end ) ? Carbon::parse( $coupon->valid_hours_end )->format( 'H:i' ) : null;
+        $hourStarts = ! empty( $coupon->valid_hours_start ) ? Carbon::parse( $coupon->valid_hours_start )->format( 'H:i' ) : null;
+        $hoursEnds = ! empty( $coupon->valid_hours_end ) ? Carbon::parse( $coupon->valid_hours_end )->format( 'H:i' ) : null;
 
         if (
             $hourStarts !== null &&
             $hoursEnds !== null ) {
-
-            $todayStartDate =   ns()->date->format( 'Y-m-d' ) . ' ' . $hourStarts;
-            $todayEndDate   =   ns()->date->format( 'Y-m-d' ) . ' ' . $hoursEnds;
+            $todayStartDate = ns()->date->format( 'Y-m-d' ) . ' ' . $hourStarts;
+            $todayEndDate = ns()->date->format( 'Y-m-d' ) . ' ' . $hoursEnds;
 
             if (
                 ns()->date->between(
@@ -794,7 +791,7 @@ class CustomerService
          * We'll now check if the customer has an ongoing
          * coupon with the provided parameters
          */
-        $customerCoupon     =   CustomerCoupon::where( 'coupon_id', $couponConfig[ 'coupon_id' ] )
+        $customerCoupon = CustomerCoupon::where( 'coupon_id', $couponConfig[ 'coupon_id' ] )
             ->where( 'customer_id', $fields[ 'customer_id' ] ?? 0 )
             ->first();
 
@@ -807,7 +804,6 @@ class CustomerService
              * We're trying to use a coupon that is already exhausted
              * this should be prevented here.
              */
-
             if ( $customerCoupon->limit_usage > 0 && $customerCoupon->usage + 1 > $customerCoupon->limit_usage ) {
                 throw new NotAllowedException( sprintf( __( 'You\'re not allowed to use this coupon it has reached the maximum usage allowed.' ) ) );
             }

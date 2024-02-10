@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Classes\Hook;
 use App\Events\ModulesBootedEvent;
+use App\Exceptions\PostTooLargeException as ExceptionsPostTooLargeException;
 use App\Models\Order;
 use App\Models\OrderProductRefund;
 use App\Services\BarcodeService;
@@ -36,6 +37,7 @@ use App\Services\UserOptions;
 use App\Services\UsersService;
 use App\Services\Validation;
 use App\Services\WidgetService;
+use Illuminate\Http\Exceptions\PostTooLargeException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event;
@@ -97,14 +99,14 @@ class AppServiceProvider extends ServiceProvider
 
         // save Singleton for options
         $this->app->singleton( UsersService::class, function() {
-            return new UsersService();
+            return new UsersService;
         });
 
         // provide media manager
         $this->app->singleton( MediaService::class, function() {
-            return new MediaService([
-                'extensions' => [ 'jpg', 'jpeg', 'png', 'gif', 'zip', 'docx', 'txt' ],
-            ]);
+            return new MediaService( 
+                dateService: app()->make( DateService::class )
+            );
         });
 
         $this->app->singleton( CrudService::class, function() {
@@ -121,7 +123,8 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->bind( ReportService::class, function() {
             return new ReportService(
-                app()->make( DateService::class )
+                app()->make( DateService::class ),
+                app()->make( ProductService::class ),
             );
         });
 
@@ -136,6 +139,7 @@ class AppServiceProvider extends ServiceProvider
                 app()->make( Options::class ),
                 app()->make( MathService::class ),
                 app()->make( EnvEditor::class ),
+                app()->make( MediaService::class ),
             );
         });
 
@@ -264,9 +268,10 @@ class AppServiceProvider extends ServiceProvider
          * their Vite assets
          */
         Blade::directive( 'moduleViteAssets', function( $expression ) {
-            $params     = explode(',', $expression);
-            $fileName   = trim($params[0], "'");
-            $module     = trim($params[1], " '");
+            $params = explode(',', $expression);
+            $fileName = trim($params[0], "'");
+            $module = trim($params[1], " '");
+
             return "<?php echo ns()->moduleViteAssets( \"{$fileName}\", \"{$module}\" ); ?>";
         });
     }
@@ -305,9 +310,9 @@ class AppServiceProvider extends ServiceProvider
 
         config([
             'nexopos.orders.products.refunds' => [
-                OrderProductRefund::CONDITION_DAMAGED       =>  __( 'Damaged' ),
-                OrderProductRefund::CONDITION_UNSPOILED     =>  __( 'Good Condition' ),
-            ]
+                OrderProductRefund::CONDITION_DAMAGED => __( 'Damaged' ),
+                OrderProductRefund::CONDITION_UNSPOILED => __( 'Good Condition' ),
+            ],
         ]);
     }
 }

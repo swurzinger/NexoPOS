@@ -306,11 +306,11 @@ class MenuService
                     ],
                 ],
             ],
-            'roles' =>  [
-                'label' =>  __( 'Roles' ),
-                'icon'  =>  'la-shield-alt',
-                'permissions'   =>  [ 'read.roles', 'create.roles', 'update.roles' ],
-                'childrens' =>  [
+            'roles' => [
+                'label' => __( 'Roles' ),
+                'icon' => 'la-shield-alt',
+                'permissions' => [ 'read.roles', 'create.roles', 'update.roles' ],
+                'childrens' => [
                     'all-roles' => [
                         'label' => __( 'Roles' ),
                         'permissions' => [ 'read.roles' ],
@@ -326,7 +326,7 @@ class MenuService
                         'permissions' => [ 'update.roles' ],
                         'href' => ns()->url( '/dashboard/users/roles/permissions-manager' ),
                     ],
-                ]
+                ],
             ],
             'procurements' => [
                 'label' => __( 'Procurements' ),
@@ -383,6 +383,11 @@ class MenuService
                         'permissions' => [ 'nexopos.reports.low-stock' ],
                         'href' => ns()->url( '/dashboard/reports/low-stock' ),
                     ],
+                    'stock-history' => [
+                        'label' => __( 'Stock History' ),
+                        'permissions' => [ 'nexopos.reports.stock-history' ],
+                        'href' => ns()->url( '/dashboard/reports/stock-history' ),
+                    ],
                     'sold-stock' => [
                         'label' => __( 'Sold Stock' ),
                         'href' => ns()->url( '/dashboard/reports/sold-stock' ),
@@ -437,9 +442,9 @@ class MenuService
                         'label' => __( 'Reports'),
                         'href' => ns()->url( '/dashboard/settings/reports' ),
                     ],
-                    'invoice-settings' => [
-                        'label' => __( 'Invoice Settings'),
-                        'href' => ns()->url( '/dashboard/settings/invoice-settings' ),
+                    'invoices' => [
+                        'label' => __( 'Invoices' ),
+                        'href' => ns()->url( '/dashboard/settings/invoices' ),
                     ],
                     'workers' => [
                         'label' => __( 'Workers' ),

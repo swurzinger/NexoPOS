@@ -2,7 +2,6 @@
 
 namespace App\Jobs;
 
-use App\Models\Expense;
 use App\Models\Transaction;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -40,7 +39,7 @@ class DetectScheduledTransactionsJob implements ShouldQueue
         $endRange->setSeconds(59);
 
         $query = Transaction::scheduled()
-            ->with( 'category' )
+            ->with( 'account' )
             ->active()
             ->scheduledAfterDate( $startRange->toDateTimeString() )
             ->scheduledBeforeDate( $endRange->toDateTimeString() );

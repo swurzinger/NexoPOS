@@ -27,7 +27,7 @@
                         @next="resolveValue( $event )" :value="rawValue"></ns-numpad-plus>
     </div>
 </template>
-<script>
+<script lang="ts">
 import { nsCurrency } from '~/filters/currency';
 import { __ } from '~/libraries/lang';
 import popupCloser from "~/libraries/popup-closer";
