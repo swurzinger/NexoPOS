@@ -6,11 +6,11 @@ use App\Events\DashboardMonthAfterCreatedEvent;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
- * @property integer $id
+ * @property int $id
  * @property float $total_expenses
- * @property integer $month_of_year
+ * @property int $month_of_year
  * @property \Carbon\Carbon $updated_at
-*/
+ */
 class DashboardMonth extends NsModel
 {
     use HasFactory;
@@ -24,13 +24,13 @@ class DashboardMonth extends NsModel
         'updated' => DashboardMonthAfterUpdatedEvent::class,
     ];
 
-    public function scopeFrom( $query, $param )
+    public function scopeFrom($query, $param)
     {
-        return $query->where( 'range_starts', '>=', $param );
+        return $query->where('range_starts', '>=', $param);
     }
 
-    public function scopeTo( $query, $param )
+    public function scopeTo($query, $param)
     {
-        return $query->where( 'range_ends', '<=', $param );
+        return $query->where('range_ends', '<=', $param);
     }
 }

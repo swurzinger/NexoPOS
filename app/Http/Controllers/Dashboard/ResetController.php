@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\DashboardController;
+use App\Services\DateService;
 use App\Services\DemoService;
 use App\Services\ResetService;
 use Database\Seeders\DefaultSeeder;
@@ -12,34 +13,23 @@ use Illuminate\Http\Request;
 
 class ResetController extends DashboardController
 {
-    /**
-     * @var ResetService
-     */
-    protected $resetService;
-
-    /**
-     * @param DemoService
-     */
-    protected $demoService;
-
     public function __construct(
-        ResetService $resetService,
-        DemoService $demoService
+        protected ResetService $resetService,
+        protected DemoService $demoService,
+        protected DateService $dateService
     ) {
-        $this->resetService = $resetService;
-        $this->demoService = $demoService;
+        // ...
     }
 
     /**
      * perform a hard reset
      *
-     * @param Request $request
      * @return array $array
      */
-    public function hardReset( Request $request )
+    public function hardReset(Request $request)
     {
-        if ( $request->input( 'authorization' ) !== env( 'NS_AUTHORIZATION' ) ) {
-            throw new Exception( __( 'Invalid authorization code provided.' ) );
+        if ($request->input('authorization') !== env('NS_AUTHORIZATION')) {
+            throw new Exception(__('Invalid authorization code provided.'));
         }
 
         return $this->resetService->hardReset();
@@ -48,16 +38,15 @@ class ResetController extends DashboardController
     /**
      * Will truncate the database and seed
      *
-     * @param Request $request
      * @return array
      */
-    public function truncateWithDemo( Request $request )
+    public function truncateWithDemo(Request $request)
     {
-        $this->resetService->softReset( $request );
+        $this->resetService->softReset($request);
 
-        switch ( $request->input( 'mode' ) ) {
+        switch ($request->input('mode')) {
             case 'wipe_plus_grocery':
-                $this->demoService->run( $request->all() );
+                $this->demoService->run($request->all());
                 break;
             case 'wipe_plus_simple':
                 ( new FirstDemoSeeder )->run();
@@ -74,7 +63,7 @@ class ResetController extends DashboardController
 
         return [
             'status' => 'success',
-            'message' => __( 'The database has been successfully seeded.' ),
+            'message' => __('The database has been successfully seeded.'),
         ];
     }
 }

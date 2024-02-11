@@ -11,9 +11,14 @@
                 <div 
                     v-if="field.data && field.data.type === 'model'"
                     class="form-input flex w-full sm:text-sm items-center sm:leading-5 h-10">
-                    <template v-if="field.value && field.value.name">
-                        <img class="w-8 h-8 m-1" :src="field.value.sizes.thumb" :alt="field.value.name">
-                        <span class="text-xs text-secondary">{{ field.value.name }}</span>
+                    <template v-if="field.value && field.data.model.name">
+                        <img v-if="isImage( field.data.model )" class="w-8 h-8 m-1" :src="field.data.model.sizes.thumb" :alt="field.data.model.name">
+                        <template v-if="! isImage( field.data.model )" class="object-cover" :alt="field.data.model.name">
+                            <div class="object-cover flex items-center justify-center">
+                                <i :class="fileIcons[ field.data.model.extension ] || fileIcons.unknown" class="las text-3xl"></i>
+                            </div>
+                        </template>
+                        <span class="text-xs text-secondary">{{ field.data.model.name }}</span>
                     </template>
                 </div>
                 <input 
@@ -31,18 +36,15 @@
                 </button>
             </div>
         </div>
-        <p v-if="! field.errors || field.errors.length === 0" class="text-xs text-primary"><slot name="description"></slot></p>
-        <p :key="index" v-for="(error,index) of field.errors" class="text-xs text-error-primary">
-            <slot v-if="error.identifier === 'required'" :name="error.identifier">{{ __( 'This field is required.' ) }}</slot>
-            <slot v-if="error.identifier === 'email'" :name="error.identifier">{{ __( 'This field must contain a valid email address.' ) }}</slot>
-            <slot v-if="error.identifier === 'invalid'" :name="error.identifier">{{ error.message }}</slot>
-        </p>
+        <ns-field-description :field="field"></ns-field-description>
     </div>
 </template>
-<script>
+<script lang="ts">
 
 import { Popup } from '~/libraries/popup';
 import { default as nsMedia } from "~/pages/dashboard/ns-media.vue";
+import { fileIcons } from '~/shared/file-icons';
+
 export default {
     computed: {
         hasError() {
@@ -63,19 +65,29 @@ export default {
     },
     data() {
         return {
-            
+            fileIcons
         }
     },
     props: [ 'placeholder', 'leading', 'type', 'field' ],
     mounted() {
     },
     methods: {
+        /**
+         * Returns wether the provided media 
+         * is an image or not.
+         * @param {object} media 
+         */
+        isImage( media ) {
+            const imageExtensions   =   Object.keys( ns.medias.imageMimes );
+            return imageExtensions.includes( media.extension );
+        },
+
         toggleMedia() {
             const promise   =   new Promise( ( resolve, reject ) => {
                 Popup.show( nsMedia, { resolve, reject, ...( this.field.data || {} )});
             });
 
-            promise.then( ( action ) => {
+            promise.then( ( action: { event: string, value: any[] } ) => {
                 /**
                  * When the performed action is "use-selected"
                  * we define the current field value with what has been selected (first entry)
@@ -89,7 +101,10 @@ export default {
                     if ( ( ! this.field.data || this.field.data.type === 'url' ) ) {
                         this.field.value    =   action.value[0].sizes.original;
                     } else if ( ( ! this.field.data || this.field.data.type === 'model' ) ) {
-                        this.field.value    =   action.value[0];
+                        this.field.value        =   action.value[0].id;
+                        this.field.data.model   =   action.value[0];
+                    } else {
+                        this.field.value        =   action.value[0].sizes.original;
                     }
 
                     this.$forceUpdate();

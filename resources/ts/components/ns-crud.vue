@@ -170,7 +170,7 @@ export default {
 
         this.loadConfig();
     },
-    props: [ 'src', 'createUrl', 'mode', 'identifier', 'queryParams' ],
+    props: [ 'src', 'createUrl', 'mode', 'identifier', 'queryParams', 'popup' ],
     computed: {
         /**
          * helps to get parsed
@@ -286,6 +286,7 @@ export default {
          * @param row actual row
          */
         refreshRow( row ) {
+            console.log({ row });
             if ( row.$checked === true ) {
                 const result    =   this.selectedEntries.filter( e => e.$id === row.$id );
 
@@ -340,6 +341,8 @@ export default {
             } else {
                 this.searchQuery    =   '';
             }
+
+            this.page   =   1;
 
             this.refresh();
         },

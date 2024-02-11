@@ -5,14 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
- * @property integer $id
+ * @property int $id
  * @property string $uuid
  * @property string $description
- * @property integer $group_id
+ * @property int $group_id
  * @property float $value
  * @property bool $base_unit
  * @property \Carbon\Carbon $updated_at
-*/
+ */
 class Unit extends NsModel
 {
     use HasFactory;
@@ -36,7 +36,7 @@ class Unit extends NsModel
 
     public function group()
     {
-        return $this->belongsTo( UnitGroup::class, 'group_id' );
+        return $this->belongsTo(UnitGroup::class, 'group_id');
     }
 
     /**
@@ -47,8 +47,8 @@ class Unit extends NsModel
      * @param string $identifier
      * @return Query
      */
-    public function scopeIdentifier( $query, $identifier )
+    public function scopeIdentifier($query, $identifier)
     {
-        return $query->where( 'identifier', $identifier );
+        return $query->where('identifier', $identifier);
     }
 }

@@ -23,11 +23,10 @@ class ProcurementAfterDeleteProductEventListener
     /**
      * Handle the event.
      *
-     * @param  \App\Events\ProcurementAfterDeleteProductEvent  $event
      * @return void
      */
     public function handle(ProcurementAfterDeleteProductEvent $event)
     {
-        $this->procurementService->refresh( $event->procurement_id );
+        $this->procurementService->refresh($event->procurement);
     }
 }

@@ -1,44 +1,61 @@
 <template>
     <div class="flex flex-col flex-auto ns-select">
         <label :for="field.name" :class="hasError ? 'has-error' : 'is-pristine'" class="block leading-5 font-medium"><slot></slot></label>
-        <div :class="hasError ? 'has-error' : 'is-pristine'" class="border-2 mt-1 relative rounded-md shadow-sm mb-2 overflow-hidden">
-            <div @click="showResults = ! showResults" class="h-10 sm:leading-5 py-2 px-4 flex items-center bg-input-background cursor-default">
-                <span class="text-primary text-sm">{{  selectedOption }}</span>
+        <div :class="hasError ? 'has-error' : 'is-pristine'" class="border-2 mt-1 relative rounded-md shadow-sm mb-1 flex overflow-hidden">
+            <div @click="showResults = ! showResults" class="flex-auto h-10 sm:leading-5 py-2 px-4 flex items-center bg-input-background cursor-default">
+                <span class="text-primary text-sm">{{ selectedOptionLabel }}</span>
+            </div>
+            <div v-if="field.component" @click="triggerDynamicComponent( field )" class="flex items-center justify-center w-10 hover:cursor-pointer hover:bg-input-button-hover border-l-2 border-input-edge">
+                <i class="las la-plus"></i>
             </div>
         </div>
         <div class="relative" v-if="showResults">
-            <div class="w-full overflow-hidden -top-[12px] border-r-2 border-l-2 border-t rounded-b-md border-b-2 border-input-edge bg-input-background shadow z-10 absolute">
+            <div class="w-full overflow-hidden -top-[8px] border-r-2 border-l-2 border-t rounded-b-md border-b-2 border-input-edge bg-input-background shadow z-10 absolute">
                 <div class="border-b border-input-edge border-dashed p-2">
                     <input @keypress.enter="selectFirstOption()" ref="searchInputField" v-model="searchField" type="text" :placeholder="__( 'Search result' )">
                 </div>
-                <div>
+                <div class="h-60 overflow-y-auto">
                     <ul>
-                        <li @click="selectOption( option )" v-for="option of filtredOptions" class="py-1 px-2 hover:bg-input-button-hover cursor-pointer text-primary">{{ option.label }}</li>
+                        <li @click="selectOption( option )" v-for="option of filtredOptions" class="py-1 px-2 hover:bg-info-primary cursor-pointer text-primary">{{ option.label }}</li>
                     </ul>
                 </div>
             </div>
         </div>
-        <p v-if="! field.errors || field.errors.length === 0" class="text-xs ns-description">{{ field.description }}</p>
-        <p :key="index" v-for="(error,index) of field.errors" class="text-xs ns-error">
-            <slot v-if="error.identifier === 'required'" :name="error.identifier">{{ __( 'This field is required.' ) }}</slot>
-            <slot v-if="error.identifier === 'email'" :name="error.identifier">{{ __( 'This field must contain a valid email address.' ) }}</slot>
-            <slot v-if="error.identifier === 'invalid'" :name="error.identifier">{{ error.message }}</slot>
-        </p>
+        <ns-field-description :field="field"></ns-field-description>
     </div>
 </template>
 <script lang="ts">
+import { nsSnackBar } from '~/bootstrap';
 import { __ } from '~/libraries/lang';
+import { Popup } from '~/libraries/popup';
+
+declare const nsExtraComponents: any;
+declare const nsComponents: any;
+
 export default {
     data: () => {
         return {
-            selectedOption: __( 'Select An Option' ),
             searchField: '',
             showResults: false,
         }
     },
     name: 'ns-search-select',
+    emits: [ 'saved', 'change' ],
     props: [ 'name', 'placeholder', 'field', 'leading' ],
     computed: {
+        selectedOptionLabel() {
+            if ( this.field.value === null || this.field.value === undefined ) {
+                return __( 'Choose...' );
+            }
+
+            const options   =   this.field.options.filter( option => option.value === this.field.value );
+
+            if ( options.length > 0 ) {
+                return options[0].label;
+            }
+
+            return __( 'Choose...' );
+        },
         filtredOptions() {
             if ( this.searchField.length > 0 ) {
                 return this.field.options.filter( option => {
@@ -47,7 +64,7 @@ export default {
                     return expression.test( option.label );
                 }).splice(0,10);
             } else {
-                return this.field.options.splice(0,10);
+                return this.field.options;
             }
         },
         hasError() {
@@ -76,7 +93,17 @@ export default {
         }
     },
     mounted() {
-        // ...
+        const options   =   this.field.options.filter( op => op.value === this.field.value );
+
+        if ( options.length > 0 && [ null, undefined ].includes( this.field.value ) ) {
+            this.selectOption( options[0] );
+        }
+
+        document.addEventListener( 'click', ( event ) => {
+            if ( this.$el.contains( event.target ) === false ) {
+                this.showResults    =   false;
+            }
+        });
     },
     methods: { 
         __,
@@ -86,11 +113,29 @@ export default {
             }
         },
         selectOption( option ) {
-            this.selectedOption     =   option.label || __( 'Select An Option' )
+            this.field.value    =   option.value;
             this.$emit( 'change', option.value );
             this.searchField    =   '';
             this.showResults    =   false;
-        }
+        },
+        async triggerDynamicComponent( field ) {
+            try {
+                this.showResults    =   false;
+                const component =   nsExtraComponents[ field.component ] || nsComponents[ field.component];
+
+                if ( component === undefined ) {
+                    nsSnackBar.error( __( `The component ${field.component} cannot be loaded. Make sure it's injected on nsExtraComponents object.` ) ).subscribe();
+                }
+
+                const result = await new Promise( ( resolve, reject ) => {
+                    const response  =   Popup.show( component, { ...( field.props || {}), field: this.field, resolve, reject } );
+                });
+
+                this.$emit( 'saved', result );
+            } catch ( error ) {
+                // probably the popup is closed
+            }
+        },
     },
 }
 </script>

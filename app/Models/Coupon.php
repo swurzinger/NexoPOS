@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
- * @property integer $id
+ * @property int $id
  * @property mixed $name
  * @property mixed $code
  * @property mixed $type
@@ -16,22 +16,23 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
  * @property \Carbon\Carbon $valid_hours_start
  * @property \Carbon\Carbon $valid_hours_end
  * @property float $limit_usage
- * @property integer $author
+ * @property int $author
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
-*/
+ */
 class Coupon extends NsModel
 {
     use HasFactory;
 
     protected $table = 'nexopos_' . 'coupons';
 
-    const TYPE_PERCENTAGE   =   'percentage_discount';
-    const TYPE_FLAT         =   'flat_discount';
+    const TYPE_PERCENTAGE = 'percentage_discount';
 
-    public function scopeCode( $query, $code )
+    const TYPE_FLAT = 'flat_discount';
+
+    public function scopeCode($query, $code)
     {
-        return $query->where( 'code', $code );
+        return $query->where('code', $code);
     }
 
     public function customerCoupon()
@@ -45,12 +46,12 @@ class Coupon extends NsModel
 
     public function categories()
     {
-        return $this->hasMany( CouponCategory::class );
+        return $this->hasMany(CouponCategory::class);
     }
 
     public function products()
     {
-        return $this->hasMany( CouponProduct::class );
+        return $this->hasMany(CouponProduct::class);
     }
 
     public function customers()

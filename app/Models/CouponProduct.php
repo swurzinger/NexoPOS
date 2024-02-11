@@ -5,9 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
- * @property integer $id
- * @property integer $product_id
-*/
+ * @property int $id
+ * @property int $product_id
+ */
 class CouponProduct extends NsModel
 {
     use HasFactory;
@@ -18,11 +18,11 @@ class CouponProduct extends NsModel
 
     public function coupon()
     {
-        return $this->belongsTo( Coupon::class );
+        return $this->belongsTo(Coupon::class);
     }
 
     public function product()
     {
-        return $this->belongsTo( Product::class, 'product_id' );
+        return $this->belongsTo(Product::class, 'product_id');
     }
 }

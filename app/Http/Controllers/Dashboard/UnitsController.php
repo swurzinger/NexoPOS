@@ -15,28 +15,28 @@ use App\Http\Requests\UnitRequest;
 use App\Http\Requests\UnitsGroupsRequest;
 use App\Models\Unit;
 use App\Models\UnitGroup;
+use App\Services\DateService;
 use App\Services\UnitService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\View;
 
 class UnitsController extends DashboardController
 {
-    private $unitService;
-
-    public function __construct( UnitService $unit )
-    {
-        parent::__construct();
-        $this->unitService = $unit;
+    public function __construct(
+        protected UnitService $unitService,
+        protected DateService $dateService
+    ) {
+        // ...
     }
 
-    public function postGroup( UnitsGroupsRequest $request )
+    public function postGroup(UnitsGroupsRequest $request)
     {
-        return $this->unitService->createGroup( $request->all() );
+        return $this->unitService->createGroup($request->all());
     }
 
-    public function putGroup( UnitsGroupsRequest $request, $id )
+    public function putGroup(UnitsGroupsRequest $request, $id)
     {
-        return $this->unitService->updateGroup( $id, $request->only([ 'name', 'description' ]) );
+        return $this->unitService->updateGroup($id, $request->only([ 'name', 'description' ]));
     }
 
     /**
@@ -45,27 +45,27 @@ class UnitsController extends DashboardController
      * @param Request
      * @return AsyncResponse
      */
-    public function postUnit( UnitRequest $request )
+    public function postUnit(UnitRequest $request)
     {
-        return $this->unitService->createUnit( $request->only([ 'name', 'description', 'group_id', 'value', 'base_unit' ]) );
+        return $this->unitService->createUnit($request->only([ 'name', 'description', 'group_id', 'value', 'base_unit' ]));
     }
 
-    public function deleteUnitGroup( $id )
+    public function deleteUnitGroup($id)
     {
-        return $this->unitService->deleteCategory( $id );
+        return $this->unitService->deleteCategory($id);
     }
 
-    public function deleteUnit( $id )
+    public function deleteUnit($id)
     {
-        return $this->unitService->deleteUnit( $id );
+        return $this->unitService->deleteUnit($id);
     }
 
-    public function get()
+    public function get($id = null)
     {
-        return $this->unitService->get();
+        return $this->unitService->get($id);
     }
 
-    public function getSiblingUnits( Unit $id )
+    public function getSiblingUnits(Unit $id)
     {
         return $this->unitService->getSiblingUnits(
             unit: $id
@@ -78,9 +78,9 @@ class UnitsController extends DashboardController
      * @param int group id
      * @return array
      */
-    public function getGroupUnits( $id )
+    public function getGroupUnits($id)
     {
-        return $this->unitService->getGroups( $id )->units;
+        return $this->unitService->getGroups($id)->units;
     }
 
     /**
@@ -102,7 +102,7 @@ class UnitsController extends DashboardController
      * @param int unit id
      * @return json
      */
-    public function putUnit( UnitRequest $request, $id )
+    public function putUnit(UnitRequest $request, $id)
     {
         return $this->unitService->updateUnit(
             $id,
@@ -117,9 +117,9 @@ class UnitsController extends DashboardController
      * @param int Parent Group
      * @return json
      */
-    public function getUnitParentGroup( $id )
+    public function getUnitParentGroup($id)
     {
-        return $this->unitService->getUnitParentGroup( $id );
+        return $this->unitService->getUnitParentGroup($id);
     }
 
     public function listUnitsGroups()
@@ -146,14 +146,13 @@ class UnitsController extends DashboardController
     /**
      * Edit existing unit group
      *
-     * @param UnitGroup $group
      * @return View
      */
-    public function editUnitGroup( UnitGroup $group )
+    public function editUnitGroup(UnitGroup $group)
     {
         ns()->restrict([ 'nexopos.update.products-units' ]);
 
-        return UnitGroupCrud::form( $group );
+        return UnitGroupCrud::form($group);
     }
 
     public function createUnit()
@@ -163,10 +162,10 @@ class UnitsController extends DashboardController
         return UnitCrud::form();
     }
 
-    public function editUnit( Unit $unit )
+    public function editUnit(Unit $unit)
     {
         ns()->restrict([ 'nexopos.update.products-units' ]);
 
-        return UnitCrud::form( $unit );
+        return UnitCrud::form($unit);
     }
 }

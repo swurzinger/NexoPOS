@@ -28,6 +28,7 @@ public/build
 public/docs
 public/*-manifest.json
 storage/module.zip
+tests/.coverage
 tests/database.sqlite
 tests/database.sqlite-journal
 tests/Post/*
@@ -38,3 +39,4 @@ storage/temporary-files/*
 public/hot
 database/migrations/2019_12_14_000001_create_personal_access_tokens_table.php
 .phpunit.cache/test-results
+storage/dotenv-editor

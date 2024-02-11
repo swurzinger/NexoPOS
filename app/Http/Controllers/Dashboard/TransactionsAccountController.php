@@ -8,21 +8,13 @@
 
 namespace App\Http\Controllers\Dashboard;
 
-use App\Crud\ExpenseCategoryCrud;
 use App\Crud\TransactionAccountCrud;
 use App\Http\Controllers\DashboardController;
-use App\Models\ExpenseCategory;
 use App\Models\TransactionAccount;
-use App\Services\Options;
 use Illuminate\Support\Facades\View;
 
 class TransactionsAccountController extends DashboardController
 {
-    public function __construct()
-    {
-        parent::__construct();
-    }
-
     /**
      * Index Controller Page
      *
@@ -32,11 +24,12 @@ class TransactionsAccountController extends DashboardController
      **/
     public function index()
     {
-        return View::make( 'NexoPOS::index' );
+        return View::make('NexoPOS::index');
     }
 
     /**
      * List transactions accounts
+     *
      * @return view
      */
     public function listTransactionsAccounts()
@@ -46,6 +39,7 @@ class TransactionsAccountController extends DashboardController
 
     /**
      *  Show transactions account form.
+     *
      * @return view
      */
     public function createTransactionsAccounts()
@@ -53,8 +47,8 @@ class TransactionsAccountController extends DashboardController
         return TransactionAccountCrud::form();
     }
 
-    public function editTransactionsAccounts( TransactionAccount $account )
+    public function editTransactionsAccounts(TransactionAccount $account)
     {
-        return TransactionAccountCrud::form( $account );
+        return TransactionAccountCrud::form($account);
     }
 }

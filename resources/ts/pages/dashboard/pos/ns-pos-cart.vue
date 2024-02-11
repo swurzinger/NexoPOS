@@ -235,6 +235,14 @@
                     </table>
                 </div>
                 <div class="h-16 flex flex-shrink-0 border-t border-box-edge" id="cart-bottom-buttons">
+                    <template v-for="button of (new Array(4)).fill()" v-if="Object.keys( cartButtons ).length === 0"> 
+                        <div :class="takeRandomClass()" class="animate-pulse flex-shrink-0 w-1/4 flex items-center font-bold cursor-pointer justify-center  border-r  flex-auto">
+                            <i class="mx-4 rounded-full bg-slate-300 h-5 w-5"></i>
+                            <div class="text-lg mr-4 hidden md:flex md:flex-auto lg:text-2xl">
+                                <div class="h-2 flex-auto bg-slate-200 rounded"></div>
+                            </div>
+                        </div>
+                    </template>
                     <template v-for="component of cartButtons">
                         <component :is="component" :order="order" :settings="settings" />
                     </template>
@@ -243,7 +251,7 @@
         </div>
     </div>
 </template>
-<script>
+<script lang="ts">
 import { nsHooks, nsSnackBar } from '~/bootstrap';
 import { Popup } from '~/libraries/popup';
 import { nsCurrency } from '~/filters/currency';
@@ -259,6 +267,7 @@ import { ProductQuantityPromise } from "./queues/products/product-quantity";
 import nsPosMultipayButton from "~/pages/dashboard/pos/cart-buttons/ns-pos-multipay-button.vue";
 import nsPosBookButton from "~/pages/dashboard/pos/cart-buttons/ns-pos-book-button.vue";
 
+import nsPosDiscountPopupVue from '~/popups/ns-pos-discount-popup.vue';
 import PosConfirmPopup from '~/popups/ns-pos-confirm-popup.vue';
 import nsPosOrderTypePopupVue from '~/popups/ns-pos-order-type-popup.vue';
 import nsPosCustomerPopupVue from '~/popups/ns-pos-customer-select-popup.vue';
@@ -270,9 +279,11 @@ import nsPosOrderSettingsVue from '~/popups/ns-pos-order-settings.vue';
 import nsPosProductPricePopupVue from '~/popups/ns-pos-product-price-popup.vue';
 import nsPosQuickProductPopupVue from '~/popups/ns-pos-quick-product-popup.vue';
 
+declare const POS, nsShortcuts, nsHotPress;
+
 import { ref, markRaw } from '@vue/reactivity';
-import {toRaw} from "vue";
-import nsPosDiscountPopupVue from "~/popups/ns-pos-discount-popup.vue";
+import { Order } from '~/interfaces/order';
+import { Ref, toRaw } from 'vue';
 
 export default {
     name: 'ns-pos-cart',
@@ -300,7 +311,7 @@ export default {
             settingsSubscribe: null,
             settings: {},
             types: [],
-            order: ref({}),
+            order: ref({}) as Ref<Order>,
         }
     },
     computed: {
@@ -351,7 +362,7 @@ export default {
          * everytime the cart reset
          * we restore original buttons.
          */
-        nsHooks.addAction( 'ns-after-cart-reset', 'ns-pos-cart-buttons', () => {
+        nsHooks.addAction( 'ns-before-cart-reset', 'ns-pos-cart-buttons', () => {
             POS.cartButtons.next( this.defaultCartButtons );
         });
 
@@ -403,6 +414,10 @@ export default {
         nsCurrency,
 
         switchTo,
+
+        takeRandomClass() {
+            return 'border-gray-500 bg-gray-400 text-white hover:bg-gray-500';
+        },
 
         openAddQuickProduct() {
             const promise   =   new Promise( ( resolve, reject ) => {
@@ -488,7 +503,7 @@ export default {
             }
 
             try {
-                const response  =   await new Promise( ( resolve, reject) => {
+                const response  =   await new Promise<{}>( ( resolve, reject) => {
                     Popup.show( nsPosOrderSettingsVue, { resolve, reject, order : this.order });
                 });
 
@@ -504,7 +519,7 @@ export default {
 
         async openNotePopup() {
             try {
-                const response  =   await new Promise( ( resolve, reject ) => {
+                const response  =   await new Promise<{}>( ( resolve, reject ) => {
                     const note              =   this.order.note;
                     const note_visibility   =   this.order.note_visibility;
                     Popup.show( nsPosNotePopupVue, { resolve, reject, note, note_visibility });
@@ -521,7 +536,7 @@ export default {
 
         async selectTaxGroup( activeTab = 'settings' ) {
             try {
-                const response              =   await new Promise( ( resolve, reject ) => {
+                const response              =   await new Promise<{}>( ( resolve, reject ) => {
                     const taxes             =   this.order.taxes;
                     const tax_group_id      =   this.order.tax_group_id;
                     const tax_type          =   this.order.tax_type;
@@ -544,6 +559,30 @@ export default {
 
         selectCustomer() {
             Popup.show( nsPosCustomerPopupVue );
+        },
+
+        openDiscountPopup( reference, type, productIndex = null ) {
+            if ( ! this.settings.products_discount && type === 'product' ) {
+                return nsSnackBar.error( __( `You're not allowed to add a discount on the product.` ) ).subscribe();
+            }
+
+            if ( ! this.settings.cart_discount && type === 'cart' ) {
+                return nsSnackBar.error( __( `You're not allowed to add a discount on the cart.` ) ).subscribe();
+            }
+
+            Popup.show( nsPosDiscountPopupVue, {
+                reference,
+                type,
+                onSubmit( response ) {
+                    if ( type === 'product' ) {
+                        POS.updateProduct( reference, response, productIndex );
+                    } else if ( type === 'cart' ) {
+                        POS.updateCart( reference, response );
+                    }
+                }
+            }, {
+                popupClass: 'bg-white h:2/3 shadow-lg xl:w-1/4 lg:w-2/5 md:w-2/3 w-full'
+            })
         },
 
         toggleMode( product, index ) {
@@ -612,30 +651,6 @@ export default {
 
         openShippingPopup() {
             Popup.show( nsPosShippingPopupVue );
-        },
-
-        openDiscountPopup( reference, type, productIndex = null ) {
-            if ( ! this.settings.products_discount && type === 'product' ) {
-                return nsSnackBar.error( __( `You're not allowed to add a discount on the product.` ) ).subscribe();
-            }
-
-            if ( ! this.settings.cart_discount && type === 'cart' ) {
-                return nsSnackBar.error( __( `You're not allowed to add a discount on the cart.` ) ).subscribe();
-            }
-
-            Popup.show( nsPosDiscountPopupVue, {
-                reference,
-                type,
-                onSubmit( response ) {
-                    if ( type === 'product' ) {
-                        POS.updateProduct( reference, response, productIndex );
-                    } else if ( type === 'cart' ) {
-                        POS.updateCart( reference, response );
-                    }
-                }
-            }, {
-                popupClass: 'bg-white h:2/3 shadow-lg xl:w-1/4 lg:w-2/5 md:w-2/3 w-full'
-            })
         },
     }
 }

@@ -25,7 +25,6 @@ use App\Fields\UnitsFields;
 use App\Fields\UnitsGroupsFields;
 use App\Forms\POSAddressesForm;
 use App\Forms\ProcurementForm;
-use App\Forms\ResetForm;
 use App\Forms\UserProfileForm;
 use Illuminate\Support\ServiceProvider;
 use TorMorten\Eventy\Facades\Events as Hook;
@@ -49,8 +48,8 @@ class FormsProvider extends ServiceProvider
      */
     public function boot()
     {
-        Hook::addFilter( 'ns.forms', function( $class, $identifier ) {
-            switch ( $identifier ) {
+        Hook::addFilter('ns.forms', function ($class, $identifier) {
+            switch ($identifier) {
                 case 'ns.user-profile':
                     return new UserProfileForm;
                     break;
@@ -60,16 +59,13 @@ class FormsProvider extends ServiceProvider
                 case 'ns.pos-addresses':
                     return new POSAddressesForm;
                     break;
-                case 'ns.reset':
-                    return new ResetForm;
-                    break;
             }
 
             return $class;
-        }, 10, 2 );
+        }, 10, 2);
 
-        Hook::addFilter( 'ns.fields', function( $class, $identifier ) {
-            switch ( $class ) {
+        Hook::addFilter('ns.fields', function ($class, $identifier) {
+            switch ($class) {
                 case AuthLoginFields::getIdentifier():
                     return new AuthLoginFields;
                     break;
@@ -122,7 +118,7 @@ class FormsProvider extends ServiceProvider
                     return new ReccurringTransactionFields;
                     break;
                 case EntityTransactionFields::getIdentifier():
-                    return new EntityTransactionFields();
+                    return new EntityTransactionFields;
                     break;
                 case ScheduledTransactionFields::getIdentifier():
                     return new ScheduledTransactionFields;
@@ -137,6 +133,6 @@ class FormsProvider extends ServiceProvider
                     return $class;
                     break;
             }
-        }, 10, 2 );
+        }, 10, 2);
     }
 }

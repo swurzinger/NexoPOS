@@ -5,24 +5,24 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
- * @property integer $id
+ * @property int $id
  * @property mixed $name
- * @property integer $account_id
+ * @property int $account_id
  * @property string $description
- * @property integer $media_id
+ * @property int $media_id
  * @property float $value
  * @property bool $recurring
  * @property mixed $type / "income" or "expense"
  * @property bool $active
- * @property integer $group_id
+ * @property int $group_id
  * @property mixed $occurrence
  * @property mixed $occurrence_value
  * @property \Carbon\Carbon $scheduled_date
- * @property integer $author
+ * @property int $author
  * @property mixed $uuid
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
-*/
+ */
 class Transaction extends NsModel
 {
     use HasFactory;
@@ -30,8 +30,8 @@ class Transaction extends NsModel
     protected $table = 'nexopos_' . 'transactions';
 
     protected $casts = [
-        'recurring'     => 'boolean',
-        'active'        => 'boolean'
+        'recurring' => 'boolean',
+        'active' => 'boolean',
     ];
 
     const OCCURRENCE_START_OF_MONTH = 'month_starts';
@@ -54,46 +54,47 @@ class Transaction extends NsModel
 
     const TYPE_DIRECT = 'ns.direct-transaction';
 
-    protected static function boot(){
+    protected static function boot()
+    {
         parent::boot();
 
-        static::addGlobalScope( 'account', function($builder){
-            $builder->with( 'account' );
+        static::addGlobalScope('account', function ($builder) {
+            $builder->with('account');
         });
     }
 
     public function account()
     {
-        return $this->belongsTo( TransactionAccount::class, 'account_id' );
+        return $this->belongsTo(TransactionAccount::class, 'account_id');
     }
 
-    public function scopeScheduled( $query )
+    public function scopeScheduled($query)
     {
-        return $query->where( 'type', self::TYPE_SCHEDULED );
+        return $query->where('type', self::TYPE_SCHEDULED);
     }
 
-    public function scopeScheduledAfterDate( $query, $date )
+    public function scopeScheduledAfterDate($query, $date)
     {
-        return $query->where( 'scheduled_date', '>=', $date );
+        return $query->where('scheduled_date', '>=', $date);
     }
 
-    public function scopeScheduledBeforeDate( $query, $date )
+    public function scopeScheduledBeforeDate($query, $date)
     {
-        return $query->where( 'scheduled_date', '<=', $date );
+        return $query->where('scheduled_date', '<=', $date);
     }
 
-    public function scopeRecurring( $query )
+    public function scopeRecurring($query)
     {
-        return $query->where( 'recurring', true );
+        return $query->where('recurring', true);
     }
 
-    public function scopeNotRecurring( $query )
+    public function scopeNotRecurring($query)
     {
-        return $query->where( 'recurring', false );
+        return $query->where('recurring', false);
     }
 
-    public function scopeActive( $query )
+    public function scopeActive($query)
     {
-        return $query->where( 'active', true );
+        return $query->where('active', true);
     }
 }

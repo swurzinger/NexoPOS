@@ -3,8 +3,6 @@
 namespace App\Listeners;
 
 use App\Events\ProductBeforeUpdatedEvent;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Queue\InteractsWithQueue;
 
 class ProductBeforeUpdatedEventListener
 {
@@ -19,8 +17,10 @@ class ProductBeforeUpdatedEventListener
     /**
      * Handle the event.
      */
-    public function handle( ProductBeforeUpdatedEvent $event): void
+    public function handle(ProductBeforeUpdatedEvent $event): void
     {
-        session()->put( 'product_category_id', $event->product->category_id );
+        $original = $event->product->getOriginal();
+
+        session()->put('product_category_id', $original[ 'category_id' ]);
     }
 }

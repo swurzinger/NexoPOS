@@ -11,16 +11,14 @@ class ProtectRoutePermissionMiddleware
     /**
      * Handle an incoming request.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \Closure  $next
      * @return mixed
      */
-    public function handle(Request $request, Closure $next, $permission )
+    public function handle(Request $request, Closure $next, $permission)
     {
-        if ( ns()->allowedTo( $permission ) ) {
+        if (ns()->allowedTo($permission)) {
             return $next($request);
         }
 
-        throw new NotEnoughPermissionException( __( 'Your don\'t have enough permission to perform this action.' ) );
+        throw new NotEnoughPermissionException(__('Your don\'t have enough permission to perform this action.'));
     }
 }

@@ -1,5 +1,9 @@
 import { ProductQuantityPromise } from "./pages/dashboard/pos/queues/products/product-quantity";
 import { ProductUnitPromise } from "./pages/dashboard/pos/queues/products/product-unit";
+import { CustomerQueue } from "./pages/dashboard/pos/queues/order/customer-queue";
+import { PaymentQueue } from "./pages/dashboard/pos/queues/order/payment-queue";
+import { ProductsQueue } from "./pages/dashboard/pos/queues/order/products-queue";
+import { TypeQueue } from "./pages/dashboard/pos/queues/order/type-queue";
 import { BehaviorSubject } from "rxjs";
 import { Customer } from "./interfaces/customer";
 import { OrderType } from "./interfaces/order-type";
@@ -38,6 +42,14 @@ const nsPOSLoadingPopup         = (<any>window).nsPOSLoadingPopup = defineAsyncC
 const nsPromptPopup             = (<any>window).nsPromptPopup = defineAsyncComponent( () => import('./popups/ns-' + 'prompt' + '-popup.vue' ) );
 const nsLayawayPopup            = (<any>window).nsLayawayPopup = defineAsyncComponent( () => import('./popups/ns-pos-' + 'layaway' + '-popup.vue' ) );
 const nsPosShippingPopup        = (<any>window).nsPosShippingPopup = defineAsyncComponent( () => import('./popups/ns-pos-' + 'shipping' + '-popup.vue' ) );
+
+( window as any ).CustomerQueue     =   CustomerQueue;
+( window as any ).PaymentQueue      =   PaymentQueue;
+( window as any ).ProductsQueue     =   ProductsQueue;
+( window as any ).TypeQueue         =   TypeQueue;
+
+declare const systemOptions;
+declare const systemUrls;
 
 declare const systemOptions;
 declare const systemUrls;
@@ -180,23 +192,34 @@ export class POS {
     }
 
     async reset() {
-        this._isSubmitting = false;
+        return new Promise(async (resolve, reject) => {
+            try {
+                this._isSubmitting = false;
 
-        /**
-         * to reset order details
-         */
-        this.order.next(this.defaultOrder());
-        this.products.next([]);
-        this._customers.next([]);
-        this._breadcrumbs.next([]);
-        this._cartButtons.next({});
-        this.defineCurrentScreen();
-        this.setHoldPopupEnabled(true);
+                /**
+                 * to reset order details
+                 */
+                this.order.next(this.defaultOrder());
+                this.products.next([]);
+                this._customers.next([]);
+                this._breadcrumbs.next([]);
+                this._cartButtons.next({});
+                this.defineCurrentScreen();
+                this.setHoldPopupEnabled(true);
 
-        await this.processInitialQueue();
+                nsHooks.doAction( 'ns-before-cart-reset' );
 
-        nsHooks.doAction( 'ns-after-cart-changed' );
-        nsHooks.doAction( 'ns-after-cart-reset' );
+                
+                await this.processInitialQueue();
+
+                nsHooks.doAction( 'ns-after-cart-changed' );
+                nsHooks.doAction( 'ns-after-cart-reset' );
+
+                resolve( true );
+            } catch ( exception ) {
+                reject( exception );
+            }
+        });
     }
 
     public initialize() {
@@ -294,28 +317,9 @@ export class POS {
 
             return resolve({
                 status: 'success',
-                message: 'tax group assignated'
+                message: 'no default customer is selected.'
             });
         }));
-
-        /**
-         * We're handling here the responsive aspect
-         * of the POS.
-         */
-        window.addEventListener('resize', () => {
-            this._responsive.detect();
-            this.defineCurrentScreen();
-        });
-
-        /**
-         * This will ensure the order is not closed mistakenly.
-         * @returns void
-         */
-        window.onbeforeunload   =   () => {
-            if ( this.products.getValue().length > 0 ) {
-                return __( 'Some products has been added to the cart. Would youl ike to discard this order ?' );
-            }
-        }
 
         /**
          * Whenever there is a change
@@ -394,16 +398,23 @@ export class POS {
      * This is the first initial queue
      * that runs when the POS is loaded.
      * It also run when the pos is reset.
-     * @return void
      */
     async processInitialQueue() {
-        for (let index in this._initialQueue) {
-            try {
-                const response = await this._initialQueue[index]();
-            } catch (exception) {
-                nsSnackBar.error(exception.message).subscribe();
+        return new Promise( async ( resolve, reject ) => {
+            for (let index in this._initialQueue) {
+                try {
+                    const response = await Promise.race([
+                        this._initialQueue[index](),
+                        new Promise((_, timeoutReject) => setTimeout(() => timeoutReject(new Error('Timeout')), 60000)) // 5 seconds timeout
+                    ]);
+                } catch (exception) {
+                    reject( exception );
+                    nsSnackBar.error(exception.message).subscribe();
+                }
             }
-        }
+
+            resolve( true );
+        });
     }
 
     /**
@@ -557,6 +568,8 @@ export class POS {
         } else if (type === 'exclusive') {
             return this.getPriceWithTax(value, rate, type) - value;
         }
+
+        return 0;
     }
 
     computeTaxes() {
@@ -1078,11 +1091,11 @@ export class POS {
          * There should be a better
          * way of writing this.
          */
-        if ( options.ns_pos_printing_enabled_for === 'all_orders' ) {
-            this.print.process( order.id, 'sale', mode );
-        } else if ( options.ns_pos_printing_enabled_for === 'partially_paid_orders' && [ 'paid', 'partially_paid' ].includes( order.payment_status ) ) {
-            this.print.process( order.id, 'sale', mode );
-        } else if ( options.ns_pos_printing_enabled_for === 'only_paid_orders' && [ 'paid' ].includes( order.payment_status ) ) {
+        if ( 
+            ( options.ns_pos_printing_enabled_for === 'all_orders'  ) ||
+            ( options.ns_pos_printing_enabled_for === 'partially_paid_orders' && [ 'paid', 'partially_paid' ].includes( order.payment_status ) ) ||
+            ( options.ns_pos_printing_enabled_for === 'only_paid_orders' && [ 'paid' ].includes( order.payment_status ) )
+        ) {
             this.print.process( order.id, 'sale', mode );
         } else {
             return false;

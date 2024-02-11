@@ -12,7 +12,7 @@ class OrderCouponBeforeCreatedEventListener
      *
      * @return void
      */
-    public function __construct( private CustomerService $customerService )
+    public function __construct(private CustomerService $customerService)
     {
         //
     }
@@ -20,10 +20,10 @@ class OrderCouponBeforeCreatedEventListener
     /**
      * Handle the event.
      */
-    public function handle( OrderCouponBeforeCreatedEvent $event )
+    public function handle(OrderCouponBeforeCreatedEvent $event)
     {
-        $this->customerService->assignCouponUsage( 
-            coupon: $event->coupon, 
+        $this->customerService->assignCouponUsage(
+            coupon: $event->coupon,
             customer_id: $event->order->customer_id
         );
     }

@@ -25,17 +25,17 @@ class DevShortCutCommand extends Command
      */
     protected $description = 'Perform various shortcut commands';
 
-    protected $patterForClassWithoutComments  =   "/(use (?:\w|\W)*;\n*|namespace (?:\w|\W)*;\n)(\nclass)/";
+    protected $patterForClassWithoutComments = "/(use (?:\w|\W)*;\n*|namespace (?:\w|\W)*;\n)(\nclass)/";
 
-    protected $typeMapping  =   [
-        'bigint'    =>  'integer',
-        'double'    =>  'float',
-        'varchar'   =>  'string',
-        'datetime'  =>  '\Carbon\Carbon',
-        'text'      =>  'string',
-        'integer'   =>  'integer',
-        'boolean'   =>  'bool',
-        'float'     =>  'float'
+    protected $typeMapping = [
+        'bigint' => 'integer',
+        'double' => 'float',
+        'varchar' => 'string',
+        'datetime' => '\Carbon\Carbon',
+        'text' => 'string',
+        'integer' => 'integer',
+        'boolean' => 'bool',
+        'float' => 'float',
     ];
 
     /**
@@ -45,42 +45,42 @@ class DevShortCutCommand extends Command
      */
     public function handle()
     {
-        return match( $this->argument( 'argument' ) ) {
-            'model-attributes'  =>  $this->table([ __( 'File Name' ), __( 'Status' )], $this->setModelAttributes()),
-            default => throw new Exception( sprintf( __( 'Unsupported argument provided: "%s"' ), $this->argument( 'argument' ) ) )
+        return match ($this->argument('argument')) {
+            'model-attributes' => $this->table([ __('File Name'), __('Status')], $this->setModelAttributes()),
+            default => throw new Exception(sprintf(__('Unsupported argument provided: "%s"'), $this->argument('argument')))
         };
     }
 
     protected function setModelAttributes()
     {
-        $files  =   Storage::disk( 'ns' )->files( 'app/Models' );
+        $files = Storage::disk('ns')->files('app/Models');
 
         $bar = $this->output->createProgressBar(count($files));
 
         $bar->start();
 
-        $result    =    collect( $files )->map( function( $file ) use ( $bar ) {
-            $path   =   pathinfo( $file );
-            $firstSlice     =   ucwords( str_replace( '/', '\\', $path[ 'dirname' ] ) );
-            $className  =   $firstSlice . '\\' . $path[ 'filename' ];
+        $result = collect($files)->map(function ($file) use ($bar) {
+            $path = pathinfo($file);
+            $firstSlice = ucwords(str_replace('/', '\\', $path[ 'dirname' ]));
+            $className = $firstSlice . '\\' . $path[ 'filename' ];
 
             $bar->advance();
 
-            if ( ! ( new ReflectionClass( $className ) )->isAbstract() ) {
-                $model      =   new $className;
-                $columns    =   Schema::getColumnListing( $model->getTable() );
-    
-                $withTypes  =   collect( $columns )->map( fn( $value ) => [ 'columnType' => Schema::getColumnType( $model->getTable(), $value ), 'columnName' => $value ]);
-                $content    =   file_get_contents( base_path( $file ) );
-                
-                if ( $this->fileContentHasClassComments( $file, $content ) ) {
-                    $preparedComments   =   $this->prepareComments( $withTypes );
+            if (! ( new ReflectionClass($className) )->isAbstract()) {
+                $model = new $className;
+                $columns = Schema::getColumnListing($model->getTable());
 
-                    $finalContent   =   $this->replacePreparedComments( $preparedComments, $content );
+                $withTypes = collect($columns)->map(fn($value) => [ 'columnType' => Schema::getColumnType($model->getTable(), $value), 'columnName' => $value ]);
+                $content = file_get_contents(base_path($file));
 
-                    file_put_contents( base_path( $file ), $finalContent );
+                if ($this->fileContentHasClassComments($file, $content)) {
+                    $preparedComments = $this->prepareComments($withTypes);
 
-                    return [$file, __( 'Done' )];
+                    $finalContent = $this->replacePreparedComments($preparedComments, $content);
+
+                    file_put_contents(base_path($file), $finalContent);
+
+                    return [$file, __('Done')];
                 }
             }
 
@@ -92,32 +92,33 @@ class DevShortCutCommand extends Command
         return $result;
     }
 
-    protected function replacePreparedComments( $preparedComments, $content )
+    protected function replacePreparedComments($preparedComments, $content)
     {
-        return preg_replace( $this->patterForClassWithoutComments, "$1" . $preparedComments . "$2", $content );
+        return preg_replace($this->patterForClassWithoutComments, '$1' . $preparedComments . '$2', $content);
     }
 
-    protected function prepareComments( Collection $withTypes )
+    protected function prepareComments(Collection $withTypes)
     {
-        $withTypes  =   $withTypes->map( function( $column ) {
-            return " * @property " . ( $this->typeMapping[ $column[ 'columnType'] ] ?? 'mixed' ) . " $" . $column[ 'columnName' ];
+        $withTypes = $withTypes->map(function ($column) {
+            return ' * @property ' . ($this->typeMapping[ $column[ 'columnType'] ] ?? 'mixed') . ' $' . $column[ 'columnName' ];
         });
 
         /**
-         * only compatible files 
+         * only compatible files
          * are handled.
          */
-        if ( $withTypes->count() > 0 ) {
-            $withTypes->prepend( "\n/**" );
-            $withTypes->push( "*/" );
-            return $withTypes->join( "\n" );
+        if ($withTypes->count() > 0) {
+            $withTypes->prepend("\n/**");
+            $withTypes->push('*/');
+
+            return $withTypes->join("\n");
         }
 
         return '';
     }
 
-    protected function fileContentHasClassComments( $file, $content )
+    protected function fileContentHasClassComments($file, $content)
     {
-        return preg_match_all( $this->patterForClassWithoutComments, $content, $matches );
+        return preg_match_all($this->patterForClassWithoutComments, $content, $matches);
     }
 }

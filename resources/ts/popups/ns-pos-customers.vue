@@ -561,7 +561,7 @@ export default {
 
         handleSavedCustomer( response ) {
             nsSnackBar.success( response.message ).subscribe();
-            POS.selectCustomer( response.entry );
+            POS.selectCustomer( response.data.entry );
             this.popup.close();
         }
     }

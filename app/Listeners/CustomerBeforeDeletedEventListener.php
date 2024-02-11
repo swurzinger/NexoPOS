@@ -4,8 +4,6 @@ namespace App\Listeners;
 
 use App\Events\CustomerBeforeDeletedEvent;
 use App\Services\CustomerService;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Queue\InteractsWithQueue;
 
 class CustomerBeforeDeletedEventListener
 {
@@ -14,8 +12,7 @@ class CustomerBeforeDeletedEventListener
      */
     public function __construct(
         public CustomerService $customerService
-    )
-    {
+    ) {
         //
     }
 
@@ -24,6 +21,6 @@ class CustomerBeforeDeletedEventListener
      */
     public function handle(CustomerBeforeDeletedEvent $event): void
     {
-        $this->customerService->deleteCustomerAttributes( $event->customer->id );
+        $this->customerService->deleteCustomerAttributes($event->customer->id);
     }
 }

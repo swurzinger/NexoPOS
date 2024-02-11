@@ -6,12 +6,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * @property integer $id
- * @property integer $author
+ * @property int $id
+ * @property int $author
  * @property string $uuid
  * @property float $value
  * @property \Carbon\Carbon $updated_at
-*/
+ */
 class ProductTax extends NsModel
 {
     use HasFactory;
@@ -25,7 +25,7 @@ class ProductTax extends NsModel
      */
     public function parentTax()
     {
-        return $this->belongsTo( self::class, 'parent_id' );
+        return $this->belongsTo(self::class, 'parent_id');
     }
 
     /**
@@ -35,14 +35,15 @@ class ProductTax extends NsModel
      * @param array {product_id: int, tax_id: int}
      * @return Query
      */
-    public function scopeFindMatch( $query, $data )
+    public function scopeFindMatch($query, $data)
     {
-        extract( $data );
+        extract($data);
+
         /**
          * -> product_id
          * -> tax_id
          */
-        return $query->where( 'tax_id', $tax_id )
-            ->where( 'product_id', $product_id );
+        return $query->where('tax_id', $tax_id)
+            ->where('product_id', $product_id);
     }
 }

@@ -1,6 +1,6 @@
 <?php
 
 return [
-    'label' => __( 'API Token' ),
-    'component' =>  'nsToken',
+    'label' => __('API Token'),
+    'component' => 'nsToken',
 ];

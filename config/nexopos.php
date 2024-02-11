@@ -5,17 +5,17 @@ return [
      * --------------------------------------------------------------------
      *  Version
      * --------------------------------------------------------------------
-     * 
+     *
      * This is the core version of NexoPOS. This is used to displays on the
      * dashboard and to ensure a compatibility with the modules.
      */
-    'version' => '5.0.0',
+    'version' => '5.0.4',
 
     /**
      * --------------------------------------------------------------------
      *  Supported Languages
      * --------------------------------------------------------------------
-     * 
+     *
      * Describes all the languages that are supported by NexoPOS.
      * If the language is not supported or if there is no valid translation
      * every localization functions will return the original string
@@ -29,6 +29,7 @@ return [
         'ar' => 'Arabic',
         'pt' => 'Portuguese',
         'tr' => 'Türkçe',
+        'km' => 'ភាសាខ្មែរ',
         'vi' => 'Vietnamese',
         'sq' => 'Shqiptare',
     ],
@@ -37,21 +38,21 @@ return [
      * --------------------------------------------------------------------
      *  Authentication
      * --------------------------------------------------------------------
-     * 
+     *
      * Defines all default configurations that applies to authentication.
      */
-    'authentication'    =>  [
+    'authentication' => [
         /**
          * Defines in "minutes" the lifetime of each token.
          */
-        'activation_token_lifetime' =>  30
+        'activation_token_lifetime' => 30,
     ],
 
     /**
      * --------------------------------------------------------------------
      *  RTL Languages
      * --------------------------------------------------------------------
-     * 
+     *
      * Defines all language which once enabled should
      * turn on the RTL dashboard.
      */
@@ -61,7 +62,7 @@ return [
      * --------------------------------------------------------------------
      *  Timezones
      * --------------------------------------------------------------------
-     * 
+     *
      * List all supported timezones.
      */
     'timezones' => [

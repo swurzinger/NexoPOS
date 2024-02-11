@@ -3,23 +3,33 @@
 namespace App\Models;
 
 /**
- * @property integer $id
+ * @property int $id
  * @property string $uuid
- * @property integer $author
+ * @property int $author
  * @property bool $featured
  * @property \Carbon\Carbon $updated_at
-*/
+ */
 class ProductGallery extends NsModel
 {
     protected $table = 'nexopos_products_galleries';
 
-    public $casts   =   [
-        'featured'      =>  'boolean',
-        'product_id'    =>  'integer',
+    protected $fillable = [
+        'name',
+        'product_id',
+        'media_id',
+        'url',
+        'order',
+        'featured',
+        'author',
+    ];
+
+    public $casts = [
+        'featured' => 'boolean',
+        'product_id' => 'integer',
     ];
 
     public function product()
     {
-        return $this->belongsTo( Product::class );
+        return $this->belongsTo(Product::class);
     }
 }

@@ -22,13 +22,12 @@ class OrderAfterProductRefundedEventListener
     /**
      * Handle the event.
      *
-     * @param  \App\Events\OrderAfterProductRefundedEvent  $event
      * @return void
      */
     public function handle(OrderAfterProductRefundedEvent $event)
     {
         Bus::chain([
-            new RefreshOrderJob( $event->order ),
+            // new RefreshOrderJob($event->order), this already called on OrderAfterRefundEvent
             new CreateExpenseFromRefundJob(
                 order: $event->order,
                 orderProduct: $event->orderProduct,

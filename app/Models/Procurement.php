@@ -11,9 +11,9 @@ use App\Events\ProcurementBeforeUpdateEvent;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
- * @property integer $id
+ * @property int $id
  * @property mixed $name
- * @property integer $provider_id
+ * @property int $provider_id
  * @property float $value
  * @property float $cost
  * @property float $tax_value
@@ -23,13 +23,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
  * @property \Carbon\Carbon $invoice_date
  * @property mixed $payment_status
  * @property mixed $delivery_status
- * @property integer $total_items
+ * @property int $total_items
  * @property string $description
- * @property integer $author
+ * @property int $author
  * @property mixed $uuid
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
-*/
+ */
 class Procurement extends NsModel
 {
     use HasFactory;
@@ -90,21 +90,21 @@ class Procurement extends NsModel
 
     public function products()
     {
-        return $this->hasMany( ProcurementProduct::class, 'procurement_id' );
+        return $this->hasMany(ProcurementProduct::class, 'procurement_id');
     }
 
     public function provider()
     {
-        return $this->belongsTo( Provider::class );
+        return $this->belongsTo(Provider::class);
     }
 
-    public function scopePending( $query )
+    public function scopePending($query)
     {
-        return $query->where( 'delivery_status', self::PENDING );
+        return $query->where('delivery_status', self::PENDING);
     }
 
-    public function scopeAutoApproval( $query )
+    public function scopeAutoApproval($query)
     {
-        return $query->where( 'automatic_approval', true );
+        return $query->where('automatic_approval', true);
     }
 }

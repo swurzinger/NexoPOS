@@ -3,8 +3,6 @@
 namespace App\Listeners;
 
 use App\Events\ModulesBeforeRemovedEvent;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Queue\InteractsWithQueue;
 
 class ModulesBeforeRemovedEventListener
 {
@@ -24,7 +22,7 @@ class ModulesBeforeRemovedEventListener
      * @param  object  $event
      * @return void
      */
-    public function handle( ModulesBeforeRemovedEvent $event)
+    public function handle(ModulesBeforeRemovedEvent $event)
     {
         //
     }

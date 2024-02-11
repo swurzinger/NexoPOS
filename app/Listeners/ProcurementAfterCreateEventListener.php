@@ -3,9 +3,9 @@
 namespace App\Listeners;
 
 use App\Events\ProcurementAfterCreateEvent;
-use App\Services\TransactionService;
 use App\Services\ProcurementService;
 use App\Services\ProviderService;
+use App\Services\TransactionService;
 
 class ProcurementAfterCreateEventListener
 {
@@ -28,11 +28,11 @@ class ProcurementAfterCreateEventListener
      * @param  object  $event
      * @return void
      */
-    public function handle( ProcurementAfterCreateEvent $event )
+    public function handle(ProcurementAfterCreateEvent $event)
     {
-        $this->procurementService->refresh( $event->procurement );
-        $this->providerService->computeSummary( $event->procurement->provider );
-        $this->procurementService->handleProcurement( $event->procurement );
-        $this->transactionService->handleProcurementTransaction( $event->procurement );
+        $this->procurementService->refresh($event->procurement);
+        $this->providerService->computeSummary($event->procurement->provider);
+        $this->procurementService->handleProcurement($event->procurement);
+        $this->transactionService->handleProcurementTransaction($event->procurement);
     }
 }

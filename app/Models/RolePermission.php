@@ -5,8 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
- * @property integer $role_id
-*/
+ * @property int $role_id
+ */
 class RolePermission extends NsRootModel
 {
     use HasFactory;
@@ -14,4 +14,6 @@ class RolePermission extends NsRootModel
     protected $table = 'nexopos_role_permission';
 
     public $timestamps = false;
+
+    public $incrementing = false;
 }

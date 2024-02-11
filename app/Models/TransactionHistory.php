@@ -8,22 +8,22 @@ use App\Events\TransactionsHistoryAfterUpdatedEvent;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
- * @property integer $id
- * @property integer $transaction_id
+ * @property int $id
+ * @property int $transaction_id
  * @property mixed $operation
- * @property integer $transaction_account_id
- * @property integer $procurement_id
- * @property integer $order_refund_id
- * @property integer $order_id
- * @property integer $register_history_id
- * @property integer $customer_account_history_id
+ * @property int $transaction_account_id
+ * @property int $procurement_id
+ * @property int $order_refund_id
+ * @property int $order_id
+ * @property int $register_history_id
+ * @property int $customer_account_history_id
  * @property mixed $name
  * @property mixed $status
  * @property float $value
- * @property integer $author
+ * @property int $author
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
-*/
+ */
 class TransactionHistory extends NsModel
 {
     use HasFactory;
@@ -78,6 +78,11 @@ class TransactionHistory extends NsModel
      */
     const ACCOUNT_CUSTOMER_DEBIT = '008';
 
+    /**
+     * Unique identifier for liabilities.
+     */
+    const ACCOUNT_LIABILITIES = '009';
+
     protected $dispatchesEvents = [
         'created' => TransactionsHistoryAfterCreatedEvent::class,
         'updated' => TransactionsHistoryAfterUpdatedEvent::class,
@@ -86,21 +91,21 @@ class TransactionHistory extends NsModel
 
     public function transaction()
     {
-        return $this->belongsTo( Transaction::class, 'transaction_id' );
+        return $this->belongsTo(Transaction::class, 'transaction_id');
     }
 
-    public function scopeFrom( $query, $date )
+    public function scopeFrom($query, $date)
     {
-        return $query->where( 'created_at', '>=', $date );
+        return $query->where('created_at', '>=', $date);
     }
 
-    public function scopeOperation( $query, $operation )
+    public function scopeOperation($query, $operation)
     {
-        return $query->where( 'operation', $operation );
+        return $query->where('operation', $operation);
     }
 
-    public function scopeTo( $query, $date )
+    public function scopeTo($query, $date)
     {
-        return $query->where( 'created_at', '<=', $date );
+        return $query->where('created_at', '<=', $date);
     }
 }

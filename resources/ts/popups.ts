@@ -36,7 +36,7 @@ const nsPopups      =   createApp({
     data() {
         return {
             popups: [],
-            defaultClass: 'absolute top-0 left-0 w-full h-full flex items-center justify-center is-popup'
+            defaultClass: 'absolute top-0 left-0 w-full h-full items-center flex overflow-y-auto justify-center is-popup'
         }
     },
     mounted() {
@@ -47,7 +47,7 @@ const nsPopups      =   createApp({
             }
         })
     },
-    methods: { 
+    methods: {
         closePopup( popup, event ) {
             /**
              * This means we've strictly clicked on the container

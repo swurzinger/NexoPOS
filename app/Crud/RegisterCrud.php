@@ -8,7 +8,6 @@ use App\Models\User;
 use App\Services\CrudEntry;
 use App\Services\CrudService;
 use App\Services\Helper;
-use App\Services\UsersService;
 use Illuminate\Http\Request;
 use TorMorten\Eventy\Facades\Events as Hook;
 
@@ -109,14 +108,12 @@ class RegisterCrud extends CrudService
 
     /**
      * Define Constructor
-     *
-     * @param
      */
     public function __construct()
     {
         parent::__construct();
 
-        Hook::addFilter( $this->namespace . '-crud-actions', [ $this, 'setActions' ], 10, 2 );
+        Hook::addFilter($this->namespace . '-crud-actions', [ $this, 'setActions' ], 10, 2);
     }
 
     /**
@@ -128,24 +125,23 @@ class RegisterCrud extends CrudService
     public function getLabels()
     {
         return [
-            'list_title' => __( 'Registers List' ),
-            'list_description' => __( 'Display all registers.' ),
-            'no_entry' => __( 'No registers has been registered' ),
-            'create_new' => __( 'Add a new register' ),
-            'create_title' => __( 'Create a new register' ),
-            'create_description' => __( 'Register a new register and save it.' ),
-            'edit_title' => __( 'Edit register' ),
-            'edit_description' => __( 'Modify  Register.' ),
-            'back_to_list' => __( 'Return to Registers' ),
+            'list_title' => __('Registers List'),
+            'list_description' => __('Display all registers.'),
+            'no_entry' => __('No registers has been registered'),
+            'create_new' => __('Add a new register'),
+            'create_title' => __('Create a new register'),
+            'create_description' => __('Register a new register and save it.'),
+            'edit_title' => __('Edit register'),
+            'edit_description' => __('Modify  Register.'),
+            'back_to_list' => __('Return to Registers'),
         ];
     }
 
     /**
      * Check whether a feature is enabled
      *
-     * @return  bool
      **/
-    public function isEnabled( $feature ): bool
+    public function isEnabled($feature): bool
     {
         return false; // by default
     }
@@ -156,38 +152,38 @@ class RegisterCrud extends CrudService
      * @param  object/null
      * @return  array of field
      */
-    public function getForm( $entry = null )
+    public function getForm($entry = null)
     {
         return [
             'main' => [
-                'label' => __( 'Name' ),
+                'label' => __('Name'),
                 'name' => 'name',
                 'value' => $entry->name ?? '',
-                'description' => __( 'Provide a name to the resource.' ),
+                'description' => __('Provide a name to the resource.'),
                 'validation' => 'required',
             ],
             'tabs' => [
                 'general' => [
-                    'label' => __( 'General' ),
+                    'label' => __('General'),
                     'fields' => [
                         [
                             'type' => 'select',
                             'name' => 'status',
-                            'label' => __( 'Status' ),
+                            'label' => __('Status'),
                             'options' => Helper::kvToJsOptions([
-                                Register::STATUS_DISABLED => __( 'Disabled' ),
-                                Register::STATUS_CLOSED => __( 'Closed' ),
+                                Register::STATUS_DISABLED => __('Disabled'),
+                                Register::STATUS_CLOSED => __('Closed'),
                             ]),
-                            'description' => __( 'Define what is the status of the register.' ),
+                            'description' => __('Define what is the status of the register.'),
                             'value' => $entry->status ?? '',
                             'validation' => 'required',
                         ],
                         [
                             'type' => 'textarea',
                             'name' => 'description',
-                            'label' => __( 'Description' ),
+                            'label' => __('Description'),
                             'value' => $entry->description ?? '',
-                            'description' => __( 'Provide mode details about this cash register.' ),
+                            'description' => __('Provide mode details about this cash register.'),
                         ],
                     ],
                 ],
@@ -201,7 +197,7 @@ class RegisterCrud extends CrudService
      * @param  array of fields
      * @return  array of fields
      */
-    public function filterPostInputs( $inputs )
+    public function filterPostInputs($inputs)
     {
         return $inputs;
     }
@@ -212,7 +208,7 @@ class RegisterCrud extends CrudService
      * @param  array of fields
      * @return  array of fields
      */
-    public function filterPutInputs( $inputs, Register $entry )
+    public function filterPutInputs($inputs, Register $entry)
     {
         return $inputs;
     }
@@ -223,10 +219,10 @@ class RegisterCrud extends CrudService
      * @param  Request $request
      * @return  void
      */
-    public function beforePost( $request )
+    public function beforePost($request)
     {
-        if ( $this->permissions[ 'create' ] !== false ) {
-            ns()->restrict( $this->permissions[ 'create' ] );
+        if ($this->permissions[ 'create' ] !== false) {
+            ns()->restrict($this->permissions[ 'create' ]);
         } else {
             throw new NotAllowedException;
         }
@@ -238,10 +234,9 @@ class RegisterCrud extends CrudService
      * After saving a record
      *
      * @param  Request $request
-     * @param  Register $entry
      * @return  void
      */
-    public function afterPost( $request, Register $entry )
+    public function afterPost($request, Register $entry)
     {
         return $request;
     }
@@ -252,9 +247,9 @@ class RegisterCrud extends CrudService
      * @param  string
      * @return  mixed
      */
-    public function get( $param )
+    public function get($param)
     {
-        switch ( $param ) {
+        switch ($param) {
             case 'model': return $this->model;
                 break;
         }
@@ -267,10 +262,10 @@ class RegisterCrud extends CrudService
      * @param  object entry
      * @return  void
      */
-    public function beforePut( $request, $entry )
+    public function beforePut($request, $entry)
     {
-        if ( $this->permissions[ 'update' ] !== false ) {
-            ns()->restrict( $this->permissions[ 'update' ] );
+        if ($this->permissions[ 'update' ] !== false) {
+            ns()->restrict($this->permissions[ 'update' ]);
         } else {
             throw new NotAllowedException;
         }
@@ -285,7 +280,7 @@ class RegisterCrud extends CrudService
      * @param  object entry
      * @return  void
      */
-    public function afterPut( $request, $entry )
+    public function afterPut($request, $entry)
     {
         return $request;
     }
@@ -295,9 +290,9 @@ class RegisterCrud extends CrudService
      *
      * @return  void
      */
-    public function beforeDelete( $namespace, $id, $model )
+    public function beforeDelete($namespace, $id, $model)
     {
-        if ( $namespace == 'ns.registers' ) {
+        if ($namespace == 'ns.registers') {
             /**
              *  Perform an action before deleting an entry
              *  In case something wrong, this response can be returned
@@ -307,14 +302,14 @@ class RegisterCrud extends CrudService
              *      'message'   =>  __( 'You\re not allowed to do that.' )
              *  ], 403 );
              **/
-            if ( $this->permissions[ 'delete' ] !== false ) {
-                ns()->restrict( $this->permissions[ 'delete' ] );
+            if ($this->permissions[ 'delete' ] !== false) {
+                ns()->restrict($this->permissions[ 'delete' ]);
             } else {
                 throw new NotAllowedException;
             }
 
-            if ( $model->status === Register::STATUS_OPENED ) {
-                throw new NotAllowedException( __( 'Unable to delete a register that is currently in use' ) );
+            if ($model->status === Register::STATUS_OPENED) {
+                throw new NotAllowedException(__('Unable to delete a register that is currently in use'));
             }
         }
     }
@@ -326,32 +321,32 @@ class RegisterCrud extends CrudService
     {
         return [
             'name' => [
-                'label' => __( 'Name' ),
+                'label' => __('Name'),
                 '$direction' => '',
                 '$sort' => false,
             ],
             'status' => [
-                'label' => __( 'Status' ),
+                'label' => __('Status'),
                 '$direction' => '',
                 '$sort' => false,
             ],
             'cashier_username' => [
-                'label' => __( 'Used By' ),
+                'label' => __('Used By'),
                 '$direction' => '',
                 '$sort' => false,
             ],
             'balance' => [
-                'label' => __( 'Balance' ),
+                'label' => __('Balance'),
                 '$direction' => '',
                 '$sort' => false,
             ],
             'user_username' => [
-                'label' => __( 'Author' ),
+                'label' => __('Author'),
                 '$direction' => '',
                 '$sort' => false,
             ],
             'created_at' => [
-                'label' => __( 'Created At' ),
+                'label' => __('Created At'),
                 '$direction' => '',
                 '$sort' => false,
             ],
@@ -361,33 +356,33 @@ class RegisterCrud extends CrudService
     /**
      * Define actions
      */
-    public function setActions( CrudEntry $entry, $namespace )
+    public function setActions(CrudEntry $entry, $namespace)
     {
-        $entry->cashier_username = $entry->cashier_username ?: __( 'N/A' );
-        $entry->balance = (string) ns()->currency->define( $entry->balance );
+        $entry->cashier_username = $entry->cashier_username ?: __('N/A');
+        $entry->balance = (string) ns()->currency->define($entry->balance);
 
         // you can make changes here
-        $entry->addAction( 'edit', [
-            'label' => __( 'Edit' ),
+        $entry->addAction('edit', [
+            'label' => __('Edit'),
             'namespace' => 'edit',
             'type' => 'GOTO',
-            'url' => ns()->url( '/dashboard/' . 'cash-registers' . '/edit/' . $entry->id ),
+            'url' => ns()->url('/dashboard/' . 'cash-registers' . '/edit/' . $entry->id),
         ]);
 
-        $entry->addAction( 'register-history', [
-            'label' => __( 'Register History' ),
+        $entry->addAction('register-history', [
+            'label' => __('Register History'),
             'namespace' => 'edit',
             'type' => 'GOTO',
-            'url' => ns()->url( '/dashboard/' . 'cash-registers' . '/history/' . $entry->id ),
+            'url' => ns()->url('/dashboard/' . 'cash-registers' . '/history/' . $entry->id),
         ]);
 
-        $entry->addAction( 'delete', [
-            'label' => __( 'Delete' ),
+        $entry->addAction('delete', [
+            'label' => __('Delete'),
             'namespace' => 'delete',
             'type' => 'DELETE',
-            'url' => ns()->url( '/api/crud/ns.registers/' . $entry->id ),
+            'url' => ns()->url('/api/crud/ns.registers/' . $entry->id),
             'confirm' => [
-                'message' => __( 'Would you like to delete this ?' ),
+                'message' => __('Would you like to delete this ?'),
             ],
         ]);
 
@@ -400,18 +395,18 @@ class RegisterCrud extends CrudService
      * @param    object Request with object
      * @return    false/array
      */
-    public function bulkAction( Request $request )
+    public function bulkAction(Request $request)
     {
         /**
          * Deleting licence is only allowed for admin
          * and supervisor.
          */
-        if ( $request->input( 'action' ) == 'delete_selected' ) {
+        if ($request->input('action') == 'delete_selected') {
             /**
              * Will control if the user has the permissoin to do that.
              */
-            if ( $this->permissions[ 'delete' ] !== false ) {
-                ns()->restrict( $this->permissions[ 'delete' ] );
+            if ($this->permissions[ 'delete' ] !== false) {
+                ns()->restrict($this->permissions[ 'delete' ]);
             } else {
                 throw new NotAllowedException;
             }
@@ -421,9 +416,9 @@ class RegisterCrud extends CrudService
                 'failed' => 0,
             ];
 
-            foreach ( $request->input( 'entries' ) as $id ) {
-                $entity = $this->model::find( $id );
-                if ( $entity instanceof Register ) {
+            foreach ($request->input('entries') as $id) {
+                $entity = $this->model::find($id);
+                if ($entity instanceof Register) {
                     $entity->delete();
                     $status[ 'success' ]++;
                 } else {
@@ -434,7 +429,7 @@ class RegisterCrud extends CrudService
             return $status;
         }
 
-        return Hook::filter( $this->namespace . '-catch-action', false, $request );
+        return Hook::filter($this->namespace . '-catch-action', false, $request);
     }
 
     /**
@@ -444,12 +439,12 @@ class RegisterCrud extends CrudService
      */
     public function getLinks(): array
     {
-        return  [
-            'list' => ns()->url( 'dashboard/' . 'cash-registers' ),
-            'create' => ns()->url( 'dashboard/' . 'cash-registers/create' ),
-            'edit' => ns()->url( 'dashboard/' . 'cash-registers/edit/' ),
-            'post' => ns()->url( 'api/crud/' . 'ns.registers' ),
-            'put' => ns()->url( 'api/crud/' . 'ns.registers/{id}' . '' ),
+        return [
+            'list' => ns()->url('dashboard/' . 'cash-registers'),
+            'create' => ns()->url('dashboard/' . 'cash-registers/create'),
+            'edit' => ns()->url('dashboard/' . 'cash-registers/edit/'),
+            'post' => ns()->url('api/crud/' . 'ns.registers'),
+            'put' => ns()->url('api/crud/' . 'ns.registers/{id}' . ''),
         ];
     }
 
@@ -460,11 +455,11 @@ class RegisterCrud extends CrudService
      **/
     public function getBulkActions(): array
     {
-        return Hook::filter( $this->namespace . '-bulk', [
+        return Hook::filter($this->namespace . '-bulk', [
             [
-                'label' => __( 'Delete Selected Groups' ),
+                'label' => __('Delete Selected Groups'),
                 'identifier' => 'delete_selected',
-                'url' => ns()->route( 'ns.api.crud-bulk-actions', [
+                'url' => ns()->route('ns.api.crud-bulk-actions', [
                     'namespace' => $this->namespace,
                 ]),
             ],

@@ -1,8 +1,16 @@
 
 <template>
     <div class="form flex-auto" id="crud-form">
-        <div v-if="Object.values( form ).length === 0" class="flex items-center h-full justify-center flex-auto">
+        <div v-if="Object.values( form ).length === 0 && hasLoaded" class="flex items-center h-full justify-center flex-auto">
             <ns-spinner/>
+        </div>
+        <div v-if="Object.values( form ).length === 0 && hasError">
+            <ns-notice color="error">
+                <template #title>{{ __( 'An Error Has Occured' ) }}</template>
+                <template #description>
+                    {{  __( 'An unexpected error has occured while loading the form. Please check the log or contact the support.' ) }}
+                </template>
+            </ns-notice>
         </div>
         <template v-if="Object.values( form ).length > 0">
             <div class="flex flex-col">
@@ -62,7 +70,7 @@
                                 <div class="-mx-4 flex flex-wrap" v-if="! [ 'images', 'units', 'groups' ].includes( getActiveTabKey( variation.tabs ) )">
                                     <template v-for="( field, index ) of getActiveTab( variation.tabs ).fields" :key="index">
                                         <div class="flex flex-col px-4 w-full md:w-1/2 lg:w-1/3">
-                                            <ns-field :field="field"></ns-field>
+                                            <ns-field @saved="handleSaved( $event, getActiveTabKey( variation.tabs ), variation_index, field )" :field="field"></ns-field>
                                         </div>
                                     </template>
                                 </div>
@@ -97,8 +105,7 @@
                                 </div>
                                 <div class="-mx-4 flex flex-wrap" v-if="getActiveTabKey( variation.tabs ) === 'units'">
                                     <div class="px-4 w-full md:w-1/2 lg:w-1/3">
-                                        <ns-field @change="loadAvailableUnits( getActiveTab( variation.tabs ) )" :field="getActiveTab( variation.tabs ).fields[0]"></ns-field>
-                                        <ns-field @change="loadAvailableUnits( getActiveTab( variation.tabs ) )" :field="getActiveTab( variation.tabs ).fields[1]"></ns-field>
+                                        <ns-field v-for="field in getActiveTab( variation.tabs ).fields.filter( field => field.name !== 'selling_group' )" @change="loadAvailableUnits( getActiveTab( variation.tabs ) )" :field="field"></ns-field>
                                     </div>
                                     <template v-if="unitLoaded">
                                         <template v-for="(field,index) of getActiveTab( variation.tabs ).fields">
@@ -115,28 +122,46 @@
                                                         <span>{{ __( 'New Group' ) }}</span>
                                                     </div>
                                                 </div>
-                                                <div class="-mx-4 flex flex-wrap">
-                                                    <div class="px-4 w-full md:w-1/2 mb-4" :key="index" v-for="(group_fields,index) of field.groups">
+                                                <ns-tabs @changeTab="variation.activeUnitTab = $event" :active="variation.activeUnitTab || 'foo'">
+                                                    <ns-tabs-item padding="p-2" v-for="(group_fields,index) of field.groups" :identifier="'tab-' + getGroupId( group_fields )" :label="getFirstSelectedUnit( group_fields )">
                                                         <div class="shadow rounded overflow-hidden bg-box-elevation-background text-primary">
                                                             <div class="border-b text-sm p-2 flex justify-between text-primary border-box-elevation-edge">
                                                                 <span>{{ __( 'Available Quantity' ) }}</span>
                                                                 <span>{{ getUnitQuantity( group_fields ) }}</span>
                                                             </div>
                                                             <div class="p-2 mb-2">
-                                                                <ns-field :field="field" v-for="(field,index) of group_fields" :key="index"></ns-field>
+                                                                <div class="md:-mx-2 flex flex-wrap">
+                                                                    <div class="w-full md:w-1/2 p-2" v-for="(field,index) of group_fields" :key="index">
+                                                                        <ns-field @saved="handleSavedUnitGroupFields( $event, field )" :field="field"></ns-field>
+                                                                    </div>
+                                                                </div>
                                                             </div>
                                                             <div @click="removeUnitPriceGroup( group_fields, field.groups )" class="p-1 hover:bg-error-primary border-t border-box-elevation-edge flex items-center justify-center cursor-pointer font-medium">
                                                                 {{ __( 'Delete' ) }}
                                                             </div>
                                                         </div>
+                                                    </ns-tabs-item>
+                                                </ns-tabs>
+                                            </div>
+                                            <div v-if="field.type === 'group'" class="px-4 w-full lg:w-2/3" :key="index">
+                                                
+                                                <div class="-mx-4 flex flex-wrap">
+                                                    <div class="px-4 w-full md:w-1/2 mb-4" :key="index" v-for="(group_fields,index) of field.groups">
+                                                        
                                                     </div>
                                                 </div>
                                             </div>
                                         </template>
                                     </template>
-                                    <template v-if="! unitLoaded">
+                                    <template v-if="! unitLoaded && ! unitLoadError">
                                         <div class="px-4 w-full lg:w-2/3 flex justify-center items-center">
                                             <ns-spinner></ns-spinner>
+                                        </div>
+                                    </template>
+                                    <template v-if="unitLoadError && ! unitLoaded">
+                                        <div class="px-4 w-full md:w-1/2 lg:w-2/3 flex flex-col justify-center items-center">
+                                            <i class="las la-frown text-7xl"></i>
+                                            <p class="w-full md:w-1/3 py-3 text-center text-sm text-primary">{{ __( 'We were not able to load the units. Make sure there are units attached on the unit group selected.' ) }}</p>
                                         </div>
                                     </template>
                                 </div>
@@ -166,7 +191,10 @@ export default {
             nsHttpClient,
             _sampleVariation: null,
             unitLoaded: false,
+            unitLoadError: false,
             form: '',
+            hasLoaded: false,
+            hasError: false,
         }
     },
     watch: {
@@ -228,6 +256,18 @@ export default {
     methods: {
         __,
         nsCurrency,
+        async handleSaved( event, activeTabKey, variationIndex, field ) {
+            if ( event.data.entry ) {
+                
+                const rawComponent = await this.loadForm();
+
+                rawComponent.form.variations[ variationIndex ].tabs[ activeTabKey ].fields.forEach( __field => {
+                    if ( __field.name === field.name ) {
+                        __field.value   =   event.data.entry.id;
+                    }
+                });
+            }
+        },
         getGroupProducts( tabs ) {
             if ( tabs[ 'groups' ] ) {
                 const products  =   tabs.groups.fields.filter( field => field.name === 'products_subitems' );
@@ -321,55 +361,41 @@ export default {
          * for every groups. Validation should prevent duplicated units.
          */
         loadAvailableUnits( unit_section ) {
-            this.unitLoaded = false;
-            nsHttpClient.get( this.unitsUrl.replace( '{id}', unit_section.fields.filter( f => f.name === 'unit_group' )[0].value ) )
-                .subscribe( result => {
+            this.unitLoaded     =   false;
+            this.unitLoadError  =   false;
+            const unitGroup     =   unit_section.fields.filter( f => f.name === 'unit_group' )[0].value;
+            
+            nsHttpClient.get( this.unitsUrl.replace( '{id}', unitGroup ) )
+                .subscribe({
+                    next: result => {
+                        /**
+                         * For each group, we'll loop to find
+                         * the field that allow to choose the unit
+                         * in order to change the options available
+                         */
+                        unit_section.fields.forEach( field => {
+                            if ( field.type === 'group' ) {
+                                field.options   =   result;
+                                field.fields.forEach( _field => {
+                                    if ( [ 'unit_id', 'convert_unit_id' ].includes( _field.name ) ) {
+                                        _field.options  =   result.map( option => {
+                                            return {
+                                                label: option.name,
+                                                value: option.id
+                                            }
+                                        });
+                                    }
+                                })
+                            }
+                        });
 
-                    /**
-                     * For each group, we'll loop to find
-                     * the field that allow to choose the unit
-                     * in order to change the options available
-                     */
-                    unit_section.fields.forEach( field => {
-                        if ( field.type === 'group' ) {
-                            field.options   =   result;
-                            field.fields.forEach( _field => {
-                                if ( _field.name === 'unit_id' ) {
-                                    _field.options  =   result.map( option => {
-                                        return {
-                                            label: option.name,
-                                            value: option.id
-                                        }
-                                    });
-                                }
-                            })
-                        }
-                    });
+                        this.unitLoaded = true;
 
-                    this.unitLoaded = true;
-
-                    this.$forceUpdate();
-                })
-        },
-
-        /**
-         * @deprecated
-         */
-        loadOptionsFor( fieldName, value, variation_index ) {
-            nsHttpClient.get( this.unitsUrl.replace( '{id}', value ) )
-                .subscribe( result => {
-                    this.form.variations[ variation_index ].tabs.units.fields.forEach( _field => {
-                        if ( _field.name === fieldName ) {
-                            _field.options    =   result.map( option => {
-                                return {
-                                    label: option.name,
-                                    value: option.id,
-                                    selected: false,
-                                };
-                            })
-                        }
-                    });
-                    this.$forceUpdate();
+                        this.$forceUpdate();
+                    },
+                    error: error => {
+                        this.unitLoadError  =   true;
+                    }
                 })
         },
         submit() {
@@ -466,7 +492,7 @@ export default {
                             nsSnackBar.info( result.message, __( 'Okay' ), { duration: 3000 }).subscribe();
                         }
 
-                        this.$emit( 'save' );
+                        this.$emit( 'saved' );
                     }
                     this.formValidation.enableForm( this.form );
                 }, ( error ) => {
@@ -564,10 +590,23 @@ export default {
             return form;
         },
         loadForm() {
-            const request   =   nsHttpClient.get( `${this.src}` );
-            request.subscribe( f => {
-                this.form    =   this.parseForm( f.form );
-            });
+            return new Promise( ( resolve, reject ) => {
+                const request   =   nsHttpClient.get( `${this.src}` );
+                this.hasLoaded  =   false;
+                this.hasError   =   false;
+
+                request.subscribe({
+                    next: f => {
+                        resolve( f );
+                        this.hasLoaded  =   true;
+                        this.form    =   this.parseForm( f.form );
+                    },
+                    error: error => {
+                        reject( error );
+                        this.hasError   =   true;
+                    }
+                });
+            })
         },
         addImage( variation ) {
             variation.tabs.images.groups.push(
@@ -579,9 +618,41 @@ export default {
             const index     =   variation.tabs.images.groups.indexOf( group );
             variation.tabs.images.groups.splice( index, 1 );
         },
+        handleSavedUnitGroupFields( event, field ) {
+            if ( event.data ) {
+                field.options.push({
+                    label: event.data.entry.name,
+                    value: event.data.entry.id
+                });
+
+                field.value = event.data.entry.id;
+            }
+        },
+        getGroupId( group_field ) {
+            const field = group_field.filter( field => field.name === 'id' );
+
+            if ( field.length > 0 ) {
+                return field[0].value;
+            }
+
+            return false;
+        },
+        getFirstSelectedUnit( group_fields ) {
+            const field = group_fields.filter( field => field.name === 'unit_id' );
+
+            if ( field.length > 0 ) {
+                const option    =   field[0].options.filter( option => option.value === field[0].value );
+
+                if ( option.length > 0 ) {
+                    return option[0].label;
+                }
+            }
+
+            return __( 'No Unit Selected' );
+        }
     },
-    mounted() {
-        this.loadForm();
+    async mounted() {
+        await this.loadForm();        
     },
     name: 'ns-manage-products',
 }

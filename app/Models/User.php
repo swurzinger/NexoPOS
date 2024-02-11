@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Support\Facades\Auth;
 use Laravel\Sanctum\HasApiTokens;
 
 /**
@@ -29,15 +28,15 @@ use Laravel\Sanctum\HasApiTokens;
  */
 class User extends Authenticatable
 {
-    use Notifiable,
+    use HasApiTokens,
         HasFactory,
-        HasApiTokens,
+        Notifiable,
         NsDependable;
 
     protected $table = 'nexopos_users';
 
     protected $casts = [
-        'active' => 'boolean'
+        'active' => 'boolean',
     ];
 
     /**
@@ -45,7 +44,6 @@ class User extends Authenticatable
      */
     public $options;
 
-    /** @var */
     public $user_id;
 
     protected $isDependencyFor = [
@@ -55,12 +53,12 @@ class User extends Authenticatable
             'foreign_name' => 'name',
             'foreign_index' => 'author',
         ],
-        Order::class    =>  [
-            'local_name'    =>  'username',
-            'local_index'   =>  'id',
-            'foreign_name'  =>  'code',
-            'foreign_index' =>  'author'
-        ]
+        Order::class => [
+            'local_name' => 'username',
+            'local_index' => 'id',
+            'foreign_name' => 'code',
+            'foreign_index' => 'author',
+        ],
     ];
 
     /**
@@ -90,9 +88,9 @@ class User extends Authenticatable
 
     private $storedPermissions = [];
 
-    public function __construct( $attributes = [])
+    public function __construct($attributes = [])
     {
-        parent::__construct( $attributes );
+        parent::__construct($attributes);
     }
 
     /**
@@ -109,7 +107,7 @@ class User extends Authenticatable
      */
     public function attribute(): HasOne
     {
-        return $this->hasOne( UserAttribute::class, 'user_id', 'id' );
+        return $this->hasOne(UserAttribute::class, 'user_id', 'id');
     }
 
     /**
@@ -130,12 +128,12 @@ class User extends Authenticatable
     /**
      * Assign user to a role
      */
-    public function assignRole( $roleName )
+    public function assignRole($roleName)
     {
-        if ( $role = Role::namespace( $roleName ) ) {
-            $combinaison = UserRoleRelation::combinaison( $this, $role )->first();
+        if ($role = Role::namespace($roleName)) {
+            $combinaison = UserRoleRelation::combinaison($this, $role)->first();
 
-            if ( ! $combinaison instanceof UserRoleRelation ) {
+            if (! $combinaison instanceof UserRoleRelation) {
                 $combinaison = new UserRoleRelation;
             }
 
@@ -144,31 +142,31 @@ class User extends Authenticatable
             $combinaison->save();
 
             return [
-                'status'    =>  'success',
-                'message'   =>  __( 'The role was successfully assigned.' )
+                'status' => 'success',
+                'message' => __('The role was successfully assigned.'),
             ];
-        } else if ( is_array( $roleName ) ) {
-            collect( $roleName )->each( fn( $role ) => $this->assignRole( $role ) );
+        } elseif (is_array($roleName)) {
+            collect($roleName)->each(fn($role) => $this->assignRole($role));
 
             return [
-                'status'    =>  'success',
-                'message'   =>  __( 'The role were successfully assigned.' )
+                'status' => 'success',
+                'message' => __('The role were successfully assigned.'),
             ];
         }
 
         return [
-            'status'    =>  'failed',
-            'message'   =>  __( 'Unable to identifier the provided role.' )
+            'status' => 'failed',
+            'message' => __('Unable to identifier the provided role.'),
         ];
     }
 
     /**
      * Quick access to user options
      */
-    public function options( $option, $default = null )
+    public function options($option, $default = null)
     {
-        $options = new UserOptions( $this->id );
+        $options = new UserOptions($this->id);
 
-        return $options->get( $option, $default );
+        return $options->get($option, $default);
     }
 }

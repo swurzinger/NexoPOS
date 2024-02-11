@@ -4,7 +4,6 @@ namespace App\Jobs;
 
 use App\Services\ModulesService;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -29,7 +28,7 @@ class ClearModuleTempJob implements ShouldQueue
      *
      * @return void
      */
-    public function handle( ModulesService $modulesService )
+    public function handle(ModulesService $modulesService)
     {
         $modulesService->clearTemporaryFiles();
     }
