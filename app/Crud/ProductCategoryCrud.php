@@ -344,27 +344,27 @@ class ProductCategoryCrud extends CrudService
         $entry->displays_on_pos = (int) $entry->displays_on_pos === 1 ? __('Yes') : __('No');
 
         $entry->action(
-            identifier: 'edit',
             label: __('Edit'),
-            type: 'GOTO',
+            identifier: 'edit',
             url: ns()->url('/dashboard/' . 'products/categories' . '/edit/' . $entry->id),
-        );
-
-        $entry->action(
-            identifier: 'compute',
-            label: _('Compute Products'),
             type: 'GOTO',
-            url: ns()->url('/dashboard/' . 'products/categories' . '/compute-products/' . $entry->id),
         );
 
         $entry->action(
-            identifier: 'delete',
+            label: __('Compute Products'),
+            identifier: 'compute',
+            url: ns()->url('/dashboard/' . 'products/categories' . '/compute-products/' . $entry->id),
+            type: 'GOTO',
+        );
+
+        $entry->action(
             label: __('Delete'),
-            type: 'DELETE',
+            identifier: 'delete',
             url: ns()->url('/api/crud/ns.products-categories/' . $entry->id),
             confirm: [
                 'message' => __('Would you like to delete this ?'),
             ],
+            type: 'DELETE',
         );
 
         return $entry;
