@@ -12,7 +12,7 @@ class CrudEntry implements JsonSerializable
 
     public $__raw;
 
-    public function __construct($params)
+    public function __construct( $params )
     {
         $this->original = $params;
         $this->values = $params;
@@ -22,58 +22,79 @@ class CrudEntry implements JsonSerializable
         $this->{ '$id' } = $params[ 'id' ];
     }
 
-    public function __get($index)
+    public function addClass( $class )
+    {
+        $classes    =   explode( ' ', $this->{ '$cssClass' } ?? '' );
+        $classes[]  =   $class;
+
+        $this->{ '$cssClass' } = implode( ' ', $classes );
+    }
+
+    public function __get( $index )
     {
         return $this->values[ $index ] ?? null;
     }
 
-    public function __set($index, $value)
+    public function __set( $index, $value )
     {
         $this->values[ $index ] = $value;
     }
 
-    public function __isset($index)
+    public function __isset( $index )
     {
-        return array_key_exists($index, $this->values);
+        return array_key_exists( $index, $this->values );
     }
 
-    public function __unset($index)
+    public function __unset( $index )
     {
-        unset($this->values[ $index ]);
+        unset( $this->values[ $index ] );
     }
 
-    public function getOriginalValue($index)
+    public function getOriginalValue( $index )
     {
         return $this->original[ $index ];
     }
 
+    public function getRawValue( $index )
+    {
+        return $this->original[ $index ] ?? null;
+    }
+
     public function jsonSerialize()
     {
+        $this->filterActions();
+
         return $this->values;
     }
 
-    /**
-     * use "action" method instead
-     *
-     * @deprecated
-     */
-    public function addAction($identifier, $action)
+    public function action( $label, $identifier, $url = 'javascript:void(0)', $confirm = null, $type = 'GOTO', $permissions = [] )
     {
-        $this->values[ '$actions' ][ $identifier ] = $action;
+        $this->values[ '$actions' ][ $identifier ] = compact( 'label', 'identifier', 'url', 'confirm', 'type', 'permissions' );
     }
 
-    public function action($label, $identifier, $url = 'javascript:void(0)', $confirm = null, $type = 'GOTO')
+    public function removeAction( $identifier )
     {
-        $this->values[ '$actions' ][ $identifier ] = compact('label', 'identifier', 'url', 'confirm', 'type');
+        unset( $this->values[ '$actions' ][ $identifier ] );
     }
 
-    public function removeAction($identifier)
+    private function filterActions()
     {
-        unset($this->values[ '$actions' ][ $identifier ]);
+        /**
+         * if the $actions are set, and permissions are provided, we'll filter the actions
+         * to restrict it to allowed users.
+         */
+        if ( isset( $this->values[ '$actions' ] ) ) {
+            $this->values[ '$actions' ] = collect( $this->values[ '$actions' ] )->filter( function ( $action ) {
+                return ( isset( $action[ 'permissions' ] ) && count( $action[ 'permissions' ] ) > 0 )
+                    ? ns()->allowedTo( $action[ 'permissions' ] ) : true;
+            } )->toArray();
+        }
     }
 
     public function toArray()
     {
+        $this->filterActions();
+
         return $this->values;
     }
 }

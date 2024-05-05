@@ -2,6 +2,8 @@
 
 namespace App\Crud;
 
+use App\Casts\CurrencyCast;
+use App\Classes\CrudTable;
 use App\Exceptions\NotAllowedException;
 use App\Models\TransactionHistory;
 use App\Models\User;
@@ -12,6 +14,16 @@ use TorMorten\Eventy\Facades\Events as Hook;
 
 class TransactionsHistoryCrud extends CrudService
 {
+    /**
+     * Define the autoload status
+     */
+    const AUTOLOAD = true;
+
+    /**
+     * Define the identifier
+     */
+    const IDENTIFIER = 'ns.transactions-history';
+
     /**
      * define the base table
      *
@@ -47,9 +59,9 @@ class TransactionsHistoryCrud extends CrudService
      */
     protected $permissions = [
         'create' => false,
-        'read' => true,
+        'read' => 'nexopos.read.transactions-history',
         'update' => false,
-        'delete' => false,
+        'delete' => 'nexopos.delete.transactions-history',
     ];
 
     /**
@@ -59,7 +71,9 @@ class TransactionsHistoryCrud extends CrudService
      * @param array
      */
     public $relations = [
-        [ 'nexopos_transactions as transaction', 'transaction.id', '=', 'nexopos_transactions_histories.transaction_id' ],
+        'leftJoin' => [
+            [ 'nexopos_transactions as transaction', 'transaction.id', '=', 'nexopos_transactions_histories.transaction_id' ]
+        ],
         [ 'nexopos_users as users', 'users.id', '=', 'nexopos_transactions_histories.author' ],
         [ 'nexopos_transactions_accounts as transactions_accounts', 'transactions_accounts.id', '=', 'nexopos_transactions_histories.transaction_account_id' ],
     ];
@@ -121,13 +135,9 @@ class TransactionsHistoryCrud extends CrudService
      */
     public $skippable = [];
 
-    /**
-     * Determine if the options column should display
-     * before the crud columns
-     */
-    protected $prependOptions = false;
-
-    protected $showOptions = false;
+    protected $casts    =   [
+        'value' =>  CurrencyCast::class,
+    ];
 
     /**
      * Define Constructor
@@ -136,7 +146,7 @@ class TransactionsHistoryCrud extends CrudService
     {
         parent::__construct();
 
-        Hook::addFilter($this->namespace . '-crud-actions', [ $this, 'addActions' ], 10, 2);
+        Hook::addFilter( $this->namespace . '-crud-actions', [ $this, 'addActions' ], 10, 2 );
     }
 
     /**
@@ -147,25 +157,25 @@ class TransactionsHistoryCrud extends CrudService
      **/
     public function getLabels()
     {
-        return [
-            'list_title' => __('Transactions History List'),
-            'list_description' => __('Display all transaction history.'),
-            'no_entry' => __('No transaction history has been registered'),
-            'create_new' => __('Add a new transaction history'),
-            'create_title' => __('Create a new transaction history'),
-            'create_description' => __('Register a new transaction history and save it.'),
-            'edit_title' => __('Edit transaction history'),
-            'edit_description' => __('Modify  Transactions history.'),
-            'back_to_list' => __('Return to Transactions History'),
-        ];
+        return CrudTable::labels(
+            list_title: __( 'Transactions History List' ),
+            list_description: __( 'Display all transaction history.' ),
+            no_entry: __( 'No transaction history has been registered' ),
+            create_new: __( 'Add a new transaction history' ),
+            create_title: __( 'Create a new transaction history' ),
+            create_description: __( 'Register a new transaction history and save it.' ),
+            edit_title: __( 'Edit transaction history' ),
+            edit_description: __( 'Modify  Transactions history.' ),
+            back_to_list: __( 'Return to Transactions History' ),
+        );
     }
 
-    public function hook($query): void
+    public function hook( $query ): void
     {
-        $query->orderBy('updated_at', 'DESC');
+        $query->orderBy( 'updated_at', 'DESC' );
 
-        if (! empty(request()->query('transaction_id'))) {
-            $query->where('transaction_id', request()->query('transaction_id'));
+        if ( ! empty( request()->query( 'transaction_id' ) ) ) {
+            $query->where( 'transaction_id', request()->query( 'transaction_id' ) );
         }
     }
 
@@ -173,7 +183,7 @@ class TransactionsHistoryCrud extends CrudService
      * Check whether a feature is enabled
      *
      **/
-    public function isEnabled($feature): bool
+    public function isEnabled( $feature ): bool
     {
         return false; // by default
     }
@@ -184,7 +194,7 @@ class TransactionsHistoryCrud extends CrudService
      * @param object/null
      * @return array of field
      */
-    public function getForm($entry = null)
+    public function getForm( $entry = null )
     {
         return [
             // ...
@@ -197,7 +207,7 @@ class TransactionsHistoryCrud extends CrudService
      * @param array of fields
      * @return array of fields
      */
-    public function filterPostInputs($inputs)
+    public function filterPostInputs( $inputs )
     {
         return $inputs;
     }
@@ -208,7 +218,7 @@ class TransactionsHistoryCrud extends CrudService
      * @param array of fields
      * @return array of fields
      */
-    public function filterPutInputs($inputs, TransactionHistory $entry)
+    public function filterPutInputs( $inputs, TransactionHistory $entry )
     {
         return $inputs;
     }
@@ -216,13 +226,13 @@ class TransactionsHistoryCrud extends CrudService
     /**
      * Before saving a record
      *
-     * @param Request $request
+     * @param  Request $request
      * @return void
      */
-    public function beforePost($request)
+    public function beforePost( $request )
     {
-        if ($this->permissions[ 'create' ] !== false) {
-            ns()->restrict($this->permissions[ 'create' ]);
+        if ( $this->permissions[ 'create' ] !== false ) {
+            ns()->restrict( $this->permissions[ 'create' ] );
         } else {
             throw new NotAllowedException;
         }
@@ -233,10 +243,10 @@ class TransactionsHistoryCrud extends CrudService
     /**
      * After saving a record
      *
-     * @param Request $request
+     * @param  Request $request
      * @return void
      */
-    public function afterPost($request, TransactionHistory $entry)
+    public function afterPost( $request, TransactionHistory $entry )
     {
         return $request;
     }
@@ -247,9 +257,9 @@ class TransactionsHistoryCrud extends CrudService
      * @param string
      * @return mixed
      */
-    public function get($param)
+    public function get( $param )
     {
-        switch ($param) {
+        switch ( $param ) {
             case 'model': return $this->model;
                 break;
         }
@@ -262,10 +272,10 @@ class TransactionsHistoryCrud extends CrudService
      * @param object entry
      * @return void
      */
-    public function beforePut($request, $entry)
+    public function beforePut( $request, $entry )
     {
-        if ($this->permissions[ 'update' ] !== false) {
-            ns()->restrict($this->permissions[ 'update' ]);
+        if ( $this->permissions[ 'update' ] !== false ) {
+            ns()->restrict( $this->permissions[ 'update' ] );
         } else {
             throw new NotAllowedException;
         }
@@ -280,7 +290,7 @@ class TransactionsHistoryCrud extends CrudService
      * @param object entry
      * @return void
      */
-    public function afterPut($request, $entry)
+    public function afterPut( $request, $entry )
     {
         return $request;
     }
@@ -290,9 +300,9 @@ class TransactionsHistoryCrud extends CrudService
      *
      * @return void
      */
-    public function beforeDelete($namespace, $id, $model)
+    public function beforeDelete( $namespace, $id, $model )
     {
-        if ($namespace == 'ns.transactions-history') {
+        if ( $namespace == 'ns.transactions-history' ) {
             /**
              *  Perform an action before deleting an entry
              *  In case something wrong, this response can be returned
@@ -302,8 +312,8 @@ class TransactionsHistoryCrud extends CrudService
              *      'message'   =>  __( 'You\re not allowed to do that.' )
              *  ], 403 );
              **/
-            if ($this->permissions[ 'delete' ] !== false) {
-                ns()->restrict($this->permissions[ 'delete' ]);
+            if ( $this->permissions[ 'delete' ] !== false ) {
+                ns()->restrict( $this->permissions[ 'delete' ] );
             } else {
                 throw new NotAllowedException;
             }
@@ -315,46 +325,35 @@ class TransactionsHistoryCrud extends CrudService
      */
     public function getColumns(): array
     {
-        return [
-            'name' => [
-                'label' => __('Name'),
-                '$direction' => '',
-                '$sort' => false,
-            ],
-            'transactions_accounts_name' => [
-                'label' => __('Account Name'),
-                '$direction' => '',
-                '$sort' => false,
-            ],
-            'operation' => [
-                'label' => __('Operation'),
-                '$direction' => '',
-                '$sort' => false,
-            ],
-            'value' => [
-                'label' => __('Value'),
-                '$direction' => '',
-                '$sort' => false,
-            ],
-            'users_username' => [
-                'label' => __('Author'),
-                '$direction' => '',
-                '$sort' => false,
-            ],
-            'created_at' => [
-                'label' => __('Created_at'),
-                '$direction' => '',
-                '$sort' => false,
-            ],
-        ];
+        return CrudTable::columns(
+            CrudTable::column( __( 'Name' ), 'name' ),
+            CrudTable::column( __( 'Status' ), 'status' ),
+            CrudTable::column( __( 'Account Name' ), 'transactions_accounts_name' ),
+            CrudTable::column( __( 'Operation' ), 'operation' ),
+            CrudTable::column( __( 'Value' ), 'value' ),
+            CrudTable::column( __( 'Author' ), 'users_username' ),
+            CrudTable::column( __( 'Triggered On' ), 'trigger_date' ),
+        );
     }
 
     /**
      * Define actions
      */
-    public function addActions(CrudEntry $entry, $namespace)
+    public function setActions( CrudEntry $entry ): CrudEntry
     {
-        $entry->value = (string) ns()->currency->define($entry->value);
+        if ( $entry->status === TransactionHistory::STATUS_PENDING ) {
+            $entry->addClass( 'info' );
+        }
+
+        $entry->action(
+            label: '<i class="mr-2 las la-trash"></i> ' . __( 'Delete' ),
+            identifier: 'delete',
+            url: ns()->url( 'api/crud/' . self::IDENTIFIER . '/' . $entry->id ),
+            type: 'DELETE',
+            confirm: [
+                'message'   =>  __( 'Are you sure you want to delete this transaction history?' ),
+            ]
+        );
 
         return $entry;
     }
@@ -365,41 +364,41 @@ class TransactionsHistoryCrud extends CrudService
      * @param  object Request with object
      * @return  false/array
      */
-    public function bulkAction(Request $request)
+    public function bulkAction( Request $request )
     {
         /**
          * Deleting licence is only allowed for admin
          * and supervisor.
          */
-        if ($request->input('action') == 'delete_selected') {
+        if ( $request->input( 'action' ) == 'delete_selected' ) {
             /**
              * Will control if the user has the permissoin to do that.
              */
-            if ($this->permissions[ 'delete' ] !== false) {
-                ns()->restrict($this->permissions[ 'delete' ]);
+            if ( $this->permissions[ 'delete' ] !== false ) {
+                ns()->restrict( $this->permissions[ 'delete' ] );
             } else {
                 throw new NotAllowedException;
             }
 
             $status = [
                 'success' => 0,
-                'failed' => 0,
+                'error' => 0,
             ];
 
-            foreach ($request->input('entries') as $id) {
-                $entity = $this->model::find($id);
-                if ($entity instanceof TransactionHistory) {
+            foreach ( $request->input( 'entries' ) as $id ) {
+                $entity = $this->model::find( $id );
+                if ( $entity instanceof TransactionHistory ) {
                     $entity->delete();
                     $status[ 'success' ]++;
                 } else {
-                    $status[ 'failed' ]++;
+                    $status[ 'error' ]++;
                 }
             }
 
             return $status;
         }
 
-        return Hook::filter($this->namespace . '-catch-action', false, $request);
+        return Hook::filter( $this->namespace . '-catch-action', false, $request );
     }
 
     /**
@@ -410,11 +409,11 @@ class TransactionsHistoryCrud extends CrudService
     public function getLinks(): array
     {
         return [
-            'list' => ns()->url('dashboard/' . 'history'),
-            'create' => ns()->url('dashboard/' . 'history/create'),
-            'edit' => ns()->url('dashboard/' . 'history/edit/'),
-            'post' => ns()->url('api/crud/' . 'ns.transactions-history'),
-            'put' => ns()->url('api/crud/' . 'ns.transactions-history/{id}' . ''),
+            'list' => ns()->url( 'dashboard/' . 'history' ),
+            'create' => ns()->url( 'dashboard/' . 'history/create' ),
+            'edit' => ns()->url( 'dashboard/' . 'history/edit/' ),
+            'post' => ns()->url( 'api/crud/' . 'ns.transactions-history' ),
+            'put' => ns()->url( 'api/crud/' . 'ns.transactions-history/{id}' . '' ),
         ];
     }
 
@@ -425,15 +424,15 @@ class TransactionsHistoryCrud extends CrudService
      **/
     public function getBulkActions(): array
     {
-        return Hook::filter($this->namespace . '-bulk', [
+        return Hook::filter( $this->namespace . '-bulk', [
             [
-                'label' => __('Delete Selected Groups'),
+                'label' => __( 'Delete Selected Groups' ),
                 'identifier' => 'delete_selected',
-                'url' => ns()->route('ns.api.crud-bulk-actions', [
+                'url' => ns()->route( 'ns.api.crud-bulk-actions', [
                     'namespace' => $this->namespace,
-                ]),
+                ] ),
             ],
-        ]);
+        ] );
     }
 
     /**

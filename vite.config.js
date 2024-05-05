@@ -2,9 +2,9 @@ import { defineConfig, loadEnv } from 'vite';
 
 import esmifyPlugin from './esmify';
 import laravel from 'laravel-vite-plugin';
-import vuePlugin from '@vitejs/plugin-vue';
-import { resolve } from 'path';
 import mkcert from 'vite-plugin-mkcert';
+import { resolve } from 'path';
+import vuePlugin from '@vitejs/plugin-vue';
 
 export default ({ mode }) => {
     process.env = {...process.env, ...loadEnv(mode, process.cwd())};
@@ -36,17 +36,6 @@ export default ({ mode }) => {
             ]
         },
         plugins: [
-            mkcert(),
-            esmifyPlugin(),
-            vuePlugin({
-                template: {
-                    transformAssetUrls: {
-                        base: null,
-                        includeAbsolute: false,
-                    },
-                },
-                isProduction: false,
-            }),
             laravel({
                 input: [
                     'resources/ts/bootstrap.ts',
@@ -76,6 +65,17 @@ export default ({ mode }) => {
                     'resources/views/**',
                     'resources/sass/**'
                 ],
+            }),
+            mkcert(),
+        //     esmifyPlugin(),
+            vuePlugin({
+                template: {
+                    transformAssetUrls: {
+                        base: null,
+                        includeAbsolute: false,
+                    },
+                },
+                isProduction: false,
             }),
         ],
     });

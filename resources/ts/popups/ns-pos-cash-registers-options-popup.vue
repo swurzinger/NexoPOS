@@ -5,6 +5,7 @@ import nsPosCashRegistersHistoryVue from './ns-pos-cash-registers-history-popup.
 import popupResolver from '~/libraries/popup-resolver';
 import { __ } from '~/libraries/lang';
 import { nsCurrency } from '~/filters/currency';
+import { nsSnackBar } from '~/bootstrap';
 import {Popup} from "~/libraries/popup";
 import {Register} from "~/interfaces/register";
 import NsCloseButton from "~/components/ns-close-button.vue";
@@ -39,6 +40,14 @@ export default {
         popupCloser,
 
         loadRegisterSummary() {
+            if ( this.settings.register === undefined ) {
+                setTimeout( () => {
+                    this.popup.close();
+                }, 500 );
+
+                return nsSnackBar.error( __( 'The register is not yet loaded.' ) ).subscribe();
+            }
+
             nsHttpClient.get( `/api/cash-registers/${this.settings.register.id}` )
                 .subscribe( result => {
                     this.register   =   result;
@@ -47,7 +56,7 @@ export default {
 
         closePopup() {
             this.popupResolver({
-                status: 'failed',
+                status: 'error',
                 button: 'close_popup'
             });
         },
@@ -102,7 +111,7 @@ export default {
                     ...response
                 });
             } catch( exception ) {
-                throw exception;
+                console.log({exception});
             }
         },
 

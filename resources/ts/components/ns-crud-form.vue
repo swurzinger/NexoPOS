@@ -18,7 +18,7 @@ export default {
     mounted() {
         this.loadForm();
     },
-    props: [ 'src', 'createUrl', 'fieldClass', 'returnUrl', 'submitUrl', 'submitMethod', 'disableTabs', 'queryParams', 'popup' ],
+    props: [ 'src', 'createUrl', 'fieldClass', 'returnUrl', 'submitUrl', 'submitMethod', 'disableTabs', 'queryParams', 'popup', 'optionAttributes' ],
     computed: {
         activeTabFields() {
             for( let identifier in this.form.tabs ) {
@@ -47,10 +47,13 @@ export default {
             this.form.tabs[ identifier ].active     =   true;
         },
         async handleSaved( event, activeTabIdentifier, field ) {
-            const raw = await this.loadForm();
-
-            raw.form.tabs[ activeTabIdentifier ].fields.filter( __field => {
+            this.form.tabs[ activeTabIdentifier ].fields.filter( __field => {
                 if ( __field.name === field.name && event.data.entry ) {
+                    __field.options.push({
+                        label: event.data.entry[ this.optionAttributes.label ],
+                        value: event.data.entry[ this.optionAttributes.value ]
+                    });
+
                     __field.value = event.data.entry.id;
                 }
             });
@@ -166,7 +169,7 @@ export default {
         <ns-spinner />
     </div>
     <div class="form flex-auto" v-if="Object.values( form ).length > 0" :class="popup ? 'bg-box-background w-95vw md:w-2/3-screen' : ''" id="crud-form" >
-        <div class="box-header border-b box-border p-2 flex justify-between items-center" v-if="popup">
+        <div class="box-header border-b border-box-edge box-border p-2 flex justify-between items-center" v-if="popup">
             <h2 class="text-primary font-bold text-lg">{{ popup.params.title }}</h2>
             <div>
                 <ns-close-button @click="handleClose()"></ns-close-button>

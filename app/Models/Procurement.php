@@ -2,31 +2,29 @@
 
 namespace App\Models;
 
-use App\Events\ProcurementAfterCreateEvent;
 use App\Events\ProcurementAfterDeleteEvent;
 use App\Events\ProcurementAfterUpdateEvent;
-use App\Events\ProcurementBeforeCreateEvent;
 use App\Events\ProcurementBeforeDeleteEvent;
 use App\Events\ProcurementBeforeUpdateEvent;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
- * @property int $id
- * @property mixed $name
- * @property int $provider_id
- * @property float $value
- * @property float $cost
- * @property float $tax_value
- * @property mixed $invoice_reference
- * @property bool $automatic_approval
+ * @property int            $id
+ * @property mixed          $name
+ * @property int            $provider_id
+ * @property float          $value
+ * @property float          $cost
+ * @property float          $tax_value
+ * @property mixed          $invoice_reference
+ * @property bool           $automatic_approval
  * @property \Carbon\Carbon $delivery_time
  * @property \Carbon\Carbon $invoice_date
- * @property mixed $payment_status
- * @property mixed $delivery_status
- * @property int $total_items
- * @property string $description
- * @property int $author
- * @property mixed $uuid
+ * @property mixed          $payment_status
+ * @property mixed          $delivery_status
+ * @property int            $total_items
+ * @property string         $description
+ * @property int            $author
+ * @property mixed          $uuid
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
  */
@@ -80,8 +78,6 @@ class Procurement extends NsModel
     const PAYMENT_PAID = 'paid';
 
     protected $dispatchesEvents = [
-        'creating' => ProcurementBeforeCreateEvent::class,
-        'created' => ProcurementAfterCreateEvent::class,
         'deleting' => ProcurementBeforeDeleteEvent::class,
         'updating' => ProcurementBeforeUpdateEvent::class,
         'updated' => ProcurementAfterUpdateEvent::class,
@@ -90,21 +86,21 @@ class Procurement extends NsModel
 
     public function products()
     {
-        return $this->hasMany(ProcurementProduct::class, 'procurement_id');
+        return $this->hasMany( ProcurementProduct::class, 'procurement_id' );
     }
 
     public function provider()
     {
-        return $this->belongsTo(Provider::class);
+        return $this->belongsTo( Provider::class );
     }
 
-    public function scopePending($query)
+    public function scopePending( $query )
     {
-        return $query->where('delivery_status', self::PENDING);
+        return $query->where( 'delivery_status', self::PENDING );
     }
 
-    public function scopeAutoApproval($query)
+    public function scopeAutoApproval( $query )
     {
-        return $query->where('automatic_approval', true);
+        return $query->where( 'automatic_approval', true );
     }
 }

@@ -65,19 +65,9 @@ export default {
     mounted() {
         document.addEventListener( 'click', this.checkClickedItem );
 
-        if ( ns.websocket.enabled ) {
-            Echo.private( `ns.private-channel` )
-                .listen( 'App\\Events\\NotificationDispatchedEvent', (e) => {
-                    this.pushNotificationIfNew( e.notification );
-                })
-                .listen( 'App\\Events\\NotificationDeletedEvent', (e) => {
-                    this.deleteNotificationIfExists( e.notification );
-                });
-        } else {
-            this.interval   =   setInterval( () => {
-                this.loadNotifications();
-            }, 15000 );
-        }
+        this.interval   =   setInterval( () => {
+            this.loadNotifications();
+        }, 15000 );
 
         this.loadNotifications();
     },

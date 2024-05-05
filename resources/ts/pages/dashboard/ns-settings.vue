@@ -31,12 +31,13 @@
         </div>
     </div>
 </template>
-<script>
+<script lang="ts">
 import { __ } from '~/libraries/lang';
-import { nsHooks, nsHttpClient, nsSnackBar } from '~/bootstrap';
 import FormValidation from '~/libraries/form-validation';
 import nsField from '~/components/ns-field.vue';
 import { shallowRef } from '@vue/reactivity';
+
+declare const nsExtraComponents, nsHooks, nsHttpClient, nsSnackBar;
 
 export default {
     name: 'ns-settings',
@@ -76,6 +77,15 @@ export default {
     },
     methods: {
         __,
+        /**
+         * @todo Here we're reloading the settings once we have
+         * a "saved" event dispatched by one of the fields. It might be an issue
+         * if the user hasn't saved a settings yet and try to use a field that dispaches the "saved" event.
+         * This will cause the form to reset. We might proceed with partial loading
+         * 
+         * @param event 
+         * @param field 
+         */
         async handleSaved( event, field ) {
             const form = await this.loadSettingsForm( this.activeTab );
 
@@ -126,7 +136,7 @@ export default {
 
                 if ( result.data && result.data.results ) {
                     result.data.results.forEach( response => {
-                        if ( response.status === 'failed' ) {
+                        if ( response.status === 'error' ) {
                             nsSnackBar.error( response.message ).subscribe();
                         } else {
                             nsSnackBar.success( response.message ).subscribe();

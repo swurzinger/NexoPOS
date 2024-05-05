@@ -4,8 +4,13 @@
         "modules"
     ],
     "rules": {
-        "no_spaces_inside_parenthesis": false,
-        "Laravel/laravel_phpdoc_alignment": false,
+        "phpdoc_align": {
+            "align" : "vertical"
+        },
+        "cast_spaces": "single",
+        "spaces_inside_parentheses": {
+            "space": "single"
+        },
         "function_declaration": false,
         "trim_array_spaces": false,
         "no_spaces_around_offset": {

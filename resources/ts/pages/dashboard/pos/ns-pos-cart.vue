@@ -79,7 +79,7 @@
                                 </h3>
                                 <div class="-mx-1 flex product-options">
                                     <div class="px-1">
-                                        <a @click="remove( product )" class="hover:text-error-secondary cursor-pointer outline-none border-dashed py-1 border-b border-error-secondary text-sm">
+                                        <a @click="removeUsingIndex( index )" class="hover:text-error-secondary cursor-pointer outline-none border-dashed py-1 border-b border-error-secondary text-sm">
                                             <i class="las la-trash text-xl"></i>
                                         </a>
                                     </div>
@@ -235,7 +235,7 @@
                     </table>
                 </div>
                 <div class="h-16 flex flex-shrink-0 border-t border-box-edge" id="cart-bottom-buttons">
-                    <template v-for="button of (new Array(4)).fill()" v-if="Object.keys( cartButtons ).length === 0"> 
+                    <template v-for="button of (new Array(4)).fill()" v-if="Object.keys( cartButtons ).length === 0">
                         <div :class="takeRandomClass()" class="animate-pulse flex-shrink-0 w-1/4 flex items-center font-bold cursor-pointer justify-center  border-r  flex-auto">
                             <i class="mx-4 rounded-full bg-slate-300 h-5 w-5"></i>
                             <div class="text-lg mr-4 hidden md:flex md:flex-auto lg:text-2xl">
@@ -561,7 +561,7 @@ export default {
             Popup.show( nsPosCustomerPopupVue );
         },
 
-        openDiscountPopup( reference, type, productIndex = null ) {
+        async openDiscountPopup( reference, type, productIndex = null ) {
             if ( ! this.settings.products_discount && type === 'product' ) {
                 return nsSnackBar.error( __( `You're not allowed to add a discount on the product.` ) ).subscribe();
             }
@@ -570,19 +570,27 @@ export default {
                 return nsSnackBar.error( __( `You're not allowed to add a discount on the cart.` ) ).subscribe();
             }
 
-            Popup.show( nsPosDiscountPopupVue, {
-                reference,
-                type,
-                onSubmit( response ) {
-                    if ( type === 'product' ) {
-                        POS.updateProduct( reference, response, productIndex );
-                    } else if ( type === 'cart' ) {
-                        POS.updateCart( reference, response );
-                    }
-                }
-            }, {
-                popupClass: 'bg-white h:2/3 shadow-lg xl:w-1/4 lg:w-2/5 md:w-2/3 w-full'
-            })
+            try {
+                const promise   =   await new Promise( ( resolve, reject ) => {
+                    Popup.show( nsPosDiscountPopupVue, {
+                        reference,
+                        resolve,
+                        reject,
+                        type,
+                        onSubmit( response ) {
+                            if ( type === 'product' ) {
+                                POS.updateProduct( reference, response, productIndex );
+                            } else if ( type === 'cart' ) {
+                                POS.updateCart( reference, response );
+                            }
+                        }
+                    }, {
+                        popupClass: 'bg-white h:2/3 shadow-lg xl:w-1/4 lg:w-2/5 md:w-2/3 w-full'
+                    })
+                })
+            } catch ( exception ) {
+                // the popup might just be closed...
+            }
         },
 
         toggleMode( product, index ) {
@@ -612,13 +620,13 @@ export default {
                 });
             }
         },
-        remove( product ) {
+        removeUsingIndex( index ) {
             Popup.show( PosConfirmPopup, {
                 title: __( 'Confirm Your Action' ),
                 message: __( 'Would you like to delete this product ?' ),
                 onAction( action ) {
                     if ( action ) {
-                        POS.removeProduct( toRaw(product) );
+                        POS.removeProductUsingIndex( index );
                     }
                 }
             });

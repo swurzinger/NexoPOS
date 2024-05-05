@@ -11,10 +11,20 @@ export default function() {
          * We'll listen to "esc" keypress
          * but proceed in certain conditions.
          */
-        const identifier = 'popup-esc-' + (Math.random() + 1).toString(36).substring(7);
+        const identifier =  `popup-esc-${this.popup.hash}`;
         nsHotPress.create( identifier )
             .whenPressed( 'escape', ( event ) => {
                 event.preventDefault();
+
+                const currentPopup = document.querySelector( `#${this.popup.hash}` );
+
+                /**
+                 * If the popup is not focused then
+                 * we don't want to close it.
+                 */
+                if ( currentPopup && currentPopup.getAttribute( 'focused' ) !== 'true' ) {
+                    return;
+                }
 
                 /**
                  * We want to check if there is a popup that is

@@ -10,7 +10,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 
-class ProcessAccountingRecordFromSale implements ShouldQueue
+class ProcessAccountingRecordFromSaleJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, NsSerialize, Queueable;
 
@@ -19,7 +19,7 @@ class ProcessAccountingRecordFromSale implements ShouldQueue
      *
      * @return void
      */
-    public function __construct(public Order $order)
+    public function __construct( public Order $order )
     {
         $this->prepareSerialization();
     }
@@ -29,8 +29,8 @@ class ProcessAccountingRecordFromSale implements ShouldQueue
      *
      * @return void
      */
-    public function handle(TransactionService $transactionService)
+    public function handle( TransactionService $transactionService )
     {
-        $transactionService->handleCreatedOrder($this->order);
+        $transactionService->handleOrder( $this->order );
     }
 }
