@@ -38,10 +38,12 @@
         </div>
     </div>
 </template>
-<script>
+<script lang="ts">
 import { nsHooks } from '~/bootstrap';
 import { __ } from '~/libraries/lang';
+import popupCloser from '~/libraries/popup-closer';
 import {nsCurrency} from "~/filters/currency";
+
 export default {
     props: [ 'orders' ],
     data() {
@@ -65,7 +67,7 @@ export default {
             });
         }
     },
-    
+
     mounted() {
 
         this.columns.leftColumn    =   nsHooks.applyFilters( 'ns-pending-orders-left-column', [
@@ -96,10 +98,13 @@ export default {
                 value: ( order ) => order.type
             },
         ]);
+
+        this.popupCloser();
     },
     name: "ns-pos-pending-order",
     methods: {
         __,
+popupCloser,
 
         previewOrder( order ) {
             this.$emit( 'previewOrder', order );

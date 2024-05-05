@@ -16,45 +16,45 @@ class CreateOrderTest extends TestCase
      *
      * @return void
      */
-    private function testPostingOrder($callback = null)
+    public function testPostingOrder( $callback = null )
     {
         $this->count = 2;
         $this->totalDaysInterval = 3;
 
-        if ($this->defaultProcessing) {
+        if ( $this->defaultProcessing ) {
             $this->attemptAuthenticate();
 
-            return $this->attemptPostOrder($callback);
+            return $this->attemptPostOrder( $callback );
         } else {
-            $this->assertTrue(true); // because we haven't performed any test.
+            $this->assertTrue( true ); // because we haven't performed any test.
         }
     }
 
-    private function testCreateAndEditOrderWithLowStock()
+    public function testCreateAndEditOrderWithLowStock()
     {
         $this->attemptAuthenticate();
         $this->attemptCreateAndEditOrderWithLowStock();
     }
 
-    private function testCreateAndEditOrderByDeductedGreaterQuantity()
+    public function testCreateAndEditOrderByDeductedGreaterQuantity()
     {
         $this->attemptAuthenticate();
         $this->attemptCreateAndEditOrderWithGreaterQuantity();
     }
 
-    private function testHoldAndCheckoutOrder()
+    public function testHoldAndCheckoutOrder()
     {
         $this->attemptAuthenticate();
         $this->attemptHoldAndCheckoutOrder();
     }
 
-    private function testHoldAndCheckoutOrderWithGroupedProducts()
+    public function testHoldAndCheckoutOrderWithGroupedProducts()
     {
         $this->attemptAuthenticate();
         $this->attemptHoldOrderAndCheckoutWithGroupedProducts();
     }
 
-    private function testDeletedVoidedOrder()
+    public function testDeletedVoidedOrder()
     {
         $this->attemptAuthenticate();
         $this->attemptDeleteVoidedOrder();
@@ -70,9 +70,9 @@ class CreateOrderTest extends TestCase
         $this->attemptCreateOrderPaidWithCustomerBalance();
     }
 
-    public function testCreateOrderWithNoPayment($callback = null)
+    public function testCreateOrderWithNoPayment( $callback = null )
     {
-        if ($this->defaultProcessing) {
+        if ( $this->defaultProcessing ) {
             $this->attemptAuthenticate();
 
             $this->count = 1;
@@ -85,11 +85,11 @@ class CreateOrderTest extends TestCase
                 'discount' => 0,
             ];
 
-            $responses = $this->attemptPostOrder($callback);
+            $responses = $this->attemptPostOrder( $callback );
 
-            $this->assertEquals(Order::PAYMENT_UNPAID, $responses[0][0][ 'order-creation' ][ 'data' ][ 'order' ][ 'payment_status' ]);
+            $this->assertEquals( Order::PAYMENT_UNPAID, $responses[0][0][ 'order-creation' ][ 'data' ][ 'order' ][ 'payment_status' ] );
         } else {
-            $this->assertTrue(true); // because we haven't performed any test.
+            $this->assertTrue( true ); // because we haven't performed any test.
         }
     }
 

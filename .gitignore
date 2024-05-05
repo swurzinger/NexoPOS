@@ -37,6 +37,7 @@ storage/temporary-files/*
 .idea
 .scribe
 public/hot
-database/migrations/2019_12_14_000001_create_personal_access_tokens_table.php
+tests/.coverage
 .phpunit.cache/test-results
 storage/dotenv-editor
+.cloud

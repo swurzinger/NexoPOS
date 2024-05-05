@@ -2,10 +2,11 @@
 
 namespace App\Listeners;
 
+use App\Events\OrderAfterPaymentStatusChangedEvent;
 use App\Events\OrderAfterUpdatedEvent;
 use App\Jobs\ComputeDayReportJob;
 use App\Jobs\IncreaseCashierStatsJob;
-use App\Jobs\ProcessAccountingRecordFromSale;
+use App\Jobs\ProcessAccountingRecordFromSaleJob;
 use App\Jobs\ProcessCashRegisterHistoryJob;
 use App\Jobs\ProcessCustomerOwedAndRewardsJob;
 use App\Jobs\ResolveInstalmentJob;
@@ -29,16 +30,16 @@ class OrderAfterUpdatedEventListener
      *
      * @return void
      */
-    public function handle(OrderAfterUpdatedEvent $event)
+    public function handle( OrderAfterUpdatedEvent $event )
     {
-        Bus::chain([
-            new ProcessCashRegisterHistoryJob($event->order),
-            new IncreaseCashierStatsJob($event->order),
-            new ProcessCustomerOwedAndRewardsJob($event->order),
-            new TrackOrderCouponsJob($event->order),
-            new ResolveInstalmentJob($event->order),
-            new ProcessAccountingRecordFromSale($event->order),
+        Bus::chain( [
+            new ProcessCashRegisterHistoryJob( $event->newOrder ),
+            new IncreaseCashierStatsJob( $event->newOrder ),
+            new ProcessCustomerOwedAndRewardsJob( $event->newOrder ),
+            new TrackOrderCouponsJob( $event->newOrder ),
+            new ResolveInstalmentJob( $event->newOrder ),
+            new ProcessAccountingRecordFromSaleJob( $event->newOrder ),
             new ComputeDayReportJob,
-        ])->dispatch();
+        ] )->dispatch();
     }
 }

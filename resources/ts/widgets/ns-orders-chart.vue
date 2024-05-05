@@ -8,7 +8,7 @@
         </div>
         <div class="head flex-auto flex h-56">
             <div class="w-full h-full pt-2">
-                <vue-apex-charts v-if="report" height="100%" type="area" :options="chartOptions" :series="series"></vue-apex-charts>
+                <!-- <vue-apex-charts v-if="report" height="100%" type="area" :options="chartOptions" :series="series"></vue-apex-charts> -->
             </div>
         </div>
         <div class="foot p-2 -mx-4 flex flex-wrap">
@@ -38,7 +38,6 @@
 <script>
 import { __ } from '~/libraries/lang';
 import { nsCurrency, nsRawCurrency } from '~/filters/currency';
-import VueApexCharts from 'vue3-apexcharts';
 export default {
     name: 'ns-orders-chart',
     data() {
@@ -77,9 +76,6 @@ export default {
             reportSubscription: null,
             report: null
         }
-    },
-    components: {
-        VueApexCharts
     },
     methods: {
         __,

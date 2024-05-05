@@ -63,6 +63,9 @@ import { __ } from '~/libraries/lang';
 import { nsCurrency } from '~/filters/currency';
 import {Customer} from "~/interfaces/customer";
 import {Order} from "~/interfaces/order";
+import popupCloser from '~/libraries/popup-closer';
+
+declare const POS;
 
 export default {
     props: [ 'popup' ],
@@ -97,12 +100,15 @@ export default {
         this.getRecentCustomers();
 
         this.$refs.searchField.focus();
+
+        this.popupCloser();
     },
     unmounted() {
         this.orderSubscription.unsubscribe();
     },
     methods: {
         __,
+        popupCloser,
         nsCurrency,
 
         /**

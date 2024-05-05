@@ -11,18 +11,10 @@ class ComputeTaxesFromSales extends TestCase
 {
     use WithTaxTest;
 
-    const TAX_FLAT = 'flat_vat';
-
-    const TAX_VARIABLE = 'variable_vat';
-
-    const TAX_PRODUCTS_VAT = 'products_vat';
-
-    const TAX_PRODUCTS_VAVT = 'products_variable_vat';
-
     public function test_product_tax_variable()
     {
         Sanctum::actingAs(
-            Role::namespace('admin')->users->first(),
+            Role::namespace( 'admin' )->users->first(),
             ['*']
         );
 
@@ -32,7 +24,7 @@ class ComputeTaxesFromSales extends TestCase
     public function test_tax_products_vat()
     {
         Sanctum::actingAs(
-            Role::namespace('admin')->users->first(),
+            Role::namespace( 'admin' )->users->first(),
             ['*']
         );
 
@@ -42,7 +34,7 @@ class ComputeTaxesFromSales extends TestCase
     public function test_variable_vat()
     {
         Sanctum::actingAs(
-            Role::namespace('admin')->users->first(),
+            Role::namespace( 'admin' )->users->first(),
             ['*']
         );
 
@@ -52,7 +44,7 @@ class ComputeTaxesFromSales extends TestCase
     public function test_flat_expense()
     {
         Sanctum::actingAs(
-            Role::namespace('admin')->users->first(),
+            Role::namespace( 'admin' )->users->first(),
             ['*']
         );
 
@@ -67,7 +59,7 @@ class ComputeTaxesFromSales extends TestCase
     public function test_inclusive_tax()
     {
         Sanctum::actingAs(
-            Role::namespace('admin')->users->first(),
+            Role::namespace( 'admin' )->users->first(),
             ['*']
         );
 
@@ -82,7 +74,7 @@ class ComputeTaxesFromSales extends TestCase
     public function test_exclusive_tax()
     {
         Sanctum::actingAs(
-            Role::namespace('admin')->users->first(),
+            Role::namespace( 'admin' )->users->first(),
             ['*']
         );
 

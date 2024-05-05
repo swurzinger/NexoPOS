@@ -27,7 +27,7 @@ class RegisterHistory extends NsModel
 
     const ACTION_CLOSING = 'register-closing';
 
-    const ACTION_CASHING = 'register-cash-in';
+    const ACTION_CASHIN = 'register-cash-in';
 
     const ACTION_CASHOUT = 'register-cash-out';
 
@@ -37,10 +37,17 @@ class RegisterHistory extends NsModel
 
     const ACTION_REFUND = 'register-refund';
 
+    const ACTION_CASH_CHANGE = 'register-change';
+
+    const ACTION_ACCOUNT_PAY = 'register-account-pay';
+
+    const ACTION_ACCOUNT_CHANGE = 'register-account-in';
+
     const IN_ACTIONS = [
-        self::ACTION_CASHING,
+        self::ACTION_CASHIN,
         self::ACTION_OPENING,
         self::ACTION_SALE,
+        self::ACTION_ACCOUNT_PAY,
     ];
 
     const OUT_ACTIONS = [
@@ -48,6 +55,8 @@ class RegisterHistory extends NsModel
         self::ACTION_CLOSING,
         self::ACTION_CASHOUT,
         self::ACTION_DELETE,
+        self::ACTION_CASH_CHANGE,
+        self::ACTION_ACCOUNT_CHANGE,
     ];
 
     protected $dispatchesEvents = [
@@ -63,23 +72,23 @@ class RegisterHistory extends NsModel
         );
     }
 
-    public function scopeWithRegister($query, Register $register)
+    public function scopeWithRegister( $query, Register $register )
     {
-        return $query->where('register_id', $register->id);
+        return $query->where( 'register_id', $register->id );
     }
 
-    public function scopeAction($query, $action)
+    public function scopeAction( $query, $action )
     {
-        return $query->where('action', $action);
+        return $query->where( 'action', $action );
     }
 
-    public function scopeFrom($query, $date)
+    public function scopeFrom( $query, $date )
     {
-        return $query->where('created_at', '>=', $date);
+        return $query->where( 'created_at', '>=', $date );
     }
 
-    public function scopeTo($query, $date)
+    public function scopeTo( $query, $date )
     {
-        return $query->where('created_at', '<=', $date);
+        return $query->where( 'created_at', '<=', $date );
     }
 }

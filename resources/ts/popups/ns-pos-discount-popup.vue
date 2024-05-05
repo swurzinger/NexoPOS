@@ -31,6 +31,7 @@
 import { nsCurrency } from '~/filters/currency';
 import { __ } from '~/libraries/lang';
 import popupCloser from "~/libraries/popup-closer";
+import popupResolver from '~/libraries/popup-resolver';
 import {nsNumpad, nsNumpadPlus} from "~/components/components";
 import {ref} from "@vue/reactivity";
 import NsCloseButton from "~/components/ns-close-button.vue";
@@ -74,6 +75,7 @@ export default {
     methods: {
         __,
         nsCurrency,
+        popupResolver,
         popupCloser,
 
         setPercentageType( mode ) {

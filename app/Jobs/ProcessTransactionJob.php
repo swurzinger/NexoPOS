@@ -21,7 +21,7 @@ class ProcessTransactionJob implements ShouldQueue
      *
      * @return void
      */
-    public function __construct(public Transaction $transaction)
+    public function __construct( public Transaction $transaction )
     {
         $this->prepareSerialization();
     }
@@ -31,27 +31,25 @@ class ProcessTransactionJob implements ShouldQueue
      *
      * @return void
      */
-    public function handle(TransactionService $transactionService, DateService $dateService)
+    public function handle( TransactionService $transactionService, DateService $dateService )
     {
-        switch ($this->transaction->type) {
-            case Transaction::TYPE_SCHEDULED:
-                $this->handleScheduledTransaction($transactionService, $dateService);
-                break;
-            case Transaction::TYPE_DIRECT:
-                $this->handleDirectTransaction($transactionService, $dateService);
-                break;
+        if ( in_array( $this->transaction->type, [
+            Transaction::TYPE_SCHEDULED,
+            Transaction::TYPE_ENTITY
+        ]) ) {
+            $this->handlePrepareScheduledAndEntityTransaction( $transactionService, $dateService );
+        } else if ( $this->transaction->type === Transaction::TYPE_DIRECT ) {
+            $this->handleDirectTransaction( $transactionService, $dateService );
         }
     }
 
-    public function handleScheduledTransaction(TransactionService $transactionService, DateService $dateService)
+    public function handlePrepareScheduledAndEntityTransaction( TransactionService $transactionService, DateService $dateService )
     {
-        if (Carbon::parse($this->transaction->scheduled_date)->lessThan($dateService->toDateTimeString())) {
-            $transactionService->triggerTransaction($this->transaction);
-        }
+        $transactionService->prepareTransactionHistoryRecord( $this->transaction );
     }
 
-    public function handleDirectTransaction(TransactionService $transactionService, DateService $dateService)
+    public function handleDirectTransaction( TransactionService $transactionService, DateService $dateService )
     {
-        $transactionService->triggerTransaction($this->transaction);
+        $transactionService->triggerTransaction( $this->transaction );
     }
 }

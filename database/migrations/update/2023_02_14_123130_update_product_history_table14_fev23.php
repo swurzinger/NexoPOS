@@ -1,10 +1,9 @@
 <?php
 
+use App\Classes\Schema;
 use App\Models\Migration as ModelsMigration;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
-
 return new class extends Migration
 {
     /**
@@ -14,11 +13,11 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::table('nexopos_products_histories', function (Blueprint $table) {
-            if (! Schema::hasColumn('nexopos_products_histories', 'order_product_id')) {
-                $table->integer('order_product_id')->nullable();
+        Schema::table( 'nexopos_products_histories', function ( Blueprint $table ) {
+            if ( ! Schema::hasColumn( 'nexopos_products_histories', 'order_product_id' ) ) {
+                $table->integer( 'order_product_id' )->nullable();
             }
-        });
+        } );
 
         ModelsMigration::truncate();
     }
