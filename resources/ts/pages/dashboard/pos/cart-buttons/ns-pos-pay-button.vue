@@ -31,6 +31,7 @@ export default {
                      * in case there is something broken
                      * on the promise, we just stop the queue.
                      */
+                    console.log( exception );
                     return false;
                 }
             }

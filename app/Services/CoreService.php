@@ -107,7 +107,12 @@ class CoreService
         }
 
         if ( ! $passed ) {
-            throw new NotEnoughPermissionException( $message ?: __( 'You do not have enough permissions to perform this action.' ) );
+            throw new NotEnoughPermissionException( $message ?:
+                sprintf(
+                    __( 'You do not have enough permissions to perform this action.' ) . '<br>' . __( 'Required permissions: %s' ),
+                    is_string( $permissions ) ? $permissions : implode( ', ', $permissions )
+                )
+            );
         }
     }
 
@@ -262,7 +267,7 @@ class CoreService
          * Those will be cached to avoid unecessary db calls when testing
          * wether the user has the permission or not.
          */
-        if ( Helper::installed( forceCheck: true ) ) {
+        if ( Helper::installed() ) {
             Permission::get()->each( function ( $permission ) {
                 if ( ! Gate::has( $permission->namespace ) ) {
                     Gate::define( $permission->namespace, function ( User $user ) use ( $permission ) {

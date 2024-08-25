@@ -8,7 +8,6 @@ use App\Services\DemoService;
 use App\Services\ResetService;
 use Database\Seeders\DefaultSeeder;
 use Database\Seeders\FirstDemoSeeder;
-use Exception;
 use Illuminate\Http\Request;
 
 class ResetController extends DashboardController
@@ -19,20 +18,6 @@ class ResetController extends DashboardController
         protected DateService $dateService
     ) {
         // ...
-    }
-
-    /**
-     * perform a hard reset
-     *
-     * @return array $array
-     */
-    public function hardReset( Request $request )
-    {
-        if ( $request->input( 'authorization' ) !== env( 'NS_AUTHORIZATION' ) ) {
-            throw new Exception( __( 'Invalid authorization code provided.' ) );
-        }
-
-        return $this->resetService->hardReset();
     }
 
     /**

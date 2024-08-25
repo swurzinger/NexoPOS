@@ -650,7 +650,7 @@ class CustomerService
 
         $change = abs( $orders->sum( 'change' ) );
 
-        $customer->owed_amount = ns()->currency->getRaw( $unpaid + $change );
+        $customer->owed_amount = ns()->currency->define( $unpaid )->additionateBy( $change )->toFloat();
         $customer->save();
     }
 
