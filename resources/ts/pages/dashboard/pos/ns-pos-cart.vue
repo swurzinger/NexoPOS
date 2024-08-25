@@ -561,7 +561,7 @@ export default {
             Popup.show( nsPosCustomerPopupVue );
         },
 
-        async openDiscountPopup( reference, type, productIndex = null ) {
+        async openDiscountPopup( reference, type, index = null ) {
             if ( ! this.settings.products_discount && type === 'product' ) {
                 return nsSnackBar.error( __( `You're not allowed to add a discount on the product.` ) ).subscribe();
             }
@@ -579,7 +579,7 @@ export default {
                         type,
                         onSubmit( response ) {
                             if ( type === 'product' ) {
-                                POS.updateProduct( reference, response, productIndex );
+                                POS.updateProduct( reference, response, index );
                             } else if ( type === 'cart' ) {
                                 POS.updateCart( reference, response );
                             }

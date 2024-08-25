@@ -23,9 +23,9 @@ use Illuminate\Support\Str;
 
 class DemoCoreService
 {
-    protected $categoryService;
+    protected ProductCategoryService $categoryService;
 
-    protected $productService;
+    protected ProductService $productService;
 
     protected $orderCount = 14;
 
@@ -39,15 +39,9 @@ class DemoCoreService
 
     protected $shouldMakePayment = true;
 
-    /**
-     * @var OrdersService
-     */
-    protected $orderService;
+    protected OrdersService $orderService;
 
-    /**
-     * @var ProcurementService
-     */
-    protected $procurementService;
+    protected ProcurementService $procurementService;
 
     protected $user;
 
@@ -205,6 +199,46 @@ class DemoCoreService
         ] );
 
         ns()->option->set( 'ns_customer_debitting_cashflow_account', TransactionAccount::account( '008' )->first()->id );
+
+        $transactionService->createAccount( [
+            'name' => __( 'Cashing Account' ),
+            'operation' => 'debit',
+            'account' => '009',
+        ] );
+
+        ns()->option->set( 'ns_accounting_default_cashing_account', TransactionAccount::account( '009' )->first()->id );
+
+        $transactionService->createAccount( [
+            'name' => __( 'Cashout Account' ),
+            'operation' => 'credit',
+            'account' => '010',
+        ] );
+
+        ns()->option->set( 'ns_accounting_default_cashout_account', TransactionAccount::account( '010' )->first()->id );
+
+        $transactionService->createAccount( [
+            'name' => __( 'Liability Account' ),
+            'operation' => 'debit',
+            'account' => '011',
+        ] );
+
+        ns()->option->set( 'ns_liabilities_account', TransactionAccount::account( '011' )->first()->id );
+
+        $transactionService->createAccount( [
+            'name' => __( 'Equity Account' ),
+            'operation' => 'credit',
+            'account' => '012',
+        ] );
+
+        ns()->option->set( 'ns_equity_account', TransactionAccount::account( '012' )->first()->id );
+
+        $transactionService->createAccount( [
+            'name' => __( 'Payable Accounts' ),
+            'operation' => 'credit',
+            'account' => '013',
+        ] );
+
+        ns()->option->set( 'ns_equity_account', TransactionAccount::account( '013' )->first()->id );
     }
 
     public function createCustomers()
@@ -384,12 +418,12 @@ class DemoCoreService
             $customerFirstPurchases = $customer->purchases_amount;
             $customerFirstOwed = $customer->owed_amount;
 
-            $subtotal = ns()->currency->getRaw( $products->map( function ( $product ) use ( $currency ) {
+            $subtotal = ns()->currency->define( $products->map( function ( $product ) use ( $currency ) {
                 return $currency
                     ->define( $product[ 'unit_price' ] )
                     ->multiplyBy( $product[ 'quantity' ] )
-                    ->getRaw();
-            } )->sum() );
+                    ->toFloat();
+            } )->sum() )->toFloat();
 
             $customerCoupon = CustomerCoupon::get()->last();
 
@@ -405,7 +439,7 @@ class DemoCoreService
                         'value' => $currency->define( $customerCoupon->coupon->discount_value )
                             ->multiplyBy( $subtotal )
                             ->divideBy( 100 )
-                            ->getRaw(),
+                            ->toFloat(),
                         'discount_value' => $customerCoupon->coupon->discount_value,
                         'minimum_cart_value' => $customerCoupon->coupon->minimum_cart_value,
                         'maximum_cart_value' => $customerCoupon->coupon->maximum_cart_value,
@@ -421,11 +455,11 @@ class DemoCoreService
             $discountValue = $currency->define( $discountRate )
                 ->multiplyBy( $subtotal )
                 ->divideBy( 100 )
-                ->getRaw();
+                ->toFloat();
 
             $discountCoupons = $currency->define( $discountValue )
                 ->additionateBy( $allCoupons[0][ 'value' ] ?? 0 )
-                ->getRaw();
+                ->toFloat();
 
             $dateString = $currentDate->startOfDay()->addHours(
                 $faker->numberBetween( 0, 23 )
@@ -461,7 +495,7 @@ class DemoCoreService
                             ->subtractBy(
                                 $discountCoupons
                             )
-                            ->getRaw(),
+                            ->toFloat(),
                     ],
                 ] : [],
             ], $this->customOrderParams );

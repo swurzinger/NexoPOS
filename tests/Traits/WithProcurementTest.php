@@ -4,6 +4,7 @@ namespace Tests\Traits;
 
 use App\Classes\Currency;
 use App\Models\Procurement;
+use App\Models\ProcurementProduct;
 use App\Models\Product;
 use App\Models\ProductHistory;
 use App\Models\Provider;
@@ -64,7 +65,7 @@ trait WithProcurementTest
         $existingTransaction = TransactionHistory::where( 'procurement_id', $procurement[ 'id' ] )->first();
 
         $this->assertEquals( 1, TransactionHistory::where( 'procurement_id', $procurement[ 'id' ] )->count(), 'There is more than 1 cash flow created for the same procurement.' );
-        $this->assertEquals( ns()->currency->getRaw( $existingTransaction->value ), ns()->currency->getRaw( $procurement[ 'cost' ] ), 'The cash flow value doesn\'t match the procurement cost.' );
+        $this->assertEquals( ns()->currency->define( $existingTransaction->value )->toFloat(), ns()->currency->define( $procurement[ 'cost' ] )->toFloat(), 'The cash flow value doesn\'t match the procurement cost.' );
         $this->assertTrue( $existingTransaction instanceof TransactionHistory, 'No cash flow was created after the procurement was marked as paid.' );
         $this->assertTrue( (float) $currentTransactionValue !== (float) $newTransaction, 'The transactions hasn\'t changed for the previously unpaid procurement.' );
     }
@@ -120,8 +121,8 @@ trait WithProcurementTest
          * Check: at the point, there shouldn't be any expense recorded.
          * The procurement is not paid.
          */
-        $existingExpense = CashFlow::where( 'procurement_id', $procurementId )->first();
-        $this->assertTrue( ! $existingExpense instanceof CashFlow, __( 'A cash flow has been created for an unpaid procurement.' ) );
+        $existingExpense = TransactionHistory::where( 'procurement_id', $procurementId )->first();
+        $this->assertTrue( ! $existingExpense instanceof TransactionHistory, __( 'A transaction has been created for an unpaid procurement.' ) );
 
         /**
          * Query: we store the procurement now with a paid status
@@ -146,6 +147,12 @@ trait WithProcurementTest
         $this->assertSame( (float) $existingExpense[ 'value' ], (float) $responseData[ 'data' ][ 'procurement' ][ 'cost' ], __( 'The attached procurement value doesn\'t match the transaction value.' ) );
 
         $response->assertJson( [ 'status' => 'success' ] );
+
+        /**
+         * We'll compute all the sale value of the procured product
+         * and compare it with the sale value defined on the procurements.
+         */
+        $products = ProcurementProduct::where( 'procurement_id', $responseData[ 'data' ][ 'procurement' ][ 'id' ] )->get();
 
         /**
          * We'll check if the expense value
@@ -352,8 +359,8 @@ trait WithProcurementTest
             $initialQuantity = collect( $initialQuantities )->filter( fn( $q ) => (int) $q[ 'product_id' ] === (int) $product[ 'product_id' ] && (int) $q[ 'unit_id' ] === (int) $product[ 'unit_id' ] )->first();
 
             $this->assertSame(
-                ns()->currency->define( $currentQuantity )->getRaw(),
-                ns()->currency->define( $initialQuantity[ 'current_quantity' ] )->additionateBy( $initialQuantity[ 'procured_quantity' ] )->getRaw(),
+                ns()->currency->define( $currentQuantity )->toFloat(),
+                ns()->currency->define( $initialQuantity[ 'current_quantity' ] )->additionateBy( $initialQuantity[ 'procured_quantity' ] )->toFloat(),
                 sprintf(
                     'The product "%s" didn\'t has it\'s inventory updated after a procurement. "%s" is the actual value, "%s" was added and "%s" was expected.',
                     $product[ 'name' ],
@@ -391,8 +398,8 @@ trait WithProcurementTest
             $actualProduct = collect( $initialQuantities )->filter( fn( $q ) => (int) $q[ 'product_id' ] === (int) $product[ 'product_id' ] && (int) $q[ 'unit_id' ] === (int) $product[ 'unit_id' ] )->first();
 
             $this->assertSame(
-                ns()->currency->define( $currentQuantity )->getRaw(),
-                ns()->currency->define( $product[ 'current_quantity' ] )->subtractBy( $product[ 'procured_quantity' ] )->getRaw(),
+                ns()->currency->define( $currentQuantity )->toFloat(),
+                ns()->currency->define( $product[ 'current_quantity' ] )->subtractBy( $product[ 'procured_quantity' ] )->toFloat(),
                 sprintf(
                     'The product "%s" didn\'t has it\'s inventory updated after a procurement deletion. "%s" is the actual value, "%s" was removed and "%s" was expected.',
                     $product[ 'name' ],

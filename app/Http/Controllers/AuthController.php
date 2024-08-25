@@ -34,6 +34,7 @@ class AuthController extends Controller
 {
     public function __construct( private UsersService $userService )
     {
+
     }
 
     public function signIn()
@@ -53,7 +54,7 @@ class AuthController extends Controller
     public function activateAccount( User $user, $token )
     {
         /**
-         * trying to active an already activated
+         * trying to activate an already activated
          * account ? Not possible.
          */
         if ( $user->active ) {
@@ -87,7 +88,7 @@ class AuthController extends Controller
          */
         UserAfterActivationSuccessfulEvent::dispatch( $user );
 
-        return redirect( ns()->route( 'ns.login' ) )->with( 'message', __( 'Your account is not activated.' ) );
+        return redirect( ns()->route( 'ns.login' ) )->with( 'message', __( 'Your account is now activate.' ) );
     }
 
     public function passwordLost()
