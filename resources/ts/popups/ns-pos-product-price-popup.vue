@@ -10,11 +10,7 @@
             <div class="h-16 flex items-center justify-center elevation-surface info font-bold">
                 <h2 class="text-2xl">{{ nsCurrency(price) }}</h2>
             </div>
-            <ns-numpad v-if="options.ns_pos_numpad === 'default'" :floating="options.ns_pos_allow_decimal_quantities"
-                       @changed="updateProductPrice( $event )" @next="resolveProductPrice( $event )"
-                       :value="rawPrice"></ns-numpad>
-            <ns-numpad-plus v-if="options.ns_pos_numpad === 'advanced'" @changed="updateProductPrice( $event )"
-                            @next="resolveProductPrice( $event )" :value="rawPrice"></ns-numpad-plus>
+            <ns-numpad :floating="true" @changed="updateProductPrice( $event )" @next="resolveProductPrice( $event )" :value="rawPrice"></ns-numpad>
         </div>
     </div>
 </template>

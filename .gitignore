@@ -28,7 +28,7 @@ public/build
 public/docs
 public/*-manifest.json
 storage/module.zip
-tests/.coverage
+tests/.coverage*
 tests/database.sqlite
 tests/database.sqlite-journal
 tests/Post/*
@@ -37,7 +37,6 @@ storage/temporary-files/*
 .idea
 .scribe
 public/hot
-tests/.coverage
 .phpunit.cache/test-results
 storage/dotenv-editor
 .cloud
