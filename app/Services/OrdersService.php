@@ -27,13 +27,13 @@ use App\Models\CustomerCoupon;
 use App\Models\Notification;
 use App\Models\Order;
 use App\Models\OrderAddress;
-use App\Models\OrderChange;
 use App\Models\OrderCoupon;
 use App\Models\OrderInstalment;
 use App\Models\OrderPayment;
 use App\Models\OrderProduct;
 use App\Models\OrderProductRefund;
 use App\Models\OrderRefund;
+use App\Models\OrderSetting;
 use App\Models\OrderStorage;
 use App\Models\OrderTax;
 use App\Models\PaymentType;
@@ -52,6 +52,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use stdClass;
 
 class OrdersService
 {
@@ -164,25 +165,25 @@ class OrdersService
              */
             $this->__deleteUntrackedProducts( $order, $fields['products'] );
 
-        $addresses  =   $this->__saveAddressInformations( $order, $fields );
+        $addresses = $this->__saveAddressInformations( $order, $fields );
 
         if ( in_array( $paymentStatus, [
             Order::PAYMENT_PAID,
             Order::PAYMENT_PARTIALLY,
             Order::PAYMENT_UNPAID,
         ] ) ) {
-            $payments   =   $this->__saveOrderPayments( $order, $payments, $customer );
+            $payments = $this->__saveOrderPayments( $order, $payments, $customer );
         }
 
         /**
          * save order instalments
          */
-        $instalments    =   $this->__saveOrderInstalments( $order, $fields[ 'instalments' ] ?? [] );
+        $instalments = $this->__saveOrderInstalments( $order, $fields[ 'instalments' ] ?? [] );
 
         /**
          * save order coupons
          */
-        $coupons    =   $this->__saveOrderCoupons( $order, $fields[ 'coupons' ] ?? [] );
+        $coupons = $this->__saveOrderCoupons( $order, $fields[ 'coupons' ] ?? [] );
 
         /**
          * @var Order $order
@@ -195,15 +196,15 @@ class OrdersService
         /**
          * register taxes for the order
          */
-        $order->setRelations([
+        $order->setRelations( [
             'products' => $orderProducts,
             'payments' => $payments,
             'coupons' => $coupons,
             'instalments' => $instalments,
             'addresses' => $addresses,
-        ]);
+        ] );
 
-        $taxes  =   $this->__registerTaxes( $order, $fields[ 'taxes' ] ?? [] );
+        $taxes = $this->__registerTaxes( $order, $fields[ 'taxes' ] ?? [] );
 
         /**
          * Those fields might be used while running a listener on
@@ -218,7 +219,7 @@ class OrdersService
             'instalments' => $instalments,
             'taxes' => $taxes,
             'order_addresses' => $addresses,
-        ]);
+        ] );
 
         $order->load( 'payments' );
         $order->load( 'products' );
@@ -255,7 +256,7 @@ class OrdersService
 
             $tracked = [];
 
-            return collect( $instalments )->map( function( $instalment ) use ( $order, &$tracked ) {
+            return collect( $instalments )->map( function ( $instalment ) use ( $order, &$tracked ) {
                 $newInstalment = new OrderInstalment;
 
                 if ( isset( $instalment[ 'paid' ] ) && $instalment[ 'paid' ] ) {
@@ -282,11 +283,12 @@ class OrdersService
                 $newInstalment->amount = $instalment[ 'amount' ];
                 $newInstalment->paid = $instalment[ 'paid' ] ?? false;
                 $newInstalment->date = Carbon::parse( $instalment[ 'date' ] )->toDateTimeString();
+
                 return $newInstalment;
-            });
+            } );
         }
 
-        return collect([]);
+        return collect( [] );
     }
 
     /**
@@ -471,7 +473,7 @@ class OrdersService
                 $orderTax->tax_id = $tax[ 'tax_id' ];
                 $orderTax->order_id = $order->id;
 
-                $taxCollection[]    =   $orderTax;
+                $taxCollection[] = $orderTax;
             }
         }
 
@@ -486,25 +488,16 @@ class OrdersService
      */
     public function __registerTaxes( Order $order, $taxes )
     {
-        $orderTaxes  =   $this->__saveOrderTaxes( $order, $taxes );
+        $orderTaxes = $this->__saveOrderTaxes( $order, $taxes );
+
+        $order->products_tax_value = $this->getOrderProductsTaxes( $order );
 
         switch ( ns()->option->get( 'ns_pos_vat' ) ) {
-            case 'products_vat':
-                $order->products_tax_value = $this->getOrderProductsTaxes( $order );
-                break;
             case 'flat_vat':
             case 'variable_vat':
                 $order->tax_value = Currency::define( collect( $orderTaxes )->sum( 'tax_value' ) )->toFloat();
-                $order->products_tax_value = 0;
-                break;
-            case 'products_variable_vat':
-            case 'products_flat_vat':
-                $order->tax_value = Currency::define( collect( $orderTaxes )->sum( 'tax_value' ) )->toFloat();
-                $order->products_tax_value = $this->getOrderProductsTaxes( $order );
                 break;
         }
-
-        $order->total_tax_value = $order->tax_value + $order->products_tax_value;
 
         return $orderTaxes;
     }
@@ -753,7 +746,7 @@ class OrdersService
      */
     private function __saveAddressInformations( $order, $fields )
     {
-        $addresses  =   collect( ['shipping', 'billing'])->map( function( $type ) use ( $order, $fields ) {
+        $addresses = collect( ['shipping', 'billing'] )->map( function ( $type ) use ( $order, $fields ) {
             /**
              * if the id attribute is already provided
              * we should attempt to find the related addresses
@@ -779,7 +772,7 @@ class OrdersService
             $orderShipping->author = $order->author ?? Auth::id();
 
             return $orderShipping;
-        });
+        } );
 
         return $addresses;
     }
@@ -792,9 +785,9 @@ class OrdersService
          * might have been made. Probably we'll need to keep these
          * order and only update them.
          */
-        return collect( $payments )->map( function( $payment ) use ( $order ) {
+        return collect( $payments )->map( function ( $payment ) use ( $order ) {
             return $this->__saveOrderSinglePayment( $payment, $order );
-        });
+        } );
     }
 
     /**
@@ -803,6 +796,7 @@ class OrdersService
      *
      * @param  array $payment
      * @return array
+     *
      * @todo must be updated to records payment as __saveOrderSinglePayment no longer perform database operation
      */
     public function makeOrderSinglePayment( $payment, Order $order )
@@ -936,8 +930,8 @@ class OrdersService
         } )->sum() )->toFloat();
 
         $total = $this->currencyService->define(
-                $subtotal + $this->__getShippingFee( $fields )
-            )
+            $subtotal + $this->__getShippingFee( $fields )
+        )
             ->subtractBy( ( $fields[ 'discount' ] ?? $this->computeDiscountValues( $fields[ 'discount_percentage' ] ?? 0, $subtotal ) ) )
             ->subtractBy( $this->__computeOrderCoupons( $fields, $subtotal ) )
             ->toFloat();
@@ -1030,7 +1024,7 @@ class OrdersService
      * Compute an order total based
      * on provided data
      *
-     * @param  array $data
+     * @param array $data
      */
     protected function __computeOrderTotal( $order, $products )
     {
@@ -1051,7 +1045,7 @@ class OrdersService
             ->toFloat();
 
         $order->total_with_tax = $order->total;
-        $order->total_cogs  =   collect( $products )->sum( 'cogs' );
+        $order->total_cogs = collect( $products )->sum( 'cogs' );
 
         /**
          * compute change
@@ -1156,10 +1150,10 @@ class OrdersService
                         product: $product[ 'product' ],
                         unit: $unit
                     ) )
-                    ->multipliedBy( $product[ 'quantity' ] )
-                    ->toFloat()
+                        ->multipliedBy( $product[ 'quantity' ] )
+                        ->toFloat()
                 )
-                ->toFloat();
+                    ->toFloat();
             }
 
             /**
@@ -1170,9 +1164,15 @@ class OrdersService
 
             $this->computeOrderProduct( $orderProduct, $product );
 
-            $subTotal = $this->currencyService->define( $subTotal )
-                ->additionateBy( $orderProduct->total_price )
-                ->get();
+            if ( ns()->option->get( 'ns_pos_price_with_tax' ) === 'no' ) {
+                $subTotal = $this->currencyService->define( $subTotal )
+                    ->additionateBy( $orderProduct->total_price_with_tax )
+                    ->get();
+            } else {
+                $subTotal = $this->currencyService->define( $subTotal )
+                    ->additionateBy( $orderProduct->total_price )
+                    ->get();
+            }
 
             return $orderProduct;
         } );
@@ -1219,7 +1219,7 @@ class OrdersService
                         $this->productService->stockAdjustment( ProductHistory::ACTION_SOLD, $history );
                     }
                 }
-            });
+            } );
         }
     }
 
@@ -1364,7 +1364,7 @@ class OrdersService
              * What we're doing here
              * 1 - Get the unit assigned to the product being sold
              * 2 - check if the units assigned is what has been stored on the product
-             * 3 - If the a group is assigned to a product, the we check if that unit belongs to the unit group
+             * 3 - If a group is assigned to a product, the we check if that unit belongs to the unit group
              */
             try {
                 $storageQuantity = OrderStorage::withIdentifier( $session_identifier )
@@ -1461,12 +1461,12 @@ class OrdersService
          */
         if ( empty( $fields[ 'tax_value' ] ) ) {
             $fields[ 'tax_value' ] = $this->currencyService->define(
-                    $this->taxService->getComputedTaxGroupValue(
-                        tax_type: $fields[ 'tax_type' ] ?? $product->tax_type ?? null,
-                        tax_group_id: $fields[ 'tax_group_id' ] ?? $product->tax_group_id ?? null,
-                        price: $sale_price
-                    )
+                $this->taxService->getComputedTaxGroupValue(
+                    tax_type: $fields[ 'tax_type' ] ?? $product->tax_type ?? null,
+                    tax_group_id: $fields[ 'tax_group_id' ] ?? $product->tax_group_id ?? null,
+                    price: $sale_price
                 )
+            )
                 ->multiplyBy( floatval( $fields[ 'quantity' ] ) )
                 ->toFloat();
         }
@@ -1572,7 +1572,6 @@ class OrdersService
         $order->title = $fields[ 'title' ] ?? null;
         $order->tax_value = $this->currencyService->define( $fields[ 'tax_value' ] ?? 0 )->toFloat();
         $order->products_tax_value = $this->currencyService->define( $fields[ 'products_tax_value' ] ?? 0 )->toFloat();
-        $order->total_tax_value = $this->currencyService->define( $fields[ 'total_tax_value' ] ?? 0 )->toFloat();
         $order->code = $order->code ?: ''; // to avoid generating a new code
         $order->tendered = $this->currencyService->define( collect( $payments )->map( fn( $payment ) => floatval( $payment[ 'value' ] ) )->sum() )->toFloat();
 
@@ -1684,8 +1683,6 @@ class OrdersService
 
         if ( in_array( $posVat, [
             'products_vat',
-            'products_flat_vat',
-            'products_variable_vat',
         ] ) ) {
             $taxValue = $order
                 ->products()
@@ -1831,7 +1828,7 @@ class OrdersService
                 description: __( 'The current credit has been issued from a refund.' ),
                 details: [
                     'order_id' => $order->id,
-                    'author'    =>  Auth::id(),
+                    'author' => Auth::id(),
                 ]
             );
         }
@@ -2106,6 +2103,7 @@ class OrdersService
          * @param array $orderProducts
          * @param Order $order
          * @param float $subTotal
+         *
          * @todo make sure order are saved after this.
          */
         extract( $this->__saveOrderProducts( $order, $products ) );
@@ -2114,13 +2112,14 @@ class OrdersService
          * Since __saveOrdeProducts no longer
          * saves products, we'll do that manually here
          */
-        $order->saveWithRelationships([
-            'products'  =>  $orderProducts,
-        ]);
+        $order->saveWithRelationships( [
+            'products' => $orderProducts,
+        ] );
 
         /**
          * Now we should refresh the order
          * to have the total computed
+         *
          * @todo should be triggered after an event
          */
         $this->refreshOrder( $order );
@@ -2160,7 +2159,7 @@ class OrdersService
             return floatval( $product->quantity );
         } )->sum();
 
-        $productTotalCogs   =   $products
+        $productTotalCogs = $products
             ->map( function ( OrderProduct $product ) {
                 return floatval( $product->total_purchase_price );
             } )->sum();
@@ -2249,6 +2248,7 @@ class OrdersService
             'taxes',
             'coupons',
             'instalments',
+            'settings',
         ] )->toArray();
 
         OrderBeforeDeleteEvent::dispatch( $cachedOrder );
@@ -3031,6 +3031,58 @@ class OrdersService
         $order->load( 'refunds.refunded_products.product', 'refunds.refunded_products.unit', 'refunds.author' );
 
         return $order;
+    }
+
+    public function handlePOSRoute( $bool, $request, $next )
+    {
+        if ( $request->routeIs( ns()->routeName( 'ns.dashboard.pos' ) ) ) {
+            if ( PaymentType::count() === 0 ) {
+                return redirect()->route( ns()->routeName( 'ns.dashboard.orders-create-types' ) )->with(
+                    'errorMessage',
+                    __( 'You need to define at least one payment type before proceeding.' )
+                );
+            }
+        }
+
+        return $bool;
+    }
+
+    /**
+     * This will delete the order settings attached to the order
+     *
+     * @param  Order $order
+     * @return array
+     */
+    public function deleteOrderSettings( stdClass $order )
+    {
+        OrderSetting::where( 'order_id', $order->id )->delete();
+
+        return [
+            'status' => 'success',
+            'message' => __( 'The order settings has been deleted.' ),
+        ];
+    }
+
+    public function saveOrderSettings( Order $order )
+    {
+        $order->settings()->delete();
+
+        $settings = $order->settings();
+
+        $settings->create( [
+            'key' => 'ns_pos_price_with_tax',
+            'value' => ns()->option->get( 'ns_pos_price_with_tax' ),
+        ] );
+
+        $settings->create( [
+            'key' => 'ns_pos_vat',
+            'value' => ns()->option->get( 'ns_pos_vat' ),
+        ] );
+
+        return [
+            'status' => 'success',
+            'message' => __( 'The order settings has been saved.' ),
+        ];
     }
 
 
