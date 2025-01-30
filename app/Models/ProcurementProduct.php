@@ -8,7 +8,6 @@ use App\Events\ProcurementProductAfterUpdateEvent;
 use App\Events\ProcurementProductBeforeCreateEvent;
 use App\Events\ProcurementProductBeforeDeleteEvent;
 use App\Events\ProcurementProductBeforeUpdateEvent;
-use Doctrine\DBAL\Query\QueryBuilder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
@@ -88,9 +87,9 @@ class ProcurementProduct extends NsModel
      * Fetch product from a procurement
      * using as specific barcode
      *
-     * @param  QueryBuilder $query
+     * @param  Query $query
      * @param  string       $barcode
-     * @return QueryBuilder
+     * @return Query
      */
     public function scopeBarcode( $query, $barcode )
     {
