@@ -15,9 +15,9 @@ class DeletingOrderTest extends TestCase
      *
      * @return void
      */
-    public function testDeleteOrder()
+    public function test_delete_order()
     {
         $this->attemptAuthenticate();
-        $this->attemptDeleteOrder();
+        $this->attemptTestDeleteOrder();
     }
 }

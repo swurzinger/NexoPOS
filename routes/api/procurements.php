@@ -5,10 +5,11 @@ use Illuminate\Support\Facades\Route;
 
 Route::get( 'procurements/{id?}', [ ProcurementController::class, 'list' ] )->where( 'id', '[0-9]+' );
 Route::get( 'procurements/{id}/products', [ ProcurementController::class, 'procurementProducts' ] );
-Route::get( 'procurements/{id}/reset', [ ProcurementController::class, 'resetProcurement' ] );
 Route::get( 'procurements/{id}/refresh', [ ProcurementController::class, 'refreshProcurement' ] );
 Route::get( 'procurements/{procurement}/set-as-paid', [ ProcurementController::class, 'setAsPaid' ] );
+Route::get( 'procurements/preload/{uuid}', [ ProcurementController::class, 'preload' ] );
 
+Route::post( 'procurements/preload', [ ProcurementController::class, 'storePreload' ] );
 Route::post( 'procurements/{id}/products', [ ProcurementController::class, 'procure' ] );
 Route::post( 'procurements', [ ProcurementController::class, 'create' ] );
 Route::post( 'procurements/products/search-procurement-product', [ ProcurementController::class, 'searchProcurementProduct' ] );

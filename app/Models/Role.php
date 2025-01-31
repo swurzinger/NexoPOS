@@ -68,18 +68,6 @@ class Role extends NsRootModel
     }
 
     /**
-     * Relation with users
-     *
-     * @return void
-     *
-     * @deprecated
-     **/
-    public function user()
-    {
-        return $this->hasMany( User::class );
-    }
-
-    /**
      * Relation with Permissions
      **/
     public function permissions(): BelongsToMany

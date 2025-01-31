@@ -8,7 +8,6 @@ use App\Events\ProcurementProductAfterUpdateEvent;
 use App\Events\ProcurementProductBeforeCreateEvent;
 use App\Events\ProcurementProductBeforeDeleteEvent;
 use App\Events\ProcurementProductBeforeUpdateEvent;
-use Doctrine\DBAL\Query\QueryBuilder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
@@ -29,7 +28,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
  * @property float          $total_purchase_price
  * @property int            $unit_id
  * @property int            $convert_unit_id
- * @property bool           $visible
  * @property float          $cogs
  * @property int            $author
  * @property mixed          $uuid
@@ -45,6 +43,8 @@ class ProcurementProduct extends NsModel
     const STOCK_INCREASE = 'increase';
 
     const STOCK_REDUCE = 'reduce';
+
+    protected $fillable = [ 'is_conversion', 'author' ];
 
     protected $dispatchesEvents = [
         'creating' => ProcurementProductBeforeCreateEvent::class,
@@ -87,9 +87,9 @@ class ProcurementProduct extends NsModel
      * Fetch product from a procurement
      * using as specific barcode
      *
-     * @param  QueryBuilder $query
+     * @param  Query $query
      * @param  string       $barcode
-     * @return QueryBuilder
+     * @return Query
      */
     public function scopeBarcode( $query, $barcode )
     {

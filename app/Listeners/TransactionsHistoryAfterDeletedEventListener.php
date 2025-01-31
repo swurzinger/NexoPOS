@@ -3,7 +3,6 @@
 namespace App\Listeners;
 
 use App\Events\TransactionsHistoryAfterDeletedEvent;
-use App\Jobs\RefreshReportJob;
 
 class TransactionsHistoryAfterDeletedEventListener
 {
@@ -22,6 +21,6 @@ class TransactionsHistoryAfterDeletedEventListener
      */
     public function handle( TransactionsHistoryAfterDeletedEvent $event )
     {
-        RefreshReportJob::dispatch( $event->transaction->created_at );
+        // ...
     }
 }

@@ -63,11 +63,7 @@ export class Popup {
                  */
             }
         } else if ( typeof component.__asyncLoader === 'function' ) {
-            /**
-             * With this, we'll resolve the component
-             * to ensure props can be added to it on runtime.
-             */
-            component = (async () => await component.__asyncLoader())();
+            throw new Error( 'Async components are not supported.' );
         }
 
         const body                          =   document.querySelector( 'body' ).querySelectorAll( 'div' )[0];
@@ -87,12 +83,15 @@ export class Popup {
          */
         let props   =   {};
 
-        if ( component.props ) {
-            props     =   Object.keys( params ).filter( param => component.props.includes( param ) ).reduce( ( props, param ) => {
-                props[ param ]  =   params[ param ];
-                return props;
-            }, {});
+        if ( ! component.props ) {
+            component.props     =   [];
         }
+
+        if ( component.props !== undefined ) {props     =   Object.keys( params ).filter( param => component.props.includes( param ) ).reduce( ( props, param ) => {
+            props[ param ]  =   params[ param ];
+            return props;
+        }, {});
+}
 
         const popup     =   {
             hash: `popup-${this.hash()}-${this.hash()}`,

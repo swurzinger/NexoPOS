@@ -419,7 +419,7 @@ class TaxService
      * We might not need to perform this if
      * the product already comes with defined tax.
      */
-    public function computeOrderProductTaxes( OrderProduct $orderProduct ): OrderProduct
+    public function computeOrderProductTaxes( OrderProduct $orderProduct, array $productArray ): OrderProduct
     {
         /**
          * let's load the original product with the tax group
@@ -435,15 +435,9 @@ class TaxService
 
         if ( $orderProduct->discount_type === 'percentage' ) {
             $discount = $this->getPercentageOf(
-                value: $orderProduct->unit_price * $orderProduct->quantity,
+                value: $orderProduct->filterAttribute( 'unit_price', $productArray ),
                 rate: $orderProduct->discount_percentage,
             );
-        } elseif ( $orderProduct->discount_type === 'flat' ) {
-            /**
-             * @todo not exactly correct.  The discount should be defined per
-             * price type on the frontend.
-             */
-            $discount = $orderProduct->discount;
         }
 
         /**
@@ -451,27 +445,31 @@ class TaxService
          */
         $taxGroup = TaxGroup::find( $orderProduct->tax_group_id );
 
-        $type = $orderProduct->product instanceof Product ? $orderProduct->product->tax_type : ns()->option->get( 'ns_pos_tax_type' );
+        $type = $orderProduct->tax_type ?: ns()->option->get( 'ns_pos_tax_type' );
 
         /**
          * if the tax group is not defined,
          * then probably it's not assigned to the product.
          */
         if ( $taxGroup instanceof TaxGroup ) {
-            if ( $type === 'exclusive' ) {
-                $orderProduct->price_with_tax = $orderProduct->unit_price;
-                $orderProduct->price_without_tax = $this->getPriceWithoutTaxUsingGroup(
-                    type: 'inclusive',
-                    price: $orderProduct->price_with_tax - $discount,
+            if ( ! isset( $productArray[ 'price_with_tax' ] ) ) {
+                $orderProduct->price_with_tax = $this->getPriceWithTaxUsingGroup(
+                    type: $type,
+                    price: $orderProduct->filterAttribute( 'price_without_tax', $productArray ),
                     group: $taxGroup
                 );
             } else {
-                $orderProduct->price_without_tax = $orderProduct->unit_price;
-                $orderProduct->price_with_tax = $this->getPriceWithTaxUsingGroup(
-                    type: 'exclusive',
-                    price: $orderProduct->price_without_tax - $discount,
+                $orderProduct->price_with_tax = $productArray[ 'price_with_tax' ];
+            }
+
+            if ( ! isset( $productArray[ 'price_without_tax' ] ) ) {
+                $orderProduct->price_without_tax = $this->getPriceWithoutTaxUsingGroup(
+                    type: $type,
+                    price: $orderProduct->filterAttribute( 'price_with_tax', $productArray ),
                     group: $taxGroup
                 );
+            } else {
+                $orderProduct->price_without_tax = $productArray[ 'price_without_tax' ];
             }
 
             $orderProduct->tax_value = ( $orderProduct->price_with_tax - $orderProduct->price_without_tax ) * $orderProduct->quantity;
@@ -479,18 +477,18 @@ class TaxService
 
         $orderProduct->discount = $discount;
 
-        $orderProduct->total_price_without_tax = ns()->currency
+        $orderProduct->total_price_without_tax = $orderProduct->total_price_without_tax ?: ns()->currency
             ->fresh( $orderProduct->price_without_tax )
             ->multiplyBy( $orderProduct->quantity )
             ->get();
 
-        $orderProduct->total_price = ns()->currency
-            ->fresh( $orderProduct->unit_price )
-            ->multiplyBy( $orderProduct->quantity )
+        $orderProduct->total_price = $orderProduct->total_price ?: ns()->currency
+            ->fresh( $orderProduct->filterAttribute( 'unit_price', $productArray ) )
             ->subtractBy( $discount )
+            ->multiplyBy( $orderProduct->quantity )
             ->toFloat();
 
-        $orderProduct->total_price_with_tax = ns()->currency
+        $orderProduct->total_price_with_tax = $orderProduct->total_price_with_tax ?: ns()->currency
             ->fresh( $orderProduct->price_with_tax )
             ->multiplyBy( $orderProduct->quantity )
             ->get();

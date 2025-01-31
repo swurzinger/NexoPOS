@@ -27,6 +27,7 @@ use App\Services\Validation;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Str;
 
 class ProcurementController extends DashboardController
 {
@@ -90,11 +91,6 @@ class ProcurementController extends DashboardController
             $procurement,
             collect( $request->input( 'items' ) )
         );
-    }
-
-    public function resetProcurement( $procurement_id )
-    {
-        return $this->procurementService->resetProcurement( $procurement_id );
     }
 
     /**
@@ -328,5 +324,15 @@ class ProcurementController extends DashboardController
     public function editProcurementProduct( ProcurementProduct $product )
     {
         return ProcurementProductCrud::form( $product );
+    }
+
+    public function preload( $uuid )
+    {
+        return $this->procurementService->preload( $uuid );
+    }
+
+    public function storePreload( Request $request )
+    {
+        return $this->procurementService->storePreload( Str::uuid(), $request->only( [ 'products' ] ) );
     }
 }

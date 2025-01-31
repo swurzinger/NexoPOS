@@ -3,12 +3,14 @@
 namespace App\Forms;
 
 use App\Classes\Hook;
+use App\Classes\JsonResponse;
 use App\Models\CustomerAddress;
 use App\Models\User;
 use App\Models\UserAttribute;
 use App\Services\CustomerService;
 use App\Services\SettingsPage;
 use App\Services\UserOptions;
+use Illuminate\Http\JsonResponse as HttpJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -44,13 +46,18 @@ class UserProfileForm extends SettingsPage
         $results[] = $this->processOptions( $request );
         $results[] = $this->processAddresses( $request );
         $results[] = $this->processAttribute( $request );
-        $results = collect( $results )->filter( fn( $result ) => ! empty( $result ) )->values();
+        $results = collect( $results )->filter( fn( $result ) => ! empty( $result ) )->values()->map( function ( $result ) {
+            if ( $result instanceof HttpJsonResponse ) {
+                return $result->getData();
+            }
 
-        return [
-            'status' => 'success',
-            'message' => __( 'The profile has been successfully saved.' ),
-            'data' => compact( 'results', 'validator' ),
-        ];
+            return $result;
+        } );
+
+        return JsonResponse::success(
+            data: compact( 'results', 'validator' ),
+            message: __( 'The profile has been successfully saved.' )
+        );
     }
 
     public function processAttribute( $request )
@@ -73,10 +80,9 @@ class UserProfileForm extends SettingsPage
 
             $user->save();
 
-            return [
-                'status' => 'success',
-                'message' => __( 'The user attribute has been saved.' ),
-            ];
+            return JsonResponse::success(
+                message: __( 'The user attribute has been saved.' )
+            );
         }
 
         return [];
@@ -100,10 +106,9 @@ class UserProfileForm extends SettingsPage
                 }
             }
 
-            return [
-                'status' => 'success',
-                'message' => __( 'The options has been successfully updated.' ),
-            ];
+            return JsonResponse::success(
+                message: __( 'The options has been successfully updated.' )
+            );
         }
 
         return [];
@@ -124,10 +129,9 @@ class UserProfileForm extends SettingsPage
                 $user->password = Hash::make( $request->input( 'security.password' ) );
                 $user->save();
 
-                return [
-                    'status' => 'success',
-                    'message' => __( 'Password Successfully updated.' ),
-                ];
+                return JsonResponse::success(
+                    message: __( 'Password Successfully updated.' )
+                );
             }
         }
 

@@ -1,9 +1,14 @@
 <script lang="ts">
+import { BehaviorSubject } from 'rxjs';
 import { nsHooks, nsHttpClient, nsSnackBar } from '../bootstrap';
 import FormValidation from '../libraries/form-validation';
 import { __  } from '~/libraries/lang';
 import popupResolver from '~/libraries/popup-resolver';
-import popupCloser from '~/libraries/popup-closer';
+import { shallowRef } from 'vue';
+
+declare const nsExtraComponents;
+declare const nsComponents;
+declare const nsNotice;
 
 export default {
     data: () => {
@@ -11,14 +16,18 @@ export default {
             form: {},
             globallyChecked: false,
             formValidation: new FormValidation,
-            rows: []
+            links: {},
+            rows: [],
+            optionAttributes: {},
+            extraComponents: () => nsExtraComponents,
+            nsComponents: () => nsComponents
         }
     }, 
     emits: [ 'updated', 'saved' ],
     mounted() {
         this.loadForm();
     },
-    props: [ 'src', 'createUrl', 'fieldClass', 'returnUrl', 'submitUrl', 'submitMethod', 'disableTabs', 'queryParams', 'popup', 'optionAttributes' ],
+    props: [ 'src', 'createUrl', 'fieldClass', 'submitUrl', 'submitMethod', 'disableTabs', 'queryParams', 'popup' ],
     computed: {
         activeTabFields() {
             for( let identifier in this.form.tabs ) {
@@ -27,6 +36,14 @@ export default {
                 }
             }
             return [];
+        },
+        activeTab() {
+            for( let identifier in this.form.tabs ) {
+                if ( this.form.tabs[ identifier ].active ) {
+                    return this.form.tabs[ identifier ];
+                }
+            }
+            return false;
         },
         activeTabIdentifier() {
             for( let identifier in this.form.tabs ) {
@@ -64,8 +81,10 @@ export default {
             }
         },
         submit() {
-            if ( this.formValidation.validateForm( this.form ).length > 0 ) {
-                return nsSnackBar.error( __( 'Unable to proceed the form is not valid' ), __( 'Close' ) )
+            const validation  = this.formValidation.validateForm( this.form );
+
+            if ( validation.length > 0 ) {
+                return nsSnackBar.error( __( 'The form is not valid. Double check it or refer to the error dislayed above.' ), __( 'Close' ) )
                     .subscribe();
             }
 
@@ -85,8 +104,8 @@ export default {
                         if ( this.popup ) {
                             this.popupResolver( result );
                         } else {
-                            if ( this.submitMethod && this.submitMethod.toLowerCase() === 'post' && this.returnUrl !== false ) {
-                                return document.location   =   result.data.editUrl || this.returnUrl;
+                            if ( this.submitMethod && this.submitMethod.toLowerCase() === 'post' && this.links.list !== false ) {
+                                return document.location   =   result.data.editUrl || this.links.list;
                             } else {
                                 nsSnackBar.info( result.message, __( 'Okay' ), { duration: 3000 }).subscribe();
                             }
@@ -118,7 +137,20 @@ export default {
                         next: (f) => {
                             resolve( f );
                             this.form    =   this.parseForm( f.form );
+                            this.links = f.links;
+                            this.optionAttributes = f.optionAttributes;
                             nsHooks.doAction( 'ns-crud-form-loaded', this );
+
+                            /**
+                             * We'll automatically add the mouse
+                             * focus on the first field.
+                             */
+                            if ( this.form.main ) {
+                                setTimeout(() => {
+                                    this.$el.querySelector( '#crud-form input' ).focus();
+                                }, 100 );
+                            }
+
                             this.$emit( 'updated', this.form );
                         },
                         error: ( error ) => {
@@ -156,33 +188,79 @@ export default {
                 form.tabs[ key ].active     =   form.tabs[ key ].active === undefined ? false : form.tabs[ key ].active;
                 form.tabs[ key ].fields     =   this.formValidation.createFields( form.tabs[ key ].fields );
 
+                /**
+                 * Each tabs has a subject object defined, which will be transmitted to the fields
+                 * so each field can listen to the changes of the other fields
+                 */
+                form.tabs[ key ].subject    =   new BehaviorSubject({});
+                form.tabs[ key ].fields.forEach( field => {
+                    field.subject   =   form.tabs[ key ].subject;
+                });
+
+                /**
+                 * We'll resolve the component here and keep it
+                 * to the object so we can easily access it. We should make 
+                 * sure the instance doesnt' yet exists.
+                 */
+                if ( form.tabs[ key ].component && form.tabs[ key ].instance === undefined ) {
+                    form.tabs[ key ].instance  =   {
+                        object: shallowRef( this.extraComponents()[ form.tabs[ key ].component ] ),
+                        errors: []
+                    };
+                }
+
                 index++;
             }
 
             return form;
+        },
+        handleFieldChange( field, fields ) {
+            if ( field.errors.length === 0 ) {
+                field.subject.next({ field, fields });
+            }
+        },
+
+        /**
+         * This should ensure the component is able
+         * to update the tab state and therefore control
+         * it's validation.
+         * @param {object} object
+         */
+        handleTabError( error ) {
+            this.form.tabs[ this.activeTabIdentifier ].instance.errors  =   [];
+
+            if ( error !== false ) {
+                this.form.tabs[ this.activeTabIdentifier ].instance.errors.push( ...error );
+            } else {
+                this.form.tabs[ this.activeTabIdentifier ].instance.errors = [];
+            }
+        },
+
+        handleTabChange( fields ) {
+            this.form.tabs[ this.activeTabIdentifier ].fields = fields;
         }
     },
 }
 </script>
 <template>
-    <div v-if="Object.values( form ).length === 0" class="flex items-center justify-center h-full">
-        <ns-spinner />
-    </div>
-    <div class="form flex-auto" v-if="Object.values( form ).length > 0" :class="popup ? 'bg-box-background w-95vw md:w-2/3-screen' : ''" id="crud-form" >
+    <div class="form flex-auto" v-if="Object.values( form ).length > 0" :class="popup ? 'ns-box w-95vw md:w-2/3-screen max-h-6/7-screen overflow-hidden flex flex-col' : ''" id="crud-form" >
+        <div v-if="Object.values( form ).length === 0" class="flex items-center justify-center h-full">
+            <ns-spinner />
+        </div>
         <div class="box-header border-b border-box-edge box-border p-2 flex justify-between items-center" v-if="popup">
             <h2 class="text-primary font-bold text-lg">{{ popup.params.title }}</h2>
             <div>
                 <ns-close-button @click="handleClose()"></ns-close-button>
             </div>
         </div>
-        <div v-if="Object.values( form ).length > 0" :class="popup ? 'p-2' : ''">
+        <div v-if="Object.values( form ).length > 0" :class="popup ? 'p-2 overflow-y-auto' : ''">
             <div class="flex flex-col">
                 <div class="flex justify-between items-center" v-if="form.main">
                     <label for="title" class="font-bold my-2 text-primary">
                         <span v-if="form.main.name">{{ form.main.label }}</span>
                     </label>
                     <div for="title" class="text-sm my-2">
-                        <a v-if="returnUrl && ! popup" :href="returnUrl" class="rounded-full border px-2 py-1 ns-inset-button error">{{ __( 'Go Back' ) }}</a>
+                        <a v-if="links.list && ! popup" :href="links.list" class="rounded-full border px-2 py-1 ns-inset-button error">{{ __( 'Go Back' ) }}</a>
                     </div>
                 </div>
                 <template v-if="form.main.name">
@@ -213,9 +291,22 @@ export default {
                 </div>
                 <div class="ns-tab-item">
                     <div class="border p-4 rounded">
-                        <div class="-mx-4 flex flex-wrap">
+                        <!-- We can't display both fields and component at the same time. The component has the priority over fields -->
+                        <div class="-mx-4 flex flex-wrap" v-if="activeTabFields.length > 0 && ! activeTab.component">
                             <div :key="`${activeTabIdentifier}-${key}`" :class="fieldClass || 'px-4 w-full md:w-1/2 lg:w-1/3'" v-for="(field,key) of activeTabFields">
-                                <ns-field @saved="handleSaved( $event, activeTabIdentifier, field )" @blur="formValidation.checkField( field )" @change="formValidation.checkField( field )" :field="field"/>
+                                <ns-field @saved="handleSaved( $event, activeTabIdentifier, field )" @blur="formValidation.checkField( field )" @change="formValidation.checkField( field ) && handleFieldChange( field, activeTabFields )" :field="field"/>
+                            </div>
+                        </div>
+                        <div class="-mx-4 flex flex-wrap" v-if="activeTab && activeTab.component">
+                            <div :key="`${activeTabIdentifier}`" v-if="activeTab.instance.object" :class="fieldClass || 'px-4 w-full'">
+                                <keep-alive>
+                                    <component @changed="handleTabChange( $event )" @invalid="handleTabError( $event )":is="activeTab.instance.object" :tab="activeTab"/>
+                                </keep-alive>
+                            </div>
+                            <div v-else class="px-4 text-center">
+                                <div class="text-error-tertiary border-dashed border-error-tertiary border p-4">
+                                    {{ __( 'Failed to load the component: {component}'.replace( '{component}', activeTab.component ) ) }}
+                                </div>
                             </div>
                         </div>
                         <div class="flex justify-end" v-if="! form.main.name">

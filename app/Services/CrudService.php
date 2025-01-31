@@ -312,23 +312,20 @@ class CrudService
 
             foreach ( $inputs as $name => $value ) {
                 /**
-                 * If the fields where explicitly added
-                 * on field that must be ignored we should skip that.
+                 * If the field where explicitly added
+                 * on fields that must be ignored we should skip that.
                  */
                 if ( ! in_array( $name, $resource->skippable ) ) {
                     /**
                      * If submitted field are part of fillable fields
                      */
                     if ( in_array( $name, $fillable ) || count( $fillable ) === 0 ) {
+
                         /**
-                         * We might give the capacity to filter fields
-                         * before storing. This can be used to apply specific formating to the field.
+                         * We might need to purify value
+                         * before storing it.
                          */
-                        if ( method_exists( $resource, 'filterPostInput' ) || method_exists( $resource, 'filterPutInput' ) ) {
-                            $entry->$name = $isEditing ? $resource->filterPutInput( $value, $name ) : $resource->filterPostInput( $value, $name );
-                        } else {
-                            $entry->$name = $value;
-                        }
+                        $entry->$name = $value;
 
                         /**
                          * sanitizing input to remove
@@ -345,8 +342,6 @@ class CrudService
              * If fillable is empty or if "author" it's explicitly
              * mentionned on the fillable array.
              */
-            $columns = array_keys( $this->getColumns() );
-
             if ( empty( $fillable ) || (
                 in_array( 'author', $fillable )
             ) ) {
@@ -1210,7 +1205,7 @@ class CrudService
     {
         $className = get_called_class();
         $instance = new $className;
-        $permissionType = $entry === null ? 'create' : 'update';
+        $permissionType = $entry === null ? 'read' : 'update';
 
         /**
          * if a permission for creating or updating is
@@ -1218,18 +1213,72 @@ class CrudService
          */
         $instance->allowedTo( $permissionType );
 
+        /**
+         * We'll provide the submit URL
+         */
+        if ( $entry !== null ) {
+            $replacementSubmitUrl = isset( $instance->getLinks()['put'] ) ? str_replace( '{id}', $entry->id, $instance->getLinks()['put'] ) : null;
+        } else {
+            $replacementSubmitUrl = isset( $instance->getLinks()['post'] ) ? $instance->getLinks()['post'] : null;
+        }
+
+        $labels = Hook::filter( get_class( $instance ) . '@getLabels', $instance->getLabels() );
+
         return array_merge( [
+            /**
+             * We'll provide the form configuration
+             */
+            'form' => Hook::filter( get_class( $instance ) . '@getForm', $instance->getForm( $entry ) ),
+
+            /**
+             * We'll now provide the labels
+             */
+            'labels' => Hook::filter( get_class( $instance ) . '@getLabels', $instance->getLabels() ),
+
+            /**
+             * this list all the usable lnks on the resource
+             */
+            'links' => Hook::filter( get_class( $instance ) . '@getLinks', $instance->getLinks() ),
+
+            /**
+             * By default the method used is "post" but might change to "put" according to
+             * whether the entry is provided (Model). Can be changed from the $config.
+             */
+            'submitMethod' => $config['submitMethod'] ?? ( $entry === null ? 'post' : 'put' ),
+
+            /**
+             * provide the current crud namespace
+             */
+            'namespace' => $instance->getNamespace(),
+
+            /**
+             * We'll return here the select attribute that will
+             * be used to automatically popuplate "options" entry of select and search-select field
+             */
+            'optionAttributes' => Hook::filter( get_class( $instance ) . '@getOptionAttributes', $instance->getOptionAttributes() ),
+
+            /**
+             * to provide custom query params
+             * to every outgoing request on the table
+             */
+            'queryParams' => [],
+
+            /**
+             * the following entries are @deprecated and will
+             * likely be removed on upcoming releases.
+             */
+
             /**
              * this pull the title either
              * the form is made to create or edit a resource.
              */
-            'title' => $config['title'] ?? ( $entry === null ? $instance->getLabels()['create_title'] : $instance->getLabels()['edit_title'] ),
+            'title' => $config['title'] ?? ( $entry === null ? $labels['create_title'] : $labels['edit_title'] ),
 
             /**
              * this pull the description either the form is made to
              * create or edit a resource.
              */
-            'description' => $config['description'] ?? ( $entry === null ? $instance->getLabels()['create_description'] : $instance->getLabels()['edit_description'] ),
+            'description' => $config['description'] ?? ( $entry === null ? $labels['create_description'] : $labels['edit_description'] ),
 
             /**
              * this automatically build a source URL based on the identifier
@@ -1247,30 +1296,7 @@ class CrudService
              * This will pull the submitURL that might be different whether the $entry is
              * provided or not. can be overwritten on the configuration ($config).
              */
-            'submitUrl' => $config['submitUrl'] ?? ( $entry === null ? $instance->getLinks()['post'] : str_replace( '{id}', $entry->id, $instance->getLinks()['put'] ) ),
-
-            /**
-             * By default the method used is "post" but might change to "put" according to
-             * whether the entry is provided (Model). Can be changed from the $config.
-             */
-            'submitMethod' => $config['submitMethod'] ?? ( $entry === null ? 'post' : 'put' ),
-
-            /**
-             * provide the current crud namespace
-             */
-            'namespace' => $instance->getNamespace(),
-
-            /**
-             * We'll return here the select attribute that will
-             * be used to automatically popuplate "options" entry of select and search-select field
-             */
-            'optionAttributes' => $instance->getOptionAttributes(),
-
-            /**
-             * to provide custom query params
-             * to every outgoing request on the table
-             */
-            'queryParams' => [],
+            'submitUrl' => $config['submitUrl'] ?? $replacementSubmitUrl,
         ], $config );
     }
 
@@ -1323,84 +1349,6 @@ class CrudService
     public function getShowCheckboxes(): bool
     {
         return $this->showCheckboxes;
-    }
-
-    /**
-     * Will check if the provided model
-     * has dependencies declared and existing
-     * to prevent any deletion.
-     */
-    public function handleDependencyForDeletion( mixed $model ): void
-    {
-        if ( method_exists( $model, 'getDeclaredDependencies' ) ) {
-            /**
-             * Let's verify if the current model
-             * is a dependency for other models.
-             */
-            $declaredDependencies = $model->getDeclaredDependencies();
-
-            foreach ( $declaredDependencies as $class => $indexes ) {
-                $localIndex = $indexes['local_index'] ?? 'id';
-                $request = $class::where( $indexes['foreign_index'], $model->$localIndex );
-                $dependencyFound = $request->first();
-                $countDependency = $request->count() - 1;
-
-                if ( $dependencyFound instanceof $class ) {
-                    if ( isset( $model->{$indexes['local_name']} ) && ! empty( $indexes['foreign_name'] ) ) {
-                        /**
-                         * if the foreign name is an array
-                         * we'll pull the first model set as linked
-                         * to the item being deleted.
-                         */
-                        if ( is_array( $indexes['foreign_name'] ) ) {
-                            $relatedSubModel = $indexes['foreign_name'][0]; // model name
-                            $localIndex = $indexes['foreign_name'][1]; // local index on the dependency table $dependencyFound
-                            $foreignIndex = $indexes['foreign_name'][2] ?? 'id'; // foreign index on the related table $model
-                            $labelColumn = $indexes['foreign_name'][3] ?? 'name'; // foreign index on the related table $model
-
-                            /**
-                             * we'll find if we find the model
-                             * for the provided details.
-                             */
-                            $result = $relatedSubModel::where( $foreignIndex, $dependencyFound->$localIndex )->first();
-
-                            /**
-                             * the model might exists. If that doesn't exists
-                             * then probably it's not existing. There might be a misconfiguration
-                             * on the relation.
-                             */
-                            if ( $result instanceof $relatedSubModel ) {
-                                $foreignName = $result->$labelColumn ?? __( 'Unidentified Item' );
-                            } else {
-                                $foreignName = $result->$labelColumn ?? __( 'Non-existent Item' );
-                            }
-                        } else {
-                            $foreignName = $dependencyFound->{$indexes['foreign_name']} ?? __( 'Unidentified Item' );
-                        }
-
-                        /**
-                         * The local name will always pull from
-                         * the related model table.
-                         */
-                        $localName = $model->{$indexes['local_name']};
-
-                        throw new NotAllowedException( sprintf(
-                            __( 'Unable to delete "%s" as it\'s a dependency for "%s"%s' ),
-                            $localName,
-                            $foreignName,
-                            $countDependency >= 1 ? ' ' . trans_choice( '{1} and :count more item.|[2,*] and :count more items.', $countDependency, ['count' => $countDependency] ) : '.'
-                        ) );
-                    } else {
-                        throw new NotAllowedException( sprintf(
-                            $countDependency === 1 ?
-                                __( 'Unable to delete this resource as it has %s dependency with %s item.' ) :
-                                __( 'Unable to delete this resource as it has %s dependency with %s items.' ),
-                            $class
-                        ) );
-                    }
-                }
-            }
-        }
     }
 
     /**

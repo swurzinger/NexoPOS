@@ -56,7 +56,7 @@ export interface Order {
     instalments?: { date: string, amount: number, paid?: boolean }[],
     note: string;
     note_visibility: 'hidden' | 'visible';
-    tax_group_id: number,
+    tax_group_id?: number,
     tax_type: 'inclusive' | 'exclusive'
     taxes: any[],
     final_payment_date?: string;
@@ -66,10 +66,12 @@ export interface Order {
         billing: Address,
     };
     tax_value: number;
-    products_exclusive_tax_value: number;
-    products_inclusive_tax_value: number;
-    total_tax_value: number;
-    tax_groups: any[],
+    products_tax_value: number;
+    tax_group: {
+        taxes?: any[],
+        name?: string,
+        id?: number,
+    },
     shipping: number;
     shipping_rate: number;
     shipping_type: 'flat' | 'percentage';

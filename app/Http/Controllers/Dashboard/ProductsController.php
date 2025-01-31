@@ -1,4 +1,5 @@
 <?php
+
 /**
  * NexoPOS Controller
  *
@@ -12,6 +13,7 @@ use App\Classes\Output;
 use App\Crud\ProductCrud;
 use App\Crud\ProductHistoryCrud;
 use App\Crud\ProductUnitQuantitiesCrud;
+use App\Crud\UnitCrud;
 use App\Exceptions\NotAllowedException;
 use App\Exceptions\NotFoundException;
 use App\Http\Controllers\DashboardController;
@@ -335,6 +337,7 @@ class ProductsController extends DashboardController
             'submitUrl' => ns()->url( '/api/products/' . $product->id ),
             'returnUrl' => ns()->url( '/dashboard/products' ),
             'unitsUrl' => ns()->url( '/api/units-groups/{id}/units' ),
+            'optionAttributes' => json_encode( UnitCrud::getFormConfig()[ 'optionAttributes' ] ),
             'submitMethod' => 'PUT',
             'src' => ns()->url( '/api/crud/ns.products/form-config/' . $product->id ),
         ] );
@@ -350,6 +353,7 @@ class ProductsController extends DashboardController
             'submitUrl' => ns()->url( '/api/products' ),
             'returnUrl' => ns()->url( '/dashboard/products' ),
             'unitsUrl' => ns()->url( '/api/units-groups/{id}/units' ),
+            'optionAttributes' => json_encode( UnitCrud::getFormConfig()[ 'optionAttributes' ] ),
             'src' => ns()->url( '/api/crud/ns.products/form-config' ),
         ] );
     }
@@ -471,8 +475,8 @@ class ProductsController extends DashboardController
              * let's check if the action is supported
              */
             if (
-                ! in_array( $unit[ 'adjust_action' ], ProductHistory::STOCK_INCREASE ) &&
-                ! in_array( $unit[ 'adjust_action' ], ProductHistory::STOCK_REDUCE ) &&
+                ! in_array( $unit[ 'adjust_action' ], $this->productService->getIncreaseActions() ) &&
+                ! in_array( $unit[ 'adjust_action' ], $this->productService->getReduceActions() ) &&
                 ! in_array( $unit[ 'adjust_action' ], [
                     ProductHistory::ACTION_SET,
                 ] )
@@ -487,7 +491,7 @@ class ProductsController extends DashboardController
                 ->where( 'unit_id', $unit[ 'adjust_unit' ][ 'unit_id' ] )
                 ->first();
 
-            if ( $productUnitQuantity instanceof ProductUnitQuantity && in_array( $unit[ 'adjust_action' ], ProductHistory::STOCK_REDUCE ) ) {
+            if ( $productUnitQuantity instanceof ProductUnitQuantity && in_array( $unit[ 'adjust_action' ], $this->productService->getReduceActions() ) ) {
                 $remaining = $productUnitQuantity->quantity - (float) $unit[ 'adjust_quantity' ];
 
                 if ( $remaining < 0 ) {

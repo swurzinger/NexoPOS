@@ -2,7 +2,6 @@
 
 namespace App\Events;
 
-use App\Models\Order;
 use App\Models\OrderCoupon;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Foundation\Events\Dispatchable;
@@ -17,8 +16,8 @@ class OrderCouponAfterCreatedEvent
      *
      * @return void
      */
-    public function __construct( public OrderCoupon $orderCoupon, public Order $order )
+    public function __construct( public OrderCoupon $orderCoupon )
     {
-        // ...
+        $this->orderCoupon->load( 'order' );
     }
 }

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @var \Illuminate\Foundation\Configuration\Middleware $middleware
  */
@@ -22,7 +23,6 @@ $middleware->alias( [
     'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
     'ns.check-migrations' => \App\Http\Middleware\CheckMigrationStatus::class,
     'ns.check-application-health' => \App\Http\Middleware\CheckApplicationHealthMiddleware::class,
-    'ns.sanitize-inputs' => \App\Http\Middleware\SanitizePostFieldsMiddleware::class,
 ] );
 
 /**

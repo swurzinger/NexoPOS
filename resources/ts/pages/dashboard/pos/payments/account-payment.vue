@@ -119,12 +119,20 @@ export default {
             });
 
             this.order.customer.account_amount  -=  value;
-            POS.selectCustomer( this.order.customer );
 
-            this.$emit( 'submit' );
+            POS.selectCustomer( this.order.customer );
         },
         proceedFullPayment() {
+            const payments  =   this.order.payments;
+
+            if ( payments.filter( p => p.identifier === 'account-payment' ).length > 0 ) {
+                return nsSnackBar.error( __( 'The customer account can only be used once per order. Consider deleting the previously used payment.' ) )
+                    .subscribe();
+            }
+
             this.proceedAddingPayment( this.order.total );
+
+            this.$emit( 'submit' );
         },
         makeFullPayment() {
             Popup.show( nsPosConfirmPopupVue, {

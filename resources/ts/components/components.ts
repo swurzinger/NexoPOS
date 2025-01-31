@@ -1,5 +1,6 @@
 import nsAlertPopup         from  '~/popups/ns-alert-popup.vue';
 import nsAvatar             from  './ns-avatar.vue';
+import nsAvatarImage        from  './ns-avatar-image.vue';
 import nsButton             from  './ns-button.vue';
 import nsCalendar           from  './ns-calendar.vue';
 import nsCheckbox           from  './ns-checkbox.vue';
@@ -13,6 +14,7 @@ import nsDateRangePicker    from  './ns-date-range-picker.vue';
 import nsDateTimePicker     from  './ns-date-time-picker.vue';
 import nsDatepicker         from  './ns-datepicker.vue';
 import nsDaterangePicker    from  './ns-daterange-picker.vue';
+import nsDefaultAccounting  from  './ns-default-accounting.vue';
 import nsDragzone           from  './ns-dragzone.vue';
 import nsField              from  './ns-field.vue';
 import nsFieldDescription   from  './ns-field-description.vue';
@@ -26,6 +28,7 @@ import nsMultiselect        from  './ns-multiselect.vue';
 import nsNotice             from  './ns-notice.vue';
 import nsNumpad             from  './ns-numpad.vue';
 import nsNumpadPlus         from  './ns-numpad-plus.vue';
+import nsNumpadPopup        from '~/popups/ns-numpad-popup.vue';
 import nsPOSLoadingPopup    from  '~/popups/ns-pos-loading-popup.vue';
 import nsPageTitle           from  './ns-page-title.vue';
 import nsPaginate           from  './ns-paginate.vue';
@@ -85,5 +88,8 @@ export {
     nsConfirmPopup,
     nsPOSLoadingPopup,
     nsPageTitle,
-    nsFieldDescription
+    nsFieldDescription,
+    nsDefaultAccounting,
+    nsAvatarImage,
+    nsNumpadPopup,
 };

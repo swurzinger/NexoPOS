@@ -41,6 +41,7 @@ const nsCustomersStatementReport    =   defineAsyncComponent( () => import( './p
 const nsStockAdjustment             =   defineAsyncComponent( () => import( './pages/dashboard/products/ns-stock-adjustment.vue' ) );
 const nsOrderInvoice                =   defineAsyncComponent( () => import( './pages/dashboard/orders/ns-order-invoice.vue' ) );
 const nsPrintLabel                  =   defineAsyncComponent( () => import( './pages/dashboard/products/ns-print-label.vue' ) );
+const nsTransactionsRules           =   defineAsyncComponent( () => import( './pages/dashboard/transactions/ns-transactions-rules.vue' ) );
 
 declare const window;
 declare let nsExtraComponents;
@@ -58,7 +59,8 @@ nsExtraComponents.nsCustomerAccountsReport = defineAsyncComponent( () => import(
 
 //*************************************************
 
-window.nsHotPress            =   new NsHotPress;
+window.VueHtmlToPaper   =   VueHtmlToPaper;
+window.nsHotPress   =   new NsHotPress;
 
 const allComponents    =   Object.assign({
     nsModules,
@@ -86,6 +88,7 @@ const allComponents    =   Object.assign({
     nsBestProductsReport,
     nsLowStockReport,
     nsCustomersStatementReport,
+    nsTransactionsRules,
 
     nsStockAdjustment,
     nsOrderInvoice,

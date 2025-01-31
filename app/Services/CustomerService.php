@@ -3,10 +3,8 @@
 namespace App\Services;
 
 use App\Classes\Currency;
-use App\Events\AfterCustomerAccountHistoryCreatedEvent;
 use App\Events\CustomerAfterUpdatedEvent;
 use App\Events\CustomerBeforeDeletedEvent;
-use App\Events\CustomerRewardAfterCouponIssuedEvent;
 use App\Events\CustomerRewardAfterCreatedEvent;
 use App\Exceptions\NotAllowedException;
 use App\Exceptions\NotFoundException;
@@ -138,8 +136,7 @@ class CustomerService
             $customer = Customer::byEmail( $fields[ 'email' ] )->first();
         } else {
             /**
-             * Let's find if a similar customer exist with
-             * the provided  and which is not the actula customer.
+             * Let's find if a similar customer exist using the provided email.
              */
             $customer = Customer::byEmail( $fields[ 'email' ] )
                 ->where( 'nexopos_users.id', '<>', $id )
@@ -361,7 +358,7 @@ class CustomerService
         $customerAccountHistory->amount = $amount;
         $customerAccountHistory->next_amount = $next_amount;
         $customerAccountHistory->description = $description;
-        $customerAccountHistory->author = Auth::id();
+        $customerAccountHistory->author = $details[ 'author' ];
 
         /**
          * We can now optionally provide
@@ -385,8 +382,6 @@ class CustomerService
         }
 
         $customerAccountHistory->save();
-
-        event( new AfterCustomerAccountHistoryCreatedEvent( $customerAccountHistory ) );
 
         return [
             'status' => 'success',
@@ -514,8 +509,6 @@ class CustomerService
 
                 $customerReward->points = abs( $customerReward->points - $customerReward->target );
                 $customerReward->save();
-
-                CustomerRewardAfterCouponIssuedEvent::dispatch( $customerCoupon );
             } else {
                 /**
                  * @var NotificationService

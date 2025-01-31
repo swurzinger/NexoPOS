@@ -9,6 +9,7 @@
 namespace App\Http\Controllers;
 
 use App\Classes\Hook;
+use App\Classes\JsonResponse;
 use App\Events\AfterSuccessfulLoginEvent;
 use App\Events\PasswordAfterRecoveredEvent;
 use App\Events\UserAfterActivationSuccessfulEvent;
@@ -32,10 +33,7 @@ use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
-    public function __construct( private UsersService $userService )
-    {
-
-    }
+    public function __construct( private UsersService $userService ) {}
 
     public function signIn()
     {
@@ -195,18 +193,15 @@ class AuthController extends Controller
 
         event( new AfterSuccessfulLoginEvent( Auth::user() ) );
 
-        $data = [
-            'status' => 'success',
-            'message' => __( 'You have been successfully connected.' ),
-            'data' => [
+        return JsonResponse::success(
+            message: __( 'You have been successfully connected.' ),
+            data: [
                 'redirectTo' => Hook::filter( 'ns-login-redirect',
                     ( $intended ) === url( '/' ) ? ns()->route( 'ns.dashboard.home' ) : $intended,
                     redirect()->intended()->getTargetUrl() ? true : false
                 ),
-            ],
-        ];
-
-        return $data;
+            ]
+        );
     }
 
     public function postPasswordLost( PostPasswordLostRequest $request )
@@ -221,16 +216,15 @@ class AuthController extends Controller
             Mail::to( $user )
                 ->queue( new ResetPasswordMail( $user ) );
 
-            return [
-                'status' => 'success',
-                'message' => __( 'The recovery email has been send to your inbox.' ),
-                'data' => [
+            return JsonResponse::success(
+                message: __( 'The recovery email has been send to your inbox.' ),
+                data: [
                     'redirectTo' => route( 'ns.intermediate', [
                         'route' => 'ns.login',
                         'from' => 'ns.password-lost',
                     ] ),
-                ],
-            ];
+                ]
+            );
         }
 
         throw new NotFoundException( __( 'Unable to find a record matching your entry.' ) );

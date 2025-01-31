@@ -7,6 +7,7 @@ use App\Classes\Schema;
 use App\Events\AfterHardResetEvent;
 use App\Events\BeforeHardResetEvent;
 use App\Models\Customer;
+use App\Models\Option;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 
@@ -34,6 +35,8 @@ class ResetService
             'nexopos_transactions',
             'nexopos_transactions_accounts',
             'nexopos_transactions_histories',
+            'nexopos_transactions_balance_days',
+            'nexopos_transactions_balance_months',
 
             'nexopos_medias',
             'nexopos_notifications',
@@ -86,10 +89,38 @@ class ResetService
         }
 
         /**
+         * @var CustomerService $customerService
+         */
+        $customerService = app()->make( CustomerService::class );
+
+        /**
          * Customers stills needs to be cleared
          * so we'll remove them manually.
          */
-        Customer::get()->each( fn( $customer ) => app()->make( CustomerService::class )->delete( $customer ) );
+        Customer::get()->each( fn( $customer ) => $customerService->delete( $customer ) );
+
+        /**
+         * We'll delete all options where key starts with "ns_"
+         * as this is a reserved key for the system, we can safely delete it
+         * but excluding some options provided in an array
+         */
+        Option::where( 'key', 'LIKE', 'ns\_%' )
+            ->where( 'key', 'NOT LIKE', 'ns\_pa_%' )
+            ->where( 'key', 'NOT LIKE', 'ns\_gastro_%' )
+            ->where( 'key', 'NOT LIKE', 'ns\_sms_%' )
+            ->where( 'key', 'NOT LIKE', 'ns\_email_%' )
+            ->where( 'key', 'NOT LIKE', 'ns-stocktransfers%' )
+            ->whereNotIn( 'key', [
+                'ns_store_name',
+                'ns_store_email',
+                'ns_date_format',
+                'ns_datetime_format',
+                'ns_currency_precision',
+                'ns_currency_iso',
+                'ns_currency_symbol',
+                'enabled_modules',
+                'ns_pos_order_types',
+            ] )->delete();
 
         return [
             'status' => 'success',

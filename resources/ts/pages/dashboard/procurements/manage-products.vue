@@ -100,12 +100,11 @@
                                 <div class="-mx-4 flex flex-wrap text-primary" v-if="getActiveTabKey( variation.tabs ) === 'groups'">
                                     <ns-product-group
                                         @update="setProducts( $event, variation.tabs )"
-                                        @updateSalePrice="triggerRecompute( $event, variation.tabs )"
                                         :fields="getActiveTab( variation.tabs ).fields"></ns-product-group>
                                 </div>
                                 <div class="-mx-4 flex flex-wrap" v-if="getActiveTabKey( variation.tabs ) === 'units'">
                                     <div class="px-4 w-full md:w-1/2 lg:w-1/3">
-                                        <ns-field @saved="handleSaveEvent( $event, field )" v-for="field in getActiveTab( variation.tabs ).fields.filter( field => field.name !== 'selling_group' )" @change="loadAvailableUnits( getActiveTab( variation.tabs ), field )" :field="field"></ns-field>
+                                        <ns-field @saved="handleSaveEvent( $event, field, { variation_index } )" v-for="field in getActiveTab( variation.tabs ).fields.filter( field => field.name !== 'selling_group' )" @change="loadAvailableUnits( getActiveTab( variation.tabs ), field )" :field="field"></ns-field>
                                     </div>
                                     <template v-if="unitLoaded">
                                         <template v-for="(field,index) of getActiveTab( variation.tabs ).fields">
@@ -115,15 +114,15 @@
                                                     <p class="py-1 text-sm text-primary">{{ field.description }}</p>
                                                 </div>
                                                 <div class="mb-2">
-                                                    <div @click="addUnitGroup( field )" class="border-dashed border-2 p-1 bg-box-elevation-background border-box-elevation-edge flex justify-between items-center text-primary cursor-pointer rounded-lg">
+                                                    <div @click="addUnitGroup( field, variation.tabs )" class="border-dashed border-2 p-1 bg-box-elevation-background border-box-elevation-edge flex justify-between items-center text-primary cursor-pointer rounded-lg">
                                                         <span class="rounded-full border-2 ns-inset-button info h-8 w-8 flex items-center justify-center">
                                                             <i class="las la-plus-circle"></i>
                                                         </span>
                                                         <span>{{ __( 'New Group' ) }}</span>
                                                     </div>
                                                 </div>
-                                                <ns-tabs v-if="field.groups.length > 0" @changeTab="variation.activeUnitTab = $event" :active="variation.activeUnitTab || 'tab-0'">
-                                                    <ns-tabs-item padding="p-2" v-for="(group,index) of field.groups" :identifier="'tab-' + ( index )" :label="group.label">
+                                                <ns-tabs @close="handleClosingTab( $event, field.groups )" v-if="field.groups.length > 0" @changeTab="variation.activeUnitTab = $event" :active="variation.activeUnitTab || 'tab-0'">
+                                                    <ns-tabs-item :closable="group.closable" padding="p-2" v-for="(group,index) of field.groups" :identifier="'tab-' + ( index )" :label="group.label">
                                                         <div class="shadow rounded overflow-hidden bg-box-elevation-background text-primary">
                                                             <div class="border-b text-sm p-2 flex justify-between text-primary border-box-elevation-edge">
                                                                 <span>{{ __( 'Available Quantity' ) }}</span>
@@ -136,24 +135,30 @@
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                            <div @click="removeUnitPriceGroup( group, field.groups )" class="p-1 hover:bg-error-primary border-t border-box-elevation-edge flex items-center justify-center cursor-pointer font-medium">
-                                                                {{ __( 'Delete' ) }}
-                                                            </div>
                                                         </div>
                                                     </ns-tabs-item>
                                                 </ns-tabs>
                                             </div>
                                         </template>
                                     </template>
-                                    <template v-if="! unitLoaded && ! unitLoadError">
-                                        <div class="px-4 w-full lg:w-2/3 flex justify-center items-center">
-                                            <ns-spinner></ns-spinner>
-                                        </div>
+                                    <template v-if="getActiveTab( variation.tabs ).unit_group_id">
+                                        <template v-if="! unitLoaded && ! unitLoadError">
+                                            <div class="px-4 w-full lg:w-2/3 flex justify-center items-center">
+                                                <ns-spinner></ns-spinner>
+                                            </div>
+                                        </template>
+                                        <template v-if="unitLoadError && ! unitLoaded">
+                                            <div class="px-4 w-full md:w-1/2 lg:w-2/3 flex flex-col justify-center items-center">
+                                                <i class="las la-frown text-7xl"></i>
+                                                <p class="w-full md:w-1/3 py-3 text-center text-sm text-primary">{{ __( 'We were not able to load the units. Make sure there are units attached on the unit group selected.' ) }}</p>
+                                                <p><span @click="createUnit( getActiveTab( variation.tabs ) )" class="cursor-pointer text-info-tertiary border-b border-dashed p-1">{{ __( 'Create Unit' ) }}</span></p>
+                                            </div>
+                                        </template>
                                     </template>
-                                    <template v-if="unitLoadError && ! unitLoaded">
+                                    <template v-else>
                                         <div class="px-4 w-full md:w-1/2 lg:w-2/3 flex flex-col justify-center items-center">
                                             <i class="las la-frown text-7xl"></i>
-                                            <p class="w-full md:w-1/3 py-3 text-center text-sm text-primary">{{ __( 'We were not able to load the units. Make sure there are units attached on the unit group selected.' ) }}</p>
+                                            <p class="w-full md:w-1/3 py-3 text-center text-sm text-primary">{{ __( 'Make sure to select a unit group before you proceed.' ) }}</p>
                                         </div>
                                     </template>
                                 </div>
@@ -167,14 +172,16 @@
 </template>
 <script lang="ts">
 import FormValidation from '~/libraries/form-validation'
-import { nsSnackBar, nsHttpClient } from '~/bootstrap';
+import { nsSnackBar, nsHttpClient, nsHooks } from '~/bootstrap';
 import nsPosConfirmPopupVue from '~/popups/ns-pos-confirm-popup.vue';
 import { __ } from '~/libraries/lang';
 import nsProductGroup from './ns-product-group.vue';
 import { nsCurrency } from '~/filters/currency';
 import { reactive } from "vue";
+import NsCrudForm from '~/components/ns-crud-form.vue';
+import { StatusResponse } from '~/status-response';
 
-declare const Popup, nsSnackbar;
+declare const Popup, nsSnackbar, nsComponents;
 
 export default {
     components: {
@@ -191,12 +198,25 @@ export default {
             form: reactive({}),
             hasLoaded: false,
             hasError: false,
+            isWatching: false,
         }
     },
     watch: {
         form: {
             deep: true,
             handler( value ) {
+                /**
+                 * We would like to avoid this watcher
+                 * to be triggered if any change on that
+                 * occures here. To avoid an infinite loop.
+                 */
+                if ( this.isWatching ) {
+                    return;
+                }
+
+                // We should start watching the form now.
+                this.isWatching = true;
+
                 this.form.variations.forEach( variation => {
                     const identification    =   this.formValidation.extractFields( variation.tabs.identification.fields );
 
@@ -215,7 +235,39 @@ export default {
                             variation.tabs[ 'groups' ].visible = false;
                         }
                     }
+
+                    /**
+                     * this will control how the unit group edition state
+                     * If the product unit quantity are persistent, we shouldn't be able
+                     * to edit change the unit group unless all product unit quantities are deleted
+                     */
+                    let hasPersistenUnitQuantities    =   false;
+
+                    variation.tabs.units.fields.forEach( field => {
+                        if ( field.name === 'selling_group' ) {
+                            field.groups.forEach( group => {
+                                hasPersistenUnitQuantities  =   group.fields.filter( field => field.name === 'id' ).length > 0;
+                            })
+                        }
+                    });
+
+                    variation.tabs.units.fields.forEach( field => {
+                        if ( field.name === 'unit_group' && hasPersistenUnitQuantities ) {
+                            field.disabled  =   true;
+                            field.about     =   __( 'You can\'t change the unit group as there are already unit quantities attached to the product. You might need to delete the Selling Unit.' );
+                        } else {
+                            field.disabled  =   false;
+                            field.about     =   false;
+                        }
+                    })
                 });
+
+                nsHooks.doAction( 'ns-products-form-updated', value );
+
+                // we need a 100ms delay before we can watch again.
+                setTimeout( () => {
+                    this.isWatching = false;
+                }, 100);
             }
         }
     },
@@ -259,14 +311,12 @@ export default {
         },
         async handleSaved( event, activeTabKey, variationIndex, field ) {
             if ( event.data.entry ) {
-                
-                const rawComponent = await this.loadForm();
 
-                rawComponent.form.variations[ variationIndex ].tabs[ activeTabKey ].fields.forEach( __field => {
-                    if ( __field.name === field.name ) {
-                        __field.value   =   event.data.entry.id;
-                    }
+                field.options.push({
+                    label: event.data.entry[ field.props.optionAttributes.label ],
+                    value: event.data.entry[ field.props.optionAttributes.value ]
                 });
+                field.value = event.data.entry[ field.props.optionAttributes.value ];
             }
         },
         getGroupProducts( tabs ) {
@@ -287,12 +337,20 @@ export default {
                 }
             });
         },
-        triggerRecompute( value ) {
-            // @todo check if it's still useful
-        },
         getUnitQuantity( fields ) {
             const quantity  =   fields.filter( f => f.name === 'quantity' ).map( f => f.value );
             return quantity.length > 0 ? quantity[0] : 0;
+        },
+
+        handleClosingTab( tab, groups ) {
+            const realIndex = tab.identifier.substr(4);
+            const group     =   groups[ realIndex ];
+
+            if ( group === undefined ) {
+                return nsSnackBar.error( __( 'Unable to proceed, the group you\'re trying to delete doesn\'t exist. This might be a serious issue, please contact the support.' ) ).subscribe();
+            }
+
+            this.removeUnitPriceGroup( group, groups );
         },
 
         /**
@@ -300,21 +358,24 @@ export default {
          * we might need confirmation before proceeding.
          */
         removeUnitPriceGroup( group, groups ) {
-            const hasIdField    =   group.fields.filter( field => field.name === 'id' && field.value !== undefined );
-                Popup.show( nsPosConfirmPopupVue, {
-                    title: __( 'Confirm Your Action' ),
-                    message: __( 'Would you like to delete this group ?' ),
-                    onAction: ( action ) => {
-                        if ( action ) {
-                            if ( hasIdField.length > 0 ) {
-                                this.confirmUnitQuantityDeletion({ group, groups });
-                            } else {
-                                const index     =   groups.indexOf( group );
-                                groups.splice( index, 1 );
-                            }
+            const hasIdField    =   group.fields.filter( field => {
+                return field.name === 'id' && ! [ '', undefined, null ].includes( field.value )
+            });
+
+            Popup.show( nsPosConfirmPopupVue, {
+                title: __( 'Confirm Your Action' ),
+                message: __( 'Would you like to delete this group ?' ),
+                onAction: ( action ) => {
+                    if ( action ) {
+                        if ( hasIdField.length > 0 ) {
+                            this.confirmUnitQuantityDeletion({ group, groups });
+                        } else {
+                            const index     =   groups.indexOf( group );
+                            groups.splice( index, 1 );
                         }
                     }
-                });
+                }
+            });
         },
 
         confirmUnitQuantityDeletion({ group, groups }) {
@@ -333,7 +394,7 @@ export default {
                                     const index     =   groups.indexOf( group );
                                     groups.splice( index, 1 );
                                     nsSnackBar.success( result.message ).subscribe();
-                                }, 
+                                },
                                 error: ( error ) => {
                                     nsSnackbar.error( error.message ).subscribe();
                                 }
@@ -347,7 +408,7 @@ export default {
          * When the user click on "New Group",
          * this check if there is not enough options as there is groups
          */
-        addUnitGroup( field ) {
+        addUnitGroup( field, tabs ) {
             if ( field.options.length === 0 ) {
                 return nsSnackBar.error( __( 'Please select at least one unit group before you proceed.' ) ).subscribe();
             }
@@ -360,6 +421,7 @@ export default {
                 setTimeout( () => {
                     field.groups    =   [...oldGroups, {
                         label: this.getFirstSelectedUnit( field.fields ),
+                        closable: true,
                         fields: JSON.parse( JSON.stringify( field.fields ) )
                     }];
                 }, 1);
@@ -369,33 +431,40 @@ export default {
             }
         },
 
-        handleSaveEvent( event, field ) {
+        handleSaveEvent( event, field, data ) {
+            const { variation_index }   =   data;
+
             field.options.push({
                 label: event.data.entry[ field.props.optionAttributes.label ],
                 value: event.data.entry[ field.props.optionAttributes.value ]
             });
 
             field.value     =   event.data.entry[ field.props.optionAttributes.value ];
-        },
 
-        /**
-         * When a change is made on unit group
-         * we need to pull units attached to and make them available
-         * for every groups. Validation should prevent duplicated units.
-         */
-        loadAvailableUnits( unit_section, field ) {
-            
-            if( field.name !== 'unit_group' ) {
-                return;
+            if ( field.name === 'unit_group' ) {
+                this.getActiveTab( this.form.variations[ variation_index ].tabs ).unit_group_id  =   field.value;
             }
 
-            this.unitLoaded     =   false;
-            this.unitLoadError  =   false;
-            const unitGroup     =   unit_section.fields.filter( f => f.name === 'unit_group' )[0].value;
-            
-            nsHttpClient.get( this.unitsUrl.replace( '{id}', unitGroup ) )
+            try {
+                this.loadUnits( this.getActiveTab( this.form.variations[ variation_index ].tabs ), field.value );
+            } catch( exception ) {
+                console.log({ exception })
+            }
+        },
+
+        loadUnits( unit_section, unit_group_id ) {
+            return new Promise( ( resolve, reject ) => {
+                nsHttpClient.get( this.unitsUrl.replace( '{id}', unit_group_id ) )
                 .subscribe({
                     next: (result: any[]) => {
+                        /**
+                         * If there is no result, we can't display the unit fields.
+                         */
+                        if ( result.length === 0 ) {
+                            this.unitLoadError  =   true;
+                            return reject( false );
+                        }
+
                         /**
                          * For each group, we'll loop to find
                          * the field that allow to choose the unit
@@ -418,11 +487,38 @@ export default {
                         });
 
                         this.unitLoaded = true;
+                        resolve( true );
                     },
                     error: error => {
+                        reject( false );
                         this.unitLoadError  =   true;
                     }
                 })
+            })
+        },
+
+        /**
+         * When a change is made on unit group
+         * we need to pull units attached to and make them available
+         * for every groups. Validation should prevent duplicated units.
+         */
+        async loadAvailableUnits( unit_section, field ) {
+
+            if( field.name !== 'unit_group' ) {
+                return;
+            }
+
+            this.unitLoaded         =   false;
+            this.unitLoadError      =   false;
+            const unit_group_id     =   unit_section.fields.filter( f => f.name === 'unit_group' )[0].value;
+
+            unit_section.unit_group_id  =   unit_group_id;
+
+            try {
+                if ( unit_group_id !== undefined ) {await this.loadUnits( unit_section, unit_group_id );}
+            } catch( exception ) {
+                console.log({ exception });
+            }
         },
         submit() {
             let formValidGlobally   =   true;
@@ -669,9 +765,9 @@ export default {
 
             return false;
         },
-        getFirstSelectedUnit( group_fields ) {    
+        getFirstSelectedUnit( group_fields ) {
             const field = group_fields.filter( field => field.name === 'unit_id' );
-            
+
             if ( field.length > 0 ) {
                 const option    =   field[0].options.filter( option => option.value === field[0].value );
 
@@ -681,10 +777,31 @@ export default {
             }
 
             return __( 'No Unit Selected' );
+        },
+        async createUnit( activeTab ) {
+            try {
+                const result: StatusResponse    =   await new Promise( ( resolve, reject ) => {
+                    Popup.show( NsCrudForm, {
+                        title: __( 'Create Unit' ),
+                        src: '/api/crud/ns.units/form-config',
+                        submitUrl: '/api/crud/ns.units',
+                        submitMethod: 'POST',
+                        returnUrl: false,
+                        resolve,
+                        reject
+                    });
+                })
+
+                nsSnackBar.success( result.message ).subscribe();
+
+                this.loadAvailableUnits( activeTab, { name: 'unit_group', value: this.getActiveTab( this.form.variations[0].tabs).unit_group_id } );
+            } catch( exception ) {
+                // ...
+            }
         }
     },
     async mounted() {
-        await this.loadForm();        
+        await this.loadForm();
     },
     name: 'ns-manage-products',
 }
