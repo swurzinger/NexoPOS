@@ -171,10 +171,6 @@ class SetupService
             '--provider' => 'Laravel\Sanctum\SanctumServiceProvider',
         ] );
 
-        Artisan::call( 'ns:translate', [
-            '--symlink' => true,
-        ] );
-
         /**
          * we'll register all "update" migration
          * as already run as these migration are supposed
