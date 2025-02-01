@@ -1012,129 +1012,13 @@ class ModulesService
             $linkPath = base_path( 'public' ) . DIRECTORY_SEPARATOR . 'modules' . DIRECTORY_SEPARATOR . strtolower( $moduleNamespace );
             $targetPath = base_path( 'modules' . DIRECTORY_SEPARATOR . $moduleNamespace . DIRECTORY_SEPARATOR . 'Public' );
 
-            // Check if link exists and is broken, then remove it
-            if ( is_link( $linkPath ) ) {
-                // On Windows, check if the junction/symlink target exists
-                if ( $this->isWindowsOS() ) {
-                    // Windows: Check if the target is accessible
-                    if ( ! file_exists( $linkPath ) || ! is_readable( $linkPath ) ) {
-                        $this->removeSymLink( $moduleNamespace );
-                    }
-                } else {
-                    // Linux: Check if the symlink target exists
-                    if ( ! file_exists( readlink( $linkPath ) ) ) {
-                        unlink( $linkPath );
-                    }
-                }
-            }
-
-            /**
-             * This creates symbolic links for the module assets.
-             */
-            if ( ! is_link( $linkPath ) && ! file_exists( $linkPath ) ) {
-                if ( $this->isWindowsOS() ) {
-                    // Windows: Use mklink with appropriate mode
-                    // /D for directory, /H for hard link (file), /J for junction (directory - more compatible)
-                    $isDirectory = is_dir( $targetPath );
-                    $mode = $isDirectory ? 'D' : 'H';
-
-                    // For directories, prefer junction (/J) over symbolic directory link (/D)
-                    // as junctions don't require admin privileges
-                    if ( $isDirectory ) {
-                        $mode = 'J';
-                    }
-
-                    // Execute mklink command
-                    $command = "mklink /{$mode} \"{$linkPath}\" \"{$targetPath}\"";
-                    exec( $command, $output, $resultCode );
-
-                    // Throw error if command failed
-                    if ( $resultCode !== 0 ) {
-                        $errorMessage = sprintf( __( 'Failed to create symbolic link for module "%s": %s' ), $moduleNamespace, implode( "\n", $output ) );
-                        Log::error( $errorMessage );
-                        throw new Exception( $errorMessage );
-                    }
-                } else {
-                    // Linux/Unix: Use symlink function
-                    $result = @symlink( $targetPath, $linkPath );
-
-                    if ( ! $result ) {
-                        $errorMessage = sprintf( __( 'Failed to create symbolic link for module "%s"' ), $moduleNamespace );
-                        Log::error( $errorMessage );
-                        throw new Exception( $errorMessage );
-                    }
-                }
-            }
-
-            /**
-             * This create symbolic links for the language files.
-             * We first need to make sure the "modules-lang" directory exists
-             * otherwise we create it.
-             */
-            if ( ! is_dir( base_path( 'public/modules-lang' ) ) ) {
-                mkdir( base_path( 'public/modules-lang' ), 0755, true );
-            }
-
-            if ( Storage::disk( 'ns-modules' )->exists( $moduleNamespace . DIRECTORY_SEPARATOR . 'Lang' ) ) {
-                $linkPath = base_path( 'public' ) . DIRECTORY_SEPARATOR . 'modules-lang' . DIRECTORY_SEPARATOR . strtolower( $moduleNamespace );
-                $targetPath = base_path( 'modules' . DIRECTORY_SEPARATOR . $moduleNamespace . DIRECTORY_SEPARATOR . 'Lang' );
-
-                // Check if link exists and is broken, then remove it
-                if ( is_link( $linkPath ) ) {
-                    // On Windows, check if the junction/symlink target exists
-                    if ( $this->isWindowsOS() ) {
-                        // Windows: Check if the target is accessible
-                        if ( ! file_exists( $linkPath ) || ! is_readable( $linkPath ) ) {
-                            // Remove broken link for language files
-                            if ( is_dir( $linkPath ) ) {
-                                $command = "rmdir \"$linkPath\"";
-                                exec( $command, $output, $resultCode );
-
-                                if ( $resultCode !== 0 ) {
-                                    Log::warning( 'Failed to remove broken language directory link: ' . implode( "\n", $output ) );
-                                }
-                            } else {
-                                $command = "del \"$linkPath\"";
-                                exec( $command, $output, $resultCode );
-
-                                if ( $resultCode !== 0 ) {
-                                    Log::warning( 'Failed to remove broken language file link: ' . implode( "\n", $output ) );
-                                }
-                            }
-                        }
-                    } else {
-                        // Linux: Check if the symlink target exists
-                        if ( ! file_exists( readlink( $linkPath ) ) ) {
-                            unlink( $linkPath );
-                        }
-                    }
-                }
-
-                // Create symlink if it doesn't exist
-                if ( ! is_link( $linkPath ) && ! file_exists( $linkPath ) ) {
-                    if ( $this->isWindowsOS() ) {
-                        // Windows: Use junction (/J) for directory
-                        $mode = 'J';
-                        $command = "mklink /{$mode} \"{$linkPath}\" \"{$targetPath}\"";
-                        exec( $command, $output, $resultCode );
-
-                        if ( $resultCode !== 0 ) {
-                            $errorMessage = sprintf( __( 'Failed to create language symbolic link for module "%s": %s' ), $moduleNamespace, implode( "\n", $output ) );
-                            Log::error( $errorMessage );
-                            dump( $linkPath );
-                            throw new Exception( $errorMessage );
-                        }
-                    } else {
-                        // Linux/Unix: Use symlink function
-                        $result = @symlink( $targetPath, $linkPath );
-
-                        if ( ! $result ) {
-                            $errorMessage = sprintf( __( 'Failed to create language symbolic link for module "%s"' ), $moduleNamespace );
-                            Log::error( $errorMessage );
-                            throw new Exception( $errorMessage );
-                        }
-                    }
-                }
+            if ( ! \windows_os() ) {
+                $link = @\symlink( $target, public_path( '/modules/' . strtolower( $moduleNamespace ) ) );
+            } else {
+                $mode = 'J';
+                $link = public_path( 'modules' . DIRECTORY_SEPARATOR . strtolower( $moduleNamespace ) );
+                $target = base_path( 'modules' . DIRECTORY_SEPARATOR . $moduleNamespace . DIRECTORY_SEPARATOR . 'Public' );
+                $link = exec( "mklink /{$mode} \"{$link}\" \"{$target}\"" );
             }
         }
     }
