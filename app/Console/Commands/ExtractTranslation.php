@@ -203,9 +203,15 @@ class ExtractTranslation extends Command
     private function extractLocalization( $files )
     {
         $supportedExtensions = [ 'vue', 'php', 'ts', 'js' ];
+        $excludedDirectories = [ 'resources/views/generate' ];
 
-        $filtered = collect( $files )->filter( function ( $file ) use ( $supportedExtensions ) {
+        $filtered = collect( $files )->filter( function ( $file ) use ( $supportedExtensions, $excludedDirectories ) {
             $info = pathinfo( $file );
+            foreach ( $excludedDirectories as $excludedDir ) {
+                if ( str_starts_with( $info['dirname'], $excludedDir ) ) {
+                    return false;
+                }
+            }
 
             return in_array( $info[ 'extension' ], $supportedExtensions );
         } );
@@ -213,15 +219,17 @@ class ExtractTranslation extends Command
         $exportable = [];
 
         /**
-         * we'll extract all the string that can be translated
+         * we'll extract all the strings that can be translated
          * and save them within an array.
          */
         $this->withProgressBar( $filtered, function ( $file ) use ( &$exportable ) {
             $fileContent = Storage::disk( 'ns' )->get( $file );
-            preg_match_all( '/__[m]?\(\s*(?(?=[\'"`](?:[\s\S]*?)[\'"`](?:,\s*(?:[^)]*))?)[\'"`]([\s\S]*?)[\'"`](?:,\s*(?:[^)]*))?|)\s*\)/', $fileContent, $output_array );
+            $contentWithoutCommentBlocks = preg_replace( '/(\/\*.*?\*\/)/is', ' ', $fileContent );
+            preg_match_all( '/__[m]?\(\s*([\'"`])(?<text>(?:\\\\\1|(?!\1)[\S\s])*)(\1)\s*(?:,\s*[\'"`]?(?<arg>\w*)[\'"`]?\s*)?\)/', $contentWithoutCommentBlocks, $output_array );
 
-            if ( isset( $output_array[1] ) ) {
-                foreach ( $output_array[1] as $string ) {
+            if ( isset( $output_array['text'] ) ) {
+                foreach ( $output_array['text'] as $rawString ) {
+                    $string = stripslashes( $rawString );
                     $exportable[ $string ] = compact( 'file', 'string' );
                 }
             }
