@@ -916,26 +916,6 @@ class ModulesService
                 $link = exec( "mklink /{$mode} \"{$link}\" \"{$target}\"" );
             }
         }
-
-        /**
-         * checks if a lang directory exists and create a
-         * link for that directory
-         */
-        if (
-            Storage::disk( 'ns-modules' )->exists( $moduleNamespace . DIRECTORY_SEPARATOR . 'Lang' ) &&
-            ! is_link( base_path( 'public' ) . DIRECTORY_SEPARATOR . 'modules-lang' . DIRECTORY_SEPARATOR . strtolower( $moduleNamespace ) )
-        ) {
-            $target = base_path( 'modules/' . $moduleNamespace . '/Lang' );
-
-            if ( ! \windows_os() ) {
-                $link = @\symlink( $target, public_path( '/modules-lang/' . strtolower( $moduleNamespace ) ) );
-            } else {
-                $mode = 'J';
-                $link = public_path( 'modules-lang' . DIRECTORY_SEPARATOR . strtolower( $moduleNamespace ) );
-                $target = base_path( 'modules' . DIRECTORY_SEPARATOR . $moduleNamespace . DIRECTORY_SEPARATOR . 'Lang' );
-                $link = exec( "mklink /{$mode} \"{$link}\" \"{$target}\"" );
-            }
-        }
     }
 
     /**

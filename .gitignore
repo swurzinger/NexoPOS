@@ -21,8 +21,6 @@ public/export/*
 !public/export/index.html
 !public/modules/index.html
 public/lang
-public/modules-lang/*
-!public/modules-lang/index.html
 public/mapping.json
 public/build
 public/docs
