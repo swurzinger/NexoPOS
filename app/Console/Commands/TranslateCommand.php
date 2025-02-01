@@ -68,7 +68,7 @@ class TranslateCommand extends Command
         $finalArray = $this->extractLocalization( $files->flatten() );
         $finalArray = $this->flushTranslation( $finalArray, $filePath );
 
-        Storage::disk( 'ns' )->put( $filePath, json_encode( $finalArray, JSON_PRETTY_PRINT ) );
+        Storage::disk( 'ns' )->put( $filePath, json_encode( $finalArray, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) );
 
         $this->newLine();
         $this->info( sprintf( __( 'Localization for %s extracted to %s' ), config( 'nexopos.languages' )[ $lang ], $filePath ) );
@@ -139,7 +139,7 @@ class TranslateCommand extends Command
         $finalArray = $this->extractLocalization( $files );
         $finalArray = $this->flushTranslation( $finalArray, $filePath );
 
-        Storage::disk( 'ns' )->put( 'lang/' . $lang . '.json', json_encode( $finalArray, JSON_PRETTY_PRINT ) );
+        Storage::disk( 'ns' )->put( 'lang/' . $lang . '.json', json_encode( $finalArray, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) );
 
         $this->newLine();
         $this->info( 'Extraction complete for language : ' . config( 'nexopos.languages' )[ $lang ] );
