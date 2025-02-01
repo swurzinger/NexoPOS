@@ -975,6 +975,7 @@ class TransactionService
         $transactionHistory->status = TransactionHistory::STATUS_ACTIVE;
         $transactionHistory->order_id = $order->id;
         $transactionHistory->rule_id = $rule->id;
+        $transactionHistory->transaction_id = null;
         $transactionHistory->save();
 
         return $transactionHistory;

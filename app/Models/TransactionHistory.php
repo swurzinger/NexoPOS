@@ -21,7 +21,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
  * @property mixed          $name
  * @property mixed          $status
  * @property string         $type
- * @property \Carbo\Carbon  $trigger_date
+ * @property \Carbon\Carbon $trigger_date
  * @property float          $value
  * @property int            $author_id
  * @property \Carbon\Carbon $created_at
