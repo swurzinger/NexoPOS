@@ -2597,7 +2597,7 @@
     "The \"$attribute\" provided is not valid.": "The \"$attribute\" provided is not valid.",
     "Provide the customer gender": "Provide the customer gender",
     "The assigned default customer group doesn't exist or has been deleted.": "The assigned default customer group doesn't exist or has been deleted.",
-    "Filter the orders by the author.": "Filter the orders by the author.",
+    "Filter the orders by the author.": "",
     "Restrict the orders by the customer first name.": "Restrict the orders by the customer first name.",
     "Filter orders using the customer phone number.": "Filter orders using the customer phone number.",
     "Filter the orders to the cash registers.": "Filter the orders to the cash registers.",
