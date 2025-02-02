@@ -10,7 +10,7 @@
                   <div class="ns-button info">
                     <a href="/sign-out" class="rounded shadow flex-shrink-0 h-12 flex items-center px-2 py-1 text-sm">
                       <i class="mr-1 text-xl  las la-sign-out-alt"></i>
-                      <span>Logout</span>
+                      <span>{{ __('Logout') }}</span>
                     </a>
                   </div>
                 </div>
@@ -31,9 +31,11 @@
 <script>
 import nsPosCart from './ns-pos-cart.vue';
 import nsPosGrid from './ns-pos-grid.vue';
+import {__} from "~/libraries/lang";
 
 export default {
     name: 'ns-pos',
+    methods: {__},
     computed: {
         buttons() {
             return POS.header.buttons;
