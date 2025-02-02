@@ -573,10 +573,10 @@ class MenuService
         $this->toggleActive();
 
         return collect( $this->menus )->filter( function ( $menu ) {
-            return ( ! isset( $menu[ 'permissions' ] ) || Gate::any( $menu[ 'permissions' ] ) ) && ( ! isset( $menu[ 'show' ] ) || $menu[ 'show' ] === true );
+            return ( ! isset( $menu[ 'permissions' ] ) || empty( $menu[ 'permissions' ] ) || Gate::any( $menu[ 'permissions' ] )) && ( ! isset( $menu[ 'show' ] ) || $menu[ 'show' ] === true );
         } )->map( function ( $menu ) {
             $menu[ 'childrens' ] = collect( $menu[ 'childrens' ] ?? [] )->filter( function ( $submenu ) {
-                return ! isset( $submenu[ 'permissions' ] ) || Gate::any( $submenu[ 'permissions' ] );
+                return ! isset( $submenu[ 'permissions' ] ) || empty( $menu[ 'permissions' ] ) || Gate::any( $submenu[ 'permissions' ] );
             } )->toArray();
 
             return $menu;
