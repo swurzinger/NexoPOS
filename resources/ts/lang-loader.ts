@@ -10,15 +10,13 @@ class NsLanguage {
         this.loadJson();
     }
 
-    loadJson() {
-        fetch( `/lang/${ns.language}.json` )
-        .then( (response) => {
-            if (response.ok) {
-                this.languages = response.json();
-                this.loadReadyScripts();
-                this.loadReadyCallbacks();
-            }
-        });
+    async loadJson() {
+        let response = await fetch(`/lang/${ns.language}.json`)
+        if (response.ok) {
+            this.languages = await response.json();
+            this.loadReadyScripts();
+            this.loadReadyCallbacks();
+        }
     }
 
     loadReadyScripts() {
