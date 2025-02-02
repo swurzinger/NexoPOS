@@ -10716,7 +10716,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": [],
+    "stability-flags": {
+        "laravel/reverb": 10
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
