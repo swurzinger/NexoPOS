@@ -216,6 +216,7 @@ class TranslateCommand extends Command
                 foreach ( $output_array['text'] as $i => $rawString ) {
                     $delimiter = $output_array[1][$i];
                     $fileExtension = pathinfo( $file, PATHINFO_EXTENSION );
+                    $rawString = str_replace( "\r", '', $rawString ); // remove \r if not explicitly encoded in string as escape sequence
                     $string = $this->unescapeString( $rawString, $delimiter, $fileExtension );
                     $exportable[ $string ] = compact( 'file', 'string' );
                 }
@@ -236,6 +237,7 @@ class TranslateCommand extends Command
             } elseif ( $delimiter === '"' ) {
                 // PHP double-quoted string handle several escape sequences, for others the backslash is kept!
                 $string = str_replace( ['\\\\', "\'", '\n', '\r', '\t', '\v', '\e', '\f', '\$', '\"'], ['\\', "'", "\n", "\r", "\t", "\v", "\e", "\f", '$', '"'], $string );
+
                 // handle octal \777 and hex \xFF escapes; unicode escapes \u{....} are currently not implemented!
                 return $this->replaceHexEscapes( $this->replaceOctalEscapes( $string ) );
             }
