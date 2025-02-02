@@ -17,7 +17,7 @@ class TranslateCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'ns:translate {module?} {--extract} {--lang=en} {--build}';
+    protected $signature = 'ns:translate {module?} {--extract} {--lang=en} {--build} {--sort}';
 
     /**
      * The console command description.
@@ -50,6 +50,8 @@ class TranslateCommand extends Command
             $this->extracting();
         } elseif ( $this->option( 'build' ) ) {
             $this->build();
+        } elseif ( $this->option( 'sort' ) ) {
+            $this->sort();
         }
     }
 
@@ -312,5 +314,58 @@ class TranslateCommand extends Command
         return preg_replace_callback( '/\x([0-9a-fA-F]{1,2})/', function ( $matches ) {
             return chr( hexdec( $matches[1] ) );
         }, $string );
+    }
+
+    private function sort()
+    {
+        $defaultLocale = 'en';
+        $locale = $this->option( 'lang' );
+
+        if ( $this->argument( 'module' ) ) {
+            $module = $this->modulesService->get( $this->argument( 'module' ) );
+
+            if ( ! empty( $module ) ) {
+                $basePath = Str::finish( $module[ 'lang-relativePath' ], DIRECTORY_SEPARATOR );
+            } else {
+                $this->error( __( 'Unable to find the requested module.' ) );
+                return;
+            }
+        } else {
+            $basePath = 'lang/';
+        }
+
+        $defaultFilePath = $basePath . $defaultLocale . '.json';
+        $filePath = $basePath . $locale . '.json';
+
+        if ( ! Storage::disk( 'ns' )->exists( $defaultFilePath ) ) {
+            $this->error( 'Unable to find: ' . $defaultFilePath );
+            return;
+        }
+        if ( ! Storage::disk( 'ns' )->exists( $filePath ) ) {
+            $this->error( 'Unable to find: ' . $filePath );
+            return;
+        }
+
+        $defaultKeys = array_keys( json_decode( Storage::disk( 'ns' )->get( $defaultFilePath ), true ) );
+        $lang = json_decode( Storage::disk( 'ns' )->get( $filePath ), true );
+
+        uksort( $lang, function ( $a, $b ) use ( $defaultKeys ) {
+            $ia = array_search( $a, $defaultKeys );
+            $ib = array_search( $b, $defaultKeys );
+
+            if ( $ia === $ib ) {
+                return 0;
+            }
+            if ( $ia === false ) {
+                return 1;
+            }
+            if ( $ib === false ) {
+                return -1;
+            }
+
+            return $ia - $ib;
+        } );
+
+        Storage::disk( 'ns' )->put( $filePath, json_encode( $lang, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) );
     }
 }
