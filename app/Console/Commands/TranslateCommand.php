@@ -213,8 +213,11 @@ class TranslateCommand extends Command
             preg_match_all( '/__[m]?\(\s*([\'"`])(?<text>(?:\\\\\1|(?!\1)[\S\s])*)(\1)\s*(?:,\s*[\'"`]?(?<arg>\w*)[\'"`]?\s*)?\)/', $contentWithoutCommentBlocks, $output_array );
 
             if ( isset( $output_array['text'] ) ) {
-                foreach ( $output_array['text'] as $rawString ) {
-                    $string = stripslashes( $rawString );
+                foreach ( $output_array['text'] as $i => $rawString ) {
+                    $delimiter = $output_array[1][$i];
+                    $fileExtension = pathinfo( $file, PATHINFO_EXTENSION );
+                    $rawString = str_replace( "\r", '', $rawString ); // remove \r if not explicitly encoded in string as escape sequence
+                    $string = $this->unescapeString( $rawString, $delimiter, $fileExtension );
                     $exportable[ $string ] = compact( 'file', 'string' );
                 }
             }
@@ -223,6 +226,39 @@ class TranslateCommand extends Command
         return collect( $exportable )->mapWithKeys( function ( $exportable ) {
             return [ $exportable[ 'string' ] => $exportable[ 'string' ] ];
         } )->toArray();
+    }
+
+    private function unescapeString( string $string, string $delimiter, string $fileExt ): string
+    {
+        if ( $fileExt === 'php' ) {
+            if ( $delimiter === "'" ) {
+                // PHP single-quoted strings only handle \' and \\, for others the backslash is kept!
+                return str_replace( ['\\\\', "\'"], ['\\', "'"], $string );
+            } elseif ( $delimiter === '"' ) {
+                // PHP double-quoted string handle several escape sequences, for others the backslash is kept!
+                $string = str_replace( ['\\\\', "\'", '\n', '\r', '\t', '\v', '\e', '\f', '\$', '\"'], ['\\', "'", "\n", "\r", "\t", "\v", "\e", "\f", '$', '"'], $string );
+
+                // handle octal \777 and hex \xFF escapes; unicode escapes \u{....} are currently not implemented!
+                return $this->replaceHexEscapes( $this->replaceOctalEscapes( $string ) );
+            }
+        }
+
+        // JS removes the backslash for invalid/unknown escape sequences
+        return stripslashes( $string );
+    }
+
+    public function replaceOctalEscapes( $string ): string
+    {
+        return preg_replace_callback( '/\\\([0-7]{1,3})/', function ( $matches ) {
+            return chr( octdec( $matches[1] ) );
+        }, $string );
+    }
+
+    public function replaceHexEscapes( $string ): string
+    {
+        return preg_replace_callback( '/\x([0-9a-fA-F]{1,2})/', function ( $matches ) {
+            return chr( hexdec( $matches[1] ) );
+        }, $string );
     }
 
     public function build(): void
@@ -292,6 +328,7 @@ class TranslateCommand extends Command
                 $basePath = Str::finish( $module[ 'lang-relativePath' ], DIRECTORY_SEPARATOR );
             } else {
                 $this->error( __( 'Unable to find the requested module.' ) );
+
                 return;
             }
         } else {
@@ -303,10 +340,12 @@ class TranslateCommand extends Command
 
         if ( ! Storage::disk( 'ns' )->exists( $defaultFilePath ) ) {
             $this->error( 'Unable to find: ' . $defaultFilePath );
+
             return;
         }
         if ( ! Storage::disk( 'ns' )->exists( $filePath ) ) {
             $this->error( 'Unable to find: ' . $filePath );
+
             return;
         }
 
