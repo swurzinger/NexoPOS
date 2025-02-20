@@ -124,7 +124,7 @@ class ModulesController extends DashboardController
     {
         $result = $this->modules->upload( $request->file( 'module' ) );
 
-        if ( $request->acceptsJson() ) {
+        if ( $request->expectsJson() ) {
             return response()->json( $result );
         } else {
             /**
@@ -135,7 +135,7 @@ class ModulesController extends DashboardController
             } else {
                 $validator = Validator::make( $request->all(), [] );
                 $validator->errors()->add( 'module', $result[ 'message' ] );
-    
+
                 return redirect( ns()->route( 'ns.dashboard.modules-upload' ) )->withErrors( $validator );
             }
         }

@@ -488,7 +488,7 @@ class MenuService
             } )->toArray();
 
             return $menu;
-        });
+        } );
     }
 
     /**
