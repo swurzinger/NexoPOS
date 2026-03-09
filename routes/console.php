@@ -53,7 +53,7 @@ Schedule::call( fn() => ns()->checkSymbolicLinks() )->hourly();
  * Will execute here recurring transaction
  * based on a cron configuration
  */
-if ( Helper::installed() ) {
+if ( Helper::installed() && false ) {
     Transaction::recurring()->where( 'active', true )->where( 'occurrence', Transaction::OCCURRENCE_EVERY_X_DAYS )->get()->each( function ( $transaction ) {
         Schedule::job( new TriggerRecurringTransactionJob( $transaction ) )->cron( '0 0 */' . $transaction->occurrence_value . ' * *' );
     } );
