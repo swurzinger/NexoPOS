@@ -88,7 +88,7 @@
   "Load": "Laden",
   "Input the coupon code that should apply to the POS. If a coupon is issued for a customer, that customer must be selected priorly.": "Geben Sie den Gutscheincode ein, der auf die Verkaufstransaktion angewendet werden soll. Wenn ein Gutscheincode für einen Kunden ausgestellt wurde, muss dieser Kunde vorher ausgewählt werden.",
   "Click here to choose a customer.": "Klicken Sie hier, um einen Kunden auszuwählen.",
-  "Coupon Name": "Coupon-Name",
+  "Coupon Name": "Gutschein-Name",
   "Usage": "Verwendung",
   "Unlimited": "Unbegrenzt",
   "Valid From": "Gültig ab",
