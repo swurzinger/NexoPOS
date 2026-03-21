@@ -12,6 +12,8 @@ import tailwindcss from "@tailwindcss/vite";
 export default ({ mode }) => {
     process.env = {...process.env, ...loadEnv(mode, process.cwd())};
 
+    const isDev = mode === 'development';
+
     return defineConfig({
         base: './',
         server: {
@@ -33,6 +35,10 @@ export default ({ mode }) => {
                     replacement: resolve( __dirname, 'resources/ts' ),
                 },
             ]
+        },
+        build: {
+            sourcemap: isDev,
+            minify: !isDev,
         },
         plugins: [
             tailwindcss(),
@@ -74,6 +80,7 @@ export default ({ mode }) => {
                         includeAbsolute: false,
                     },
                 },
+                isProduction: !isDev,
             }),
         ],
     });
