@@ -15,7 +15,7 @@ export class MultiPaymentQueue implements Queue {
         // transactions there as well
 
         // if (this.order.customer.owed_amount <= 0 && (this.order.total - this.order.tendered) <= 0) {
-        //     nsSnackBar.info( __( 'Keine unbezahlten Bestellungen' ) ).subscribe();
+        //     nsSnackBar.info( __( 'Keine unbezahlten Bestellungen' ) );
         //     throw new Error("no unpaid orders");
         // }
 

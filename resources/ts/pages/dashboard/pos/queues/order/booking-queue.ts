@@ -22,13 +22,13 @@ export class BookingQueue implements Queue {
             const result = await POS.submitOrder( order );
 
             popup.close();
-            nsSnackBar.success( result.message ).subscribe();
+            nsSnackBar.success( result.message );
 
             POS.printOrderReceipt( result.data.order, 'silent' );
 
         } catch( exception ) {
             popup.close();
-            nsSnackBar.error( exception.message ).subscribe();
+            nsSnackBar.error( exception.message );
         }
     }
 }

@@ -512,10 +512,10 @@ export default {
           nsHttpClient.put( `/api/mvl/customer/${customer.id}/pin`, { pin: null } )
               .subscribe({
                 next: orders => {
-                  nsSnackBar.success( 'PIN zurückgesetzt' ).subscribe();
+                  nsSnackBar.success( 'PIN zurückgesetzt' );
                 },
                 error: e => {
-                  nsSnackBar.error( 'Fehler beim PIN zurücksetzen' ).subscribe();
+                  nsSnackBar.error( 'Fehler beim PIN zurücksetzen' );
                 }
               });
         },

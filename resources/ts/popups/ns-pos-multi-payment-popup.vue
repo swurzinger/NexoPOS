@@ -184,10 +184,10 @@ export default {
                         const result = await firstValueFrom(
                             nsHttpClient.put(`/api/mvl/customer/${this.order.customer.id}/orders/pay`, {payments: payments})
                         );
-                        nsSnackBar.success(result.message).subscribe();
+                        nsSnackBar.success(result.message);
 
                     } catch (error) {
-                        nsSnackBar.error(error.message).subscribe();
+                        nsSnackBar.error(error.message);
                         return;
                     }
                 }
@@ -199,16 +199,16 @@ export default {
                             order.payment_status = 'unpaid';
                         }
                         const result = await POS.submitOrder(order);
-                        nsSnackBar.success(result.message).subscribe();
+                        nsSnackBar.success(result.message);
                         try {
                             POS.printOrderReceipt(result.data.order, 'silent');
                         } catch (error) {
                             // we show the error, but otherwise don't care, cause it can be printed again
-                            nsSnackBar.error(error.message).subscribe();
+                            nsSnackBar.error(error.message);
                         }
 
                     } catch (error) {
-                        nsSnackBar.error(error.message).subscribe();
+                        nsSnackBar.error(error.message);
                         // update unpaid orders data as that payment has probably been successful
                         if (payments.length > 0) {
                             await this.loadUnpaidOrders();
