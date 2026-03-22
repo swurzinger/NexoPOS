@@ -1,12 +1,10 @@
 <script>
-import {nextTick, ref, toRaw} from 'vue'
+import {nextTick, ref, shallowRef, toRaw} from 'vue'
 import {nsHttpClient, nsSnackBar} from '~/bootstrap';
 import resolveIfQueued from "~/libraries/popup-resolver";
 import {Popup} from '~/libraries/popup';
 import {__} from '~/libraries/lang';
 import CashPayment from "~/pages/dashboard/pos/payments/cash-payment.vue";
-import CreditCardPayment from "~/pages/dashboard/pos/payments/creditcard-payment.vue";
-import BankPayment from '~/pages/dashboard/pos/payments/bank-payment.vue';
 import AccountPayment from '~/pages/dashboard/pos/payments/account-payment.vue';
 import nsPosLoadingPopupVue from './ns-pos-loading-popup.vue';
 import samplePaymentVue from '~/pages/dashboard/pos/payments/sample-payment.vue';
@@ -16,13 +14,15 @@ import NsButton from "~/components/ns-button.vue";
 import NsCloseButton from "~/components/ns-close-button.vue";
 import NsSpinner from "~/components/ns-spinner.vue";
 import {firstValueFrom} from "rxjs";
-import MultiPayment from "~/pages/dashboard/pos/payments/multi-payment.vue";
 import NsMultiPayment from "~/pages/dashboard/pos/payments/multi-payment.vue";
 import nsPosOrderProductsPopupVue from "~/popups/ns-pos-order-products-popup.vue";
+import popupResolver from "~/libraries/popup-resolver.ts";
+import popupCloser from "~/libraries/popup-closer.ts";
 
 export default {
     name: 'ns-pos-multi-payment',
     components: {NsMultiPayment, NsSpinner, NsCloseButton, NsButton},
+    props: [ 'popup' ],
     data() {
         return {
             isLoading: true,
@@ -55,17 +55,15 @@ export default {
         }
     },
     mounted() {
-        this.$popup.event.subscribe(action => {
-            switch (action.event) {
-                case 'click-overlay':
-                    this.closePopup();
-                    break;
-            }
-        });
-
         this.orderSubscription = POS.order.subscribe(order => {
             this.order = ref(order);
         })
+        this.activePaymentSubscription  =   POS.selectedPaymentType.subscribe( activePayment => {
+            this.activePayment = activePayment;
+            if ( activePayment !== null ) {
+                this.loadPaymentComponent( activePayment );
+            }
+        });
         this.paymentTypesSubscription = POS.paymentsType.subscribe(paymentTypes => {
             // this.paymentTypes = ref(paymentTypes);
             // paymentTypes.filter(payment => {
@@ -81,21 +79,18 @@ export default {
 
         nsHooks.doAction('ns-pos-payment-mounted', this);
     },
-    watch: {
-        activePayment(value) {
-            this.loadPaymentComponent(value);
-        }
-    },
     unmounted() {
+        this.activePaymentSubscription.unsubscribe();
         this.paymentTypesSubscription.unsubscribe();
         this.orderSubscription.unsubscribe();
 
         nsHooks.doAction('ns-pos-payment-destroyed', this);
     },
     methods: {
-        __,
         nsCurrency,
-
+        __,
+        popupResolver,
+        popupCloser,
         resolveIfQueued,
 
         async loadUnpaidOrders() {
@@ -112,13 +107,13 @@ export default {
         loadPaymentComponent(payment) {
             switch (payment.identifier) {
                 case 'cash-payment':
-                    this.currentPaymentComponent = CashPayment;
+                    this.currentPaymentComponent = shallowRef(CashPayment);
                     break;
                 case 'account-payment':
-                    this.currentPaymentComponent = AccountPayment;
+                    this.currentPaymentComponent = shallowRef(AccountPayment);
                     break;
                 default:
-                    this.currentPaymentComponent = samplePaymentVue;
+                    this.currentPaymentComponent = shallowRef(samplePaymentVue);
                     break;
             }
         },
@@ -153,7 +148,7 @@ export default {
             POS.setPaymentActive(toRaw(payment));
         },
         closePopup() {
-            this.$popup.close();
+            this.popup.close();
             POS.selectedPaymentType.next(null);
         },
         deletePayment( order, payment) {
@@ -222,7 +217,7 @@ export default {
                 spinnerPopup.close();
             }
 
-            this.$popup.close();
+            this.popup.close();
         },
         previewOrder( order ) {
             const promise   =   new Promise( ( resolve, reject ) => {
