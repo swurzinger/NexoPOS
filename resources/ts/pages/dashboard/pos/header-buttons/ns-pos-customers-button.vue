@@ -1,4 +1,9 @@
-<script>
+<script lang="ts">
+import { NsHotPress } from "~/libraries/ns-hotpress";
+
+declare const nsHotPress : NsHotPress
+declare const nsShortcuts
+
 import { Popup } from '~/libraries/popup';
 import { __ } from '~/libraries/lang';
 import NsPosCustomers from '~/popups/ns-pos-customers.vue';

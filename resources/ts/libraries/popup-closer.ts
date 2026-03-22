@@ -1,5 +1,9 @@
-declare const nsHotPress;
-declare const nsState;
+import { NsHotPress } from "~/libraries/ns-hotpress";
+import { State } from "~/libraries/state";
+import { Popup } from "~/libraries/popup";
+
+declare const nsHotPress : NsHotPress;
+declare const nsState: State;
 
 /**
  * Must be used on component
@@ -12,15 +16,15 @@ export default function() {
          * We'll listen to "esc" keypress
          * but proceed in certain conditions.
          */
-            .whenPressed( 'escape', ( event ) => {
         nsHotPress.create( identifier )
+            .whenPressed( 'escape', ( event: Event ) => {
                 event.preventDefault();
 
                 /**
                  * We want to check if there is a popup that is
                  * displayed above the current one.
                  */
-                const { popups }    =   nsState.state.getValue();
+                const { popups }    =   <{ popups: Popup[]}>nsState.state.getValue();
                 const popupIndex = popups.indexOf(this.popup);
                 const isTopMost = popupIndex >= 0 && popupIndex === (popups.length-1);
 

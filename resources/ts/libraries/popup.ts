@@ -4,6 +4,16 @@ declare const document;
 declare const nsState;
 declare const nsHotPress;
 
+interface IPopup {
+    hash: string;
+    component: Ref<any, any>;
+    close: ( callback?: (popup: IPopup)=>any, immediately?: boolean ) => void;
+    props: {};
+    params: {};
+    config: {};
+}
+
+
 export class Popup {
     private config  =   {
         primarySelector     :   undefined,
@@ -68,8 +78,8 @@ export class Popup {
         this.parentWrapper.style.filter     =   'blur(4px)';
         body.style.filter                   =   'grayscale(1) blur(1px)';
         
-        let popups              =   [];
-        const currentState      =   <{ popups: {}[]}>nsState.state.getValue();
+        let popups : IPopup[]              =   [];
+        const currentState      =   <{ popups: IPopup[]}>nsState.state.getValue();
 
         if ( currentState.popups !== undefined ) {
             popups  =   currentState.popups;
@@ -114,7 +124,7 @@ export class Popup {
         return popup;
     }
 
-    close( popup, callback = null, immediately: boolean = false ) {
+    close( popup: IPopup, callback = null, immediately: boolean = false ) {
         /**
          * For some reason we need to fetch the 
          * primary selector once again.
